@@ -9,8 +9,8 @@ import logging
 import sys
 
 pm.config['unit_pressure'] = 'Pa'
-logging.basicConfig(format='%(levelname)s (%(asctime)s): %(message)s (Line: %(lineno)d [%(filename)s])',
-                    datefmt='%I:%M:%S %p', level=logging.DEBUG)
+logging.basicConfig(format='%(levelname)s: %(message)s (Line: %(lineno)d [%(filename)s])',
+                    level=logging.DEBUG)
 
 ''' 
 El modelo de ig que trae la librería PyroMat alcanza valores más altos de temperatura que el del Çengel.

@@ -192,8 +192,8 @@ class AM_loss_model:
                             break
         else:
             Yp_n, tau_2n = 0.0, alfap_2
-        logging.info('Se ha encontrado el mínimo. Las pérdidas de presión adimensionales son: %f. Valor de tau_2: %f',
-                     Yp_n, tau_2n)
+        logging.info('Se ha encontrado el mínimo. Las pérdidas de presión adimensionales serían: %f. Valor de tau_2: '
+                     '%f', Yp_n, tau_2n)
         self.Yp_min, self.tau2_ypmin = Yp_n, tau_2n
         return
 

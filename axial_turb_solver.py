@@ -7,8 +7,8 @@ from loss_model import *
 from gas_modeling import *
 from math import cos, sin, tan, fabs, sqrt, atan, asin, acos, log, degrees
 
-logging.basicConfig(format='%(levelname)s (%(asctime)s): %(message)s (Line: %(lineno)d [%(filename)s])',
-                    datefmt='%I:%M:%S %p', level=logging.DEBUG)
+logging.basicConfig(format='%(levelname)s: %(message)s (Line: %(lineno)d [%(filename)s])',
+                    level=logging.DEBUG)
 
 
 def solver_timer(solver_method):
@@ -439,7 +439,7 @@ class solver_process:
             rho_b = self.prd.get_props_with_hs({'p': p_b, 'h': h_b}, {'d': rho_b}, tol)
             rel_diff = (rho_bp - rho_b) / rho_b
             rho_bp = rho_b
-            logging.info('Densidad: %f. Error relativo: %f', rho_b, rel_diff)
+            logging.info('  Densidad: %.10f    Error relativo: %.10f    ', rho_b, rel_diff)
         return_vars = [p_b, h_b, T_b, U_b, rho_b, h_bs, T_bs, C_bx, M_b, tau_b]
         if blade == 'est':
             if not step_iter_mode:
