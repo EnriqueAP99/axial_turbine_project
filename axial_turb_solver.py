@@ -7,9 +7,6 @@ from loss_model import *
 from gas_modeling import *
 from math import cos, sin, tan, fabs, sqrt, atan, asin, acos, log, degrees
 
-logging.basicConfig(format='%(levelname)s: %(message)s (Line: %(lineno)d [%(filename)s])',
-                    level=logging.DEBUG)
-
 
 def solver_timer(solver_method):
     """ Decorador que gestiona la función interna del método problem_solver de la clase solver_process, para
@@ -26,7 +23,7 @@ def solver_timer(solver_method):
         solver_method(*args)
         t_2 = (time() - t_1).__trunc__()
         m, s = divmod(t_2, 60)
-        logging.info('Tiempo de cálculo: %s minutos y %s segundos.', m, s)
+        logger.info('Tiempo de cálculo: %s minutos y %s segundos.', m, s)
         return
     return wrapper_t
 
@@ -100,7 +97,7 @@ def Reynolds_correction(tol: float, loss_model: str):
                             :return: Se devuelve la lista de variables que se procesan, según el modo que se defina. """
             if loss_model == 'ainley_and_mathieson':
                 Re, eta_TT, xi_est, p_seed, rho_seed, ll_1 = step_inner_funct()
-                logging.info('Reynolds: %d', Re)
+                logger.info('Reynolds: %d', Re)
                 if Re < 50_000:
                     ll_1 = corrector(eta_TT, Re, xi_est, p_seed, rho_seed)
             else:
@@ -143,14 +140,14 @@ class solver_process:
         def inner_solver() -> None:
             nonlocal m_dot, C_inx, ps_list
             tol = self.cfg.TOL
-            logging.info('El error relativo establecido es: %s', tol)
+            logger.info('El error relativo establecido es: %s', tol)
             rho_in = self.prd.get_props_by_Tpd({'T': T_in, 'p': p_in}, 'd')
             if m_dot is None:
                 m_dot = rho_in * self.cfg.geom['areas'][0] * C_inx
             elif C_inx is None:
                 C_inx = m_dot / (rho_in * self.cfg.geom['areas'][0])
             else:
-                logging.critical('Se debe establecer uno de los parámetros opcionales "Cinx" ó "m_dot".')
+                logger.critical('Se debe establecer uno de los parámetros opcionales "Cinx" ó "m_dot".')
                 sys.exit()
             s_in = self.prd.get_props_by_Tpd({'T': T_in, 'p': p_in}, 's')
             h_in = self.T_to_h_comparator(T_in, key_prop2='p', value_prop2=p_in)
@@ -240,7 +237,7 @@ class solver_process:
                      self.cfg.geom['areas'][count * 2 + 2])
             Re, eta_TT = 0.0, 0.0
             C_1x = m_dot / (rho_1 * A_tpl[0])
-            logging.info('La velocidad axial establecida a la entrada del escalonamiento %s es: %f', count+1, C_1x)
+            logger.info('La velocidad axial establecida a la entrada del escalonamiento %s es: %.2f m/s', count+1, C_1x)
             if C_1x > C_1:  # Evitar math domain error producido por error de cálculo cuando entrada completamente axial
                 C_1x = C_1
             alfa_1 = acos(C_1x / C_1)
@@ -333,7 +330,7 @@ class solver_process:
                 eta_p_esc = log(1 - (eta_TT * (1 - (T_03ss / T_01))), 10) / log(T_03ss / T_01, 10)
                 r_esc = p_01 / p_03
                 if w_esc < 0:
-                    logging.error('No se extrae energía del fluido.')
+                    logger.error('No se extrae energía del fluido.')
                 local_list_1 += [C_3x, C_3u, T_03, p_03, h_r3, h_3s, T_3s, omega_3, omega_3x, omega_3u, beta_3,
                                  M_3, PHI_3, T_2, p_2, rho_2, s_2, h_2, h_02, C_2, C_2x, C_2u, alfa_2, T_02, p_02, h_r2,
                                  h_2s, T_2s, omega_2, omega_2x, omega_2u, beta_2, M_2, PHI_2, T_1, p_1, rho_1, s_1, h_1,
@@ -387,6 +384,7 @@ class solver_process:
             :param p_seed: Presión que se emplea como semilla, debe aproximar la presión en b (Pa).
                     :return: Se devuelven las variables que contienen las propiedades a la salida que se han
                     determinado (p_b, h_b, T_b, U_b, rho_b, h_bs, T_bs, C_bx). """
+        print('\n')
         rho_b = rho_seed
         M_b = p_b = h_b = U_b = h_bs = T_bs = C_bx = T_b = tau_b = Y_total = 0.0
         rho_bp, rel_diff, tol, geom = rho_b, 1.0, self.cfg.TOL, self.cfg.geom
@@ -401,7 +399,6 @@ class solver_process:
                 Y_total, tau_b = self.AM_object.Ainley_and_Mathieson_Loss_Model(num, tol, degrees(tau_a), False)
             else:
                 tau_b = geom['alfap_o_est'][counter] if blade == 'est' else geom['alfap_o_rot'][counter]
-        print('\n')
         # p: iteración previa .... b: estado que se quiere conocer, a la salida del álabe
         while fabs(rel_diff) > tol:
             C_bx = m_dot / (area_b * rho_b)  # C_bx: velocidad axial a la salida
@@ -440,8 +437,7 @@ class solver_process:
             rho_b = self.prd.get_props_with_hs({'p': p_b, 'h': h_b}, {'d': rho_b}, tol)
             rel_diff = (rho_bp - rho_b) / rho_b
             rho_bp = rho_b
-            logging.info('  Densidad: %.10f    Error relativo: %.10f    ', rho_b, rel_diff)
-        print('\n')
+            logger.info('Densidad (kg/m^3): %.10f    Error relativo: %.10f', rho_b, rel_diff)
         return_vars = [p_b, h_b, T_b, U_b, rho_b, h_bs, T_bs, C_bx, M_b, tau_b]
         if blade == 'est':
             if not step_iter_mode:

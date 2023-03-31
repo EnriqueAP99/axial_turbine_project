@@ -2,7 +2,7 @@
 En este módulo se caracteriza el modelo de pérdidas que se va a emplear en el módulo "axial_turb_solver.py", además se
 calcula el número de Reynolds.
 """
-import logging
+from config_class import logger
 from config_class import configuration_parameters
 from math import cos, fabs, atan, tan, radians, degrees, pi
 import gas_modeling
@@ -167,9 +167,9 @@ class AM_loss_model:
             tau_2n, tau_2nc = (tau_2_seed * (1 - d_tol)), tau_2_seed
         f_1, cond, Yp_n = None, False, 0.0
         if tau_1 < alfap_1*(1 - d_tol):
-            logging.warning('Incidencia negativa: tau_1=%f, alfap_1=%f.', tau_1, alfap_1)
+            logger.warning('Incidencia negativa:    tau_1=%.2f   alfap_1=%.2f', tau_1, alfap_1)
         if tau_1 - alfap_1 > 15:
-            logging.warning('Incidencia alta: tau_1=%f, alfap_1=%f.', tau_1, alfap_1)
+            logger.warning('Incidencia alta:    tau_1=%.2f   alfap_1=%.2f', tau_1, alfap_1)
         if abs(tau_1 - alfap_1) > d_tol:
             while not cond:
                 Yp_n = self.AM_loss_model_operations(tau_1, tau_2n)
@@ -192,8 +192,8 @@ class AM_loss_model:
                             break
         else:
             Yp_n, tau_2n = 0.0, alfap_2
-        logging.info('Se ha encontrado el mínimo. Las pérdidas de presión adimensionales serían: %f. Valor de tau_2: '
-                     '%f', Yp_n, tau_2n)
+        logger.info('Se ha encontrado el mínimo ->    Pérdidas de presión adimensionales: %.5f    Valor de tau_2: '
+                    '%.2f°', Yp_n, tau_2n)
         self.Yp_min, self.tau2_ypmin = Yp_n, tau_2n
         return
 

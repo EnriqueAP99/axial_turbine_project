@@ -2,15 +2,12 @@
 Se emplea la librería PyroMat para modelar los productos como mezcla de gases ideales no perfectos y determinar
 sus propiedades.
 """
-
+from config_class import logger
 import pyromat as pm
 from math import fabs, sqrt
-import logging
 import sys
 
 pm.config['unit_pressure'] = 'Pa'
-logging.basicConfig(format='%(levelname)s: %(message)s (Line: %(lineno)d [%(filename)s])',
-                    level=logging.DEBUG)
 
 ''' 
 El modelo de ig que trae la librería PyroMat alcanza valores más altos de temperatura que el del Çengel.
@@ -58,10 +55,10 @@ class mixpm:
                     self.components.append(pm.get(f'ig.{comp}'))
             self.components = tuple(self.components)
         else:
-            logging.critical("Los modos a elegir para el H2O son ig (gas ideal con NASA coefs) o mp ('multi-phase').\n "
-                             "El modo mp se aplica solo en el vapor de agua, porque sino los límites del cálculo "
-                             "disminuirían demasiado y se realentiza todo el cálculo innecesariamente. \n "
-                             "Para  el modelo del Çengel usar el módulo IGmodelfromCengel.py \n")
+            logger.critical("Los modos a elegir para el H2O son ig (gas ideal con NASA coefs) o mp ('multi-phase').\n "
+                            "El modo mp se aplica solo en el vapor de agua, porque sino los límites del cálculo "
+                            "disminuirían demasiado y se realentiza todo el cálculo innecesariamente. \n "
+                            "Para  el modelo del Çengel usar el módulo IGmodelfromCengel.py \n")
             sys.exit()
 
     # den es la masa total por kmol de combustible en combustión completa

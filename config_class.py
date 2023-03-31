@@ -2,7 +2,7 @@
 En este módulo se define una clase que caracteriza un objeto que contiene la configuración y los parámetros geométricos
 que se emplearán en el cálculo. Se requiere un módulo aparte para esta clase para evitar importaciones circulares.
 """
-import logging
+import logging  # https://docs.python.org/es/3/howto/logging.html
 import sys
 from math import pi, radians, cos, tan
 
@@ -60,8 +60,8 @@ class configuration_parameters:
         ns = self.n_step
         local_dict1 = {'alfap_i_est': alfap_i_est, 'theta_e': theta_e, 'alfap_i_rot': alfap_i_rot, 'theta_r': theta_r}
         list_items2, local_dict2 = ['A_rel', 't_max', 'r_r', 'r_c', 't_e', 'K'], {}
-        for id_ in list_items2:
-            local_dict2[id_] = kwargs.get(id_, 0.0)
+        for par_id in list_items2:
+            local_dict2[par_id] = kwargs.get(par_id, 0.0)
         local_dict2['b'], local_dict2['Rm'] = b, R_m
         s = kwargs.get('s', 0.0)
         if not s == 0.0:
@@ -99,3 +99,31 @@ class configuration_parameters:
         self.geom['alfap_o_est'] = [self.geom['theta_e'][i] - self.geom['alfap_i_est'][i] for i in range(ns)]
         self.geom['alfap_o_rot'] = [self.geom['theta_r'][i] - self.geom['alfap_i_rot'][i] for i in range(ns)]
         return
+
+
+# https://youtu.be/KSQ4KxCtsf8
+FMT = "[{levelname}]:       {message}       [FILE: {filename}   FUNC: {funcName}   LINE: {lineno}]"
+FORMATS = {
+    logging.DEBUG: FMT,
+    logging.INFO: f"\33[36m{FMT}\33[0m",
+    logging.WARNING: f"\33[33m{FMT}\33[0m",
+    logging.ERROR: f"\33[31m{FMT}\33[0m",
+    logging.CRITICAL: f"\33[1m\33[31m{FMT}\33[0m",
+}
+
+
+class CustomFormatter(logging.Formatter):
+    def format(self, record) -> str:
+        log_fmt = FORMATS[record.levelno]
+        formatter = logging.Formatter(log_fmt, style="{")
+        return formatter.format(record)
+
+
+handler = logging.StreamHandler()
+handler.setFormatter(CustomFormatter())
+logging.basicConfig(
+    level=logging.DEBUG,
+    handlers=[handler],
+)
+
+logger = logging.getLogger("coloured-logger")
