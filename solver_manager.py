@@ -188,7 +188,7 @@ def problem_data_viewer(solver_object: solver_process, req_vars=None) -> None:
 
 
 if __name__ == '__main__':
-    action = 'w'
+    action = 'r'
     fast_mode = False
     if action == 'w':
         settings = configuration_parameters(rel_error=1E-7, number_steps=2, thermo_mode="ig",

@@ -454,10 +454,9 @@ class solver_process:
                 :param s_x: Entropía en la sección x (kJ/kgK).
                 :param h_0x: Entalpía total en la sección x (kJ/kg).
                         :return: Devuelve la presión total (Pa) y la temperatura total (K) en una sección x. """
-        p_0x, T_0x, end = p_x * 1.2, 0.0, False
+        p_0x, T_0x, end, tol = p_x * 1.1, 0.0, False, self.cfg.TOL
         while not end:
             T_0x = self.h_to_T_comparator(h_0x, key_prop2='p', value_prop2=p_0x)
-            tol = self.cfg.TOL
             if self.prd.mode == "ig":
                 p_0x = self.prd.get_props_with_hs({'T': T_0x, 's': s_x}, {'p': p_0x}, tol)
                 end = True
