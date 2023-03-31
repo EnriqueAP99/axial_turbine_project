@@ -189,7 +189,7 @@ def problem_data_viewer(solver_object: solver_process, req_vars=None) -> None:
 
 if __name__ == '__main__':
     action = 'w'
-    fast_mode = True
+    fast_mode = False
     if action == 'w':
         settings = configuration_parameters(rel_error=1E-7, number_steps=2, thermo_mode="ig",
                                             loss_model_id='ainley_and_mathieson', C_atoms=12, H_atoms=23.5, N=4,
