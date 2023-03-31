@@ -26,7 +26,7 @@ def solver_timer(solver_method):
         solver_method(*args)
         t_2 = (time() - t_1).__trunc__()
         m, s = divmod(t_2, 60)
-        logging.info('Tiempo de cálculo: %s minutos y %s segundos. \n', m, s)
+        logging.info('Tiempo de cálculo: %s minutos y %s segundos.', m, s)
         return
     return wrapper_t
 
@@ -401,6 +401,7 @@ class solver_process:
                 Y_total, tau_b = self.AM_object.Ainley_and_Mathieson_Loss_Model(num, tol, degrees(tau_a), False)
             else:
                 tau_b = geom['alfap_o_est'][counter] if blade == 'est' else geom['alfap_o_rot'][counter]
+        print('\n')
         # p: iteración previa .... b: estado que se quiere conocer, a la salida del álabe
         while fabs(rel_diff) > tol:
             C_bx = m_dot / (area_b * rho_b)  # C_bx: velocidad axial a la salida
@@ -440,6 +441,7 @@ class solver_process:
             rel_diff = (rho_bp - rho_b) / rho_b
             rho_bp = rho_b
             logging.info('  Densidad: %.10f    Error relativo: %.10f    ', rho_b, rel_diff)
+        print('\n')
         return_vars = [p_b, h_b, T_b, U_b, rho_b, h_bs, T_bs, C_bx, M_b, tau_b]
         if blade == 'est':
             if not step_iter_mode:
