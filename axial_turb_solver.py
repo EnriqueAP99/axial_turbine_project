@@ -1,5 +1,5 @@
 """
-En este módulo se coordinan las herramientas que implementa el mismo junto con las de otros módulos para determinar
+En este módulo se crea una clase que, con sus métodos y con herramientas de otros módulos, permite determinar
 las condiciones de funcionamiento de la turbina axial que se defina.
 """
 from time import time
