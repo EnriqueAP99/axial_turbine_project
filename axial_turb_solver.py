@@ -270,6 +270,8 @@ class solver_process:
             s_3 = self.prd.get_props_by_Tpd({'T': T_3, 'p': p_3}, 's')
             h_03 = h_3 + (10 ** (-3)) * ((C_3 ** 2) / 2)
             local_list_1 = [T_3, p_3, rho_3, s_3, h_3, h_03, C_3, alfa_3]
+            if h_02 - h_03 < 0:
+                logger.error('No se extrae energía del fluido.')
             if len(self.p_seed) < self.cfg.n_step:
                 if not iter_mode:
                     self.p_seed.append([p_2, p_3].copy())
@@ -329,8 +331,6 @@ class solver_process:
                 p_01, T_01 = self.Zero_pt_calculator(p_1, s_1, h_01)
                 eta_p_esc = log(1 - (eta_TT * (1 - (T_03ss / T_01))), 10) / log(T_03ss / T_01, 10)
                 r_esc = p_01 / p_03
-                if w_esc < 0:
-                    logger.error('No se extrae energía del fluido.')
                 local_list_1 += [C_3x, C_3u, T_03, p_03, h_r3, h_3s, T_3s, omega_3, omega_3x, omega_3u, beta_3,
                                  M_3, PHI_3, T_2, p_2, rho_2, s_2, h_2, h_02, C_2, C_2x, C_2u, alfa_2, T_02, p_02, h_r2,
                                  h_2s, T_2s, omega_2, omega_2x, omega_2u, beta_2, M_2, PHI_2, T_1, p_1, rho_1, s_1, h_1,
