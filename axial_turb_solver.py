@@ -48,7 +48,7 @@ def Reynolds_correction(tol: float, loss_model: str):
                     :param p_seed: Lista con semillas para los dos valores de presión a la salida de cada corona.
                     :param eta_TT: Rendimiento total a total del escalonamiento.
                     :param Re: Número de Reynolds.
-                    :param xi_est: Coeficiente adimensional de pérdidas.
+                    :param xi_est: Coeficiente adimensional de pérdidas en el estátor.
                             :return: Se devuelve la lista de variables que corresponda según el modo de
                                     funcionamiento que se defina."""
             eta_TT_obj = 1-(((1-eta_TT)/200_000)*Re)
@@ -395,7 +395,7 @@ class solver_process:
             xi = geom['A_rel'][num]*Soderberg_correlation(*args)
             tau_b = geom['alfap_o_est'][counter] if blade == 'est' else geom['alfap_o_rot'][counter]
         elif self.cfg.loss_model == 'ainley_and_mathieson':
-            if not step_iter_mode:
+            if not step_iter_mode or blade == 'rot':
                 Y_total, tau_b = self.AM_object.Ainley_and_Mathieson_Loss_Model(num, tol, degrees(tau_a), False)
             else:
                 tau_b = geom['alfap_o_est'][counter] if blade == 'est' else geom['alfap_o_rot'][counter]
@@ -424,7 +424,7 @@ class solver_process:
                 if self.cfg.loss_model == 'soderberg_correlation':
                     xi = ((1E5 / Re) ** 0.25) * xi
                     diff_tau_b = 0.0
-                elif self.cfg.loss_model == 'ainley_and_mathieson' and not step_iter_mode:
+                elif self.cfg.loss_model == 'ainley_and_mathieson' and (not step_iter_mode or blade == 'rot'):
                     xi = Y_total/(1 + (0.5*gamma_b*(M_b**2)))
                     diff_tau_b = 0.0
                 else:
