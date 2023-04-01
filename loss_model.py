@@ -64,8 +64,9 @@ class AM_loss_model:
         self.tau2_ypmin_seed = []
         self.Yp_min = float()
         self.crown_num = int()
-        self.Yp_preiter = float()
-        self.Y_t_preiter = float()
+        self.Yp_preiter = list()
+        self.Y_t_preiter = list()
+        self.Y_t_rotor_iter_mode = float()
         self.cfg = cfg
 
         def x_sp(x_list):
@@ -268,7 +269,10 @@ class AM_loss_model:
             Yp = self.AM_loss_model_operations(tau_1, tau_2)
             d_tau_2 = self.d_a2_yp_f[1](Yp / self.Yp_min)
             tau_2 = d_tau_2 + self.tau2_ypmin
-            self.Yp_preiter = Yp
+            if len(self.Yp_preiter) < self.crown_num + 1:
+                self.Yp_preiter.append(Yp)
+            else:
+                self.Yp_preiter[-1] = Yp
             tau_2, tau_1 = radians(tau_2), radians(tau_1)
             x = ((A_2*cos(tau_2)/(A_1*cos(tau_1)))**2)/(1+(r_r/r_c))
             lambda_ = self.sec_losses[1](x)
@@ -279,13 +283,28 @@ class AM_loss_model:
             Yk = 0.0
             if not K_i == 0.0:
                 Yk = 0.5 * (K_i / H) * Z
-            Y_total = self.Y_t_preiter = (Yp + Ys + Yk) * self.ji_Te_te_s[1](t_e / s)
-            logger.info('Los valores que resultan son ->    Pérdida total de presión adimensional: %.4f    '
-                        'Valor de tau_2: %.3f°', fabs(Y_total), degrees(tau_2))
+            Y_total = (Yp + Ys + Yk) * self.ji_Te_te_s[1](t_e / s)
+            if len(self.Y_t_preiter) < num + 1:
+                self.Y_t_preiter.append(Y_total)
+            else:
+                self.Y_t_preiter[-1] = Y_total
+            logger.info('Resulta ->    Pérdida total de presión adimensional: %.4f    Ángulo del B.S.: %.3f°    '
+                        'Valor de tau_2: %.3f°', fabs(Y_total), degrees(alfap_2), degrees(tau_2))
             return fabs(Y_total), tau_2
         else:
-            Yp = (Y_total / self.Y_t_preiter) * self.Yp_preiter
-            d_tau_2 = self.d_a2_yp_f[1](Yp / self.Yp_min)
-            tau_2 = d_tau_2 + self.tau2_ypmin
-            tau_2 = radians(tau_2)
-            return tau_2
+            if not bool(num % 2):
+                Yp = (Y_total / self.Y_t_preiter[num]) * self.Yp_preiter[num]
+                d_tau_2 = self.d_a2_yp_f[1](Yp / self.Yp_min)
+                tau_2 = d_tau_2 + self.tau2_ypmin
+                tau_2 = radians(tau_2)
+                self.Y_t_rotor_iter_mode = Y_total
+                return tau_2
+            else:
+                # Y_total = self.Y_t_preiter[num]*self.Y_t_rotor_iter_mode/self.Y_t_preiter[num-1]
+                # Yp = (Y_total / self.Y_t_preiter[num]) * self.Yp_preiter[num]
+                Yp = (self.Y_t_rotor_iter_mode/self.Y_t_preiter[num-1]) * self.Yp_preiter[num]
+                d_tau_2 = self.d_a2_yp_f[1](Yp / self.Yp_min)
+                tau_2 = d_tau_2 + self.tau2_ypmin
+                tau_2 = radians(tau_2)
+                self.Y_t_rotor_iter_mode = Y_total
+                return Y_total, tau_2

@@ -399,7 +399,7 @@ class solver_process:
             tau_b = geom['alfap_o_est'][counter] if blade == 'est' else geom['alfap_o_rot'][counter]
         elif self.cfg.loss_model == 'ainley_and_mathieson':
             if not step_iter_mode or blade == 'rot':
-                Y_total, tau_b = self.AM_object.Ainley_and_Mathieson_Loss_Model(num, degrees(tau_a), False)
+                Y_total, tau_b = self.AM_object.Ainley_and_Mathieson_Loss_Model(num, degrees(tau_a), step_iter_mode)
             else:
                 tau_b = geom['alfap_o_est'][counter] if blade == 'est' else geom['alfap_o_rot'][counter]
         # p: iteración previa .... b: estado que se quiere conocer, a la salida del álabe
