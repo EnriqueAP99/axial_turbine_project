@@ -1,6 +1,6 @@
 """
 En este módulo se define una clase que caracteriza un objeto que contiene la configuración y los parámetros geométricos
-que se emplearán en el cálculo. Se requiere un módulo aparte para esta clase para evitar importaciones circulares.
+que se emplearán en el cálculo. Se emplea un módulo aparte para esta clase para evitar importaciones circulares.
 """
 import logging  # https://docs.python.org/es/3/howto/logging.html
 import sys
@@ -102,7 +102,7 @@ class configuration_parameters:
 
 
 # https://youtu.be/KSQ4KxCtsf8
-FMT = "[{levelname}]:       {message}       [FILE: {filename}   FUNC: {funcName}   LINE: {lineno}]"
+FMT = "[{levelname:^6}]:       {message}       [FILE: {filename}   FUNC: {funcName}   LINE: {lineno}]"
 FORMATS = {
     logging.DEBUG: FMT,
     logging.INFO: f"\33[36m{FMT}\33[0m",

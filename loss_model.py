@@ -162,14 +162,16 @@ class AM_loss_model:
         alfap_2 = self.cfg.geom['alfap_o_est'][num//2] if num % 2 == 0 else self.cfg.geom['alfap_o_rot'][num//2]
         alfap_1, alfap_2, d_tol = degrees(alfap_1), degrees(alfap_2), 180*tol/pi
         if tau_2_seed is None:
-            tau_2n, tau_2nc = [alfap_2, (alfap_2 * (1 + d_tol))] if alfap_2 > d_tol else [0, d_tol]
+            tau_2n, tau_2nc = [alfap_2, (alfap_2 * (1 + d_tol))] if fabs(alfap_2) > d_tol else [d_tol, d_tol*(1+d_tol)]
         else:
             tau_2n, tau_2nc = (tau_2_seed * (1 - d_tol)), tau_2_seed
         f_1, cond, Yp_n = None, False, 0.0
         if tau_1 < alfap_1*(1 - d_tol):
-            logger.warning('Incidencia negativa:    tau_1=%.2f   alfap_1=%.2f', tau_1, alfap_1)
-        if tau_1 - alfap_1 > 15:
-            logger.warning('Incidencia alta:    tau_1=%.2f   alfap_1=%.2f', tau_1, alfap_1)
+            logger.warning('Incidencia negativa:    tau_1=%.2f°   ángulo_B.A.=%.2f°', tau_1, alfap_1)
+        elif tau_1 - alfap_1 > 15:
+            logger.warning('Incidencia alta:    tau_1=%.2f°   ángulo_B.A.=%.2f°', tau_1, alfap_1)
+        else:
+            logger.info('Incidencia apta:    tau_1=%.2f°   ángulo_B.A.=%.2f°', tau_1, alfap_1)
         if abs(tau_1 - alfap_1) > d_tol:
             while not cond:
                 Yp_n = self.AM_loss_model_operations(tau_1, tau_2n)
@@ -187,20 +189,21 @@ class AM_loss_model:
                     else:
                         tau_2n -= tau_2n * d_tol
                         tau_2nc -= tau_2nc * d_tol
-                        if tau_2n < alfap_2:
+                        if tau_2n < alfap_2*(1-d_tol):
                             tau_2n = alfap_2
                             break
         else:
-            Yp_n, tau_2n = 0.0, alfap_2
-        logger.info('Se ha encontrado el mínimo ->    Pérdidas de presión adimensionales: %.5f    Valor de tau_2: '
-                    '%.2f°', Yp_n, tau_2n)
+            Yp_n, tau_2n = self.AM_loss_model_operations(tau_1, alfap_2, True), alfap_2
+        logger.info('Se ha encontrado el mínimo ->    Pérdida primaria de presión adimensional mínima: %.4f    '
+                    'Valor ideal de tau_2: %.3f°', Yp_n, tau_2n)
         self.Yp_min, self.tau2_ypmin = Yp_n, tau_2n
         return
 
-    def AM_loss_model_operations(self, tau_1: float, tau_2: float):
+    def AM_loss_model_operations(self, tau_1: float, tau_2: float, Yp_i0_req=False):
         """ Se determina el valor de Yp según la correlación de AM. En caso de incidencia negativa se aplica el valor
         absoluto, pese a que se subestimen las pérdidas reales se evitan pérdidas negativas que resultarían si no se
         corrige.
+                :param Yp_i0_req: Se requiere Yp_i0.
                 :param tau_1: alfap_1 más la incidencia del flujo (degrees).
                 :param tau_2: alfap_2 más la deflexión del flujo (degrees).
                         :return: Se devuelve el valor de Yp calculado. """
@@ -213,8 +216,7 @@ class AM_loss_model:
         delta_is = self.interp_series_a2(tau_2, s / b, self.d_i_s_s_c)
         i_s = delta_is + is_sc075
         i_is = fabs(tau_1 - alfap_1) / i_s
-        yp_f_i_f = self.yp_f_i_f[1](i_is)
-        yp_f = yp_f_i_f*i_is
+        yp_f = self.yp_f_i_f[1](i_is)
         Yp_i0_b1kn = self.interp_series_a2(tau_2, s / b, self.yp_s_c_b1kn)
         Yp_i0_b1kb2k = self.interp_series_a2(tau_2, s / b, self.yp_s_c_b1kb2k)
         t_max_b = t_max / b
@@ -225,16 +227,18 @@ class AM_loss_model:
         Yp_i0 = (Yp_i0_b1kn + (((alfap_1 / tau_2) ** 2) * (Yp_i0_b1kb2k - Yp_i0_b1kn))) * ((t_max_b / 0.2) **
                                                                                            (alfap_1 / tau_2))
         Yp = Yp_i0*yp_f
-        return Yp
+        if not Yp_i0_req:
+            return Yp
+        else:
+            return Yp_i0
 
-    def Ainley_and_Mathieson_Loss_Model(self, num: int, tol: float, tau_1: float, step_iter_mode=False,
+    def Ainley_and_Mathieson_Loss_Model(self, num: int, tau_1: float, step_iter_mode=False,
                                         Y_total=0.0):
         """ Se coordinan el resto de instancias para que al llamar a este método externamente se aplique la
         correlación.
                 :param step_iter_mode: True cuando se itera el método gen_step para la corrección por Reynolds.
                 :param num: Numeración de cada corona de álabes, empezando por 0.
                 :param tau_1: alfap_1 más la incidencia del flujo (degrees).
-                :param tol: Error relativo máximo asumible.
                 :param Y_total: Parámetro de pérdidas del modelo de pérdidas AM.
                         :return: Se devuelve Y_total y tau_2, excepto cuando step_iter_mode, en dicho caso Y_total es
                                 conocido y solo se devuelve tau_2, en ambos casos en radianes. """
@@ -243,22 +247,29 @@ class AM_loss_model:
         A_1, s, K_i, t_max, H, r_r, r_c, b, t_e = [geom[i][num] for i in ['areas', 's', 'K', 't_max', 'H', 'r_r',
                                                                           'r_c', 'b', 't_e']]
         A_2 = geom['areas'][num+1]
-        tau_2 = Yp = 0.0
         if not step_iter_mode:
             if len(self.tau2_ypmin_seed) == self.cfg.n_step*2:
                 tau_2_seed = self.tau2_ypmin_seed[num]
                 self.Yp_min_calculator(tau_1, tau_2_seed)
             else:
                 self.Yp_min_calculator(tau_1)
-            if len(self.tau2_ypmin_seed) < self.cfg.n_step*2:
                 self.tau2_ypmin_seed.append(self.tau2_ypmin)
-            tau_2_iter, tau_diff = alfap_2, alfap_2
+            tau_2 = alfap_2
+            tau_diff = tau_2_iter = alfap_2
+            tol = self.cfg.TOL
             while fabs(tau_diff / alfap_2) > tol:
                 Yp = self.AM_loss_model_operations(tau_1, tau_2_iter)
-                d_tau_2 = self.d_a2_yp_f[1](Yp / self.Yp_min) if self.Yp_min != 0.0 else 0.0
+                d_tau_2 = self.d_a2_yp_f[1](Yp / self.Yp_min)
+                if d_tau_2 < 0:
+                    d_tau_2 = 0.0
                 tau_2 = d_tau_2 + self.tau2_ypmin
                 tau_diff = tau_2 - tau_2_iter
                 tau_2_iter = tau_2
+            Yp = self.AM_loss_model_operations(tau_1, tau_2)
+            d_tau_2 = self.d_a2_yp_f[1](Yp / self.Yp_min)
+            if d_tau_2 < 0:
+                d_tau_2 = 0.0
+            tau_2 = d_tau_2 + self.tau2_ypmin
             self.Yp_preiter = Yp
             tau_2, tau_1 = radians(tau_2), radians(tau_1)
             x = ((A_2*cos(tau_2)/(A_1*cos(tau_1)))**2)/(1+(r_r/r_c))
@@ -271,7 +282,9 @@ class AM_loss_model:
             if not K_i == 0.0:
                 Yk = 0.5 * (K_i / H) * Z
             Y_total = self.Y_t_preiter = (Yp + Ys + Yk) * self.ji_Te_te_s[1](t_e / s)
-            return Y_total, tau_2
+            logger.info('Los valores que resultan son ->    Pérdida total de presión adimensional: %.4f    '
+                        'Valor de tau_2: %.3f°', fabs(Y_total), degrees(tau_2))
+            return fabs(Y_total), tau_2
         else:
             Yp = (Y_total / self.Y_t_preiter) * self.Yp_preiter
             d_tau_2 = self.d_a2_yp_f[1](Yp / self.Yp_min) if self.Yp_min != 0 else 0

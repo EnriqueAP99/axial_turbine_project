@@ -241,6 +241,8 @@ class solver_process:
             if C_1x > C_1:  # Evitar math domain error producido por error de cálculo cuando entrada completamente axial
                 C_1x = C_1
             alfa_1 = acos(C_1x / C_1)
+            msg = 'Se va a determinar la salida del estátor del escalonamiento número {}.'.format(count+1)
+            logger.info('\n\n                %s', msg)
             h_02 = h_01
             if not iter_mode:
                 p_2, h_2, T_2, C_2, rho_2, h_2s, T_2s, C_2x, M_2, alfa_2, xi_est, Re = \
@@ -258,6 +260,8 @@ class solver_process:
             omega_2x = C_2x
             beta_2 = atan(omega_2u / C_2x)
             omega_2 = C_2x / cos(beta_2)
+            msg = 'Se va a determinar la salida del rótor del escalonamiento número {}.'.format(count+1)
+            logger.info('\n\n                %s', msg)
             h_r3 = h_r2 = h_2 + ((10 ** (-3)) * (omega_2 ** 2) / 2)
             p_3, h_3, T_3, omega_3, rho_3, h_3s, T_3s, C_3x, M_3, beta_3, xi_rot = \
                 self.blade_outlet_calculator('rot', count, A_tpl[2], beta_2, h_r3, m_dot, s_2, p_seed[1], rho_seed[1],
@@ -384,7 +388,6 @@ class solver_process:
             :param p_seed: Presión que se emplea como semilla, debe aproximar la presión en b (Pa).
                     :return: Se devuelven las variables que contienen las propiedades a la salida que se han
                     determinado (p_b, h_b, T_b, U_b, rho_b, h_bs, T_bs, C_bx). """
-        print('\n')
         rho_b = rho_seed
         M_b = p_b = h_b = U_b = h_bs = T_bs = C_bx = T_b = tau_b = Y_total = 0.0
         rho_bp, rel_diff, tol, geom = rho_b, 1.0, self.cfg.TOL, self.cfg.geom
@@ -396,7 +399,7 @@ class solver_process:
             tau_b = geom['alfap_o_est'][counter] if blade == 'est' else geom['alfap_o_rot'][counter]
         elif self.cfg.loss_model == 'ainley_and_mathieson':
             if not step_iter_mode or blade == 'rot':
-                Y_total, tau_b = self.AM_object.Ainley_and_Mathieson_Loss_Model(num, tol, degrees(tau_a), False)
+                Y_total, tau_b = self.AM_object.Ainley_and_Mathieson_Loss_Model(num, degrees(tau_a), False)
             else:
                 tau_b = geom['alfap_o_est'][counter] if blade == 'est' else geom['alfap_o_rot'][counter]
         # p: iteración previa .... b: estado que se quiere conocer, a la salida del álabe
@@ -429,7 +432,7 @@ class solver_process:
                     diff_tau_b = 0.0
                 else:
                     Y_total = xi*(1 + (0.5*gamma_b*(M_b**2)))
-                    args = [num, tol, degrees(tau_a), True, Y_total]
+                    args = [num, degrees(tau_a), True, Y_total]
                     tau_b_n = self.AM_object.Ainley_and_Mathieson_Loss_Model(*args)
                     diff_tau_b = tau_b - tau_b_n
                     tau_b = tau_b_n
@@ -509,12 +512,12 @@ if __name__ == '__main__':
                                         loss_model_id='ainley_and_mathieson', C_atoms=12, H_atoms=23.5, N=4,
                                         fast_mode=fast_mode)
     # alfap_1, theta_e, betap_2, theta_r, cuerda, R_average, alturas
-    settings.set_geometry([0, 20], [70, 90], [50, 10], [120, 30], 0.03, 0.3, H=[0.011, 0.018, 0.028, 0.0320, 0.0400],
+    settings.set_geometry([0, 39], [70, 90], [35, 52], [90, 50], 0.03, 0.3, H=[0.009, 0.016, 0.026, 0.0300, 0.0380],
                           A_rel=0.75, t_max=0.008, r_r=0.003, r_c=0.002, t_e=0.004, K=0.0)
     solver = solver_process(settings)
     # T_in, P_in, C_xin, U
     if fast_mode:
-        T_salida, p_salida, C_salida, alfa_salida = solver.problem_solver(1800, 1_200_000, 6_500, C_inx=200)
+        T_salida, p_salida, C_salida, alfa_salida = solver.problem_solver(1800, 1_200_000, 6_500, C_inx=180)
         print(' T_out', T_salida, '\n', 'P_out', p_salida, '\n', 'C_out', C_salida, '\n', 'alfa_out', alfa_salida)
     else:
-        solver.problem_solver(1800, 1_200_000, 6_500, C_inx=200)
+        solver.problem_solver(1800, 1_200_000, 6_500, C_inx=180)
