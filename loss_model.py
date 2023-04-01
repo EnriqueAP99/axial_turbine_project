@@ -289,7 +289,7 @@ class AM_loss_model:
             else:
                 self.Y_t_preiter[-1] = Y_total
             logger.info('Resulta ->    Pérdida total de presión adimensional: %.4f    Ángulo del B.S.: %.3f°    '
-                        'Valor de tau_2: %.3f°', fabs(Y_total), degrees(alfap_2), degrees(tau_2))
+                        'Valor de tau_2: %.3f°', fabs(Y_total), alfap_2, degrees(tau_2))
             return fabs(Y_total), tau_2
         else:
             if not bool(num % 2):
