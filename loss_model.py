@@ -287,7 +287,7 @@ class AM_loss_model:
             return fabs(Y_total), tau_2
         else:
             Yp = (Y_total / self.Y_t_preiter) * self.Yp_preiter
-            d_tau_2 = self.d_a2_yp_f[1](Yp / self.Yp_min) if self.Yp_min != 0 else 0
+            d_tau_2 = self.d_a2_yp_f[1](Yp / self.Yp_min)
             tau_2 = d_tau_2 + self.tau2_ypmin
             tau_2 = radians(tau_2)
             return tau_2

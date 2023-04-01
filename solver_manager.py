@@ -195,24 +195,25 @@ if __name__ == '__main__':
                                             loss_model_id='ainley_and_mathieson', C_atoms=12, H_atoms=23.5, N=4,
                                             fast_mode=fast_mode)
         # alfap_1, theta_e, betap_2, theta_r, cuerda, R_average, alturas (degrees y metros)
-        settings.set_geometry([0, 39], [70, 90], [35, 52], [90, 50], 0.03, 0.3, H=[0.009, 0.016, 0.026, 0.0300, 0.0380],
-                              A_rel=0.75, t_max=0.008, r_r=0.003, r_c=0.002, t_e=0.004, K=0.0)
+        settings.set_geometry([0, 39], [70, 90], [35, 30], [90, 50], 0.03, [0.3, 0.28, 0.26, 0.24],
+                              H=[0.009, 0.016, 0.026, 0.0300, 0.0380], A_rel=0.75, t_max=0.008, r_r=0.003, r_c=0.002,
+                              t_e=0.004, K=0.0)
         solver = solver_process(settings)
         # T_in, P_in, C_xin, n  (K , Pa, m/s, rpm)
         if fast_mode:
-            T_salida, p_salida, C_salida, alfa_salida = solver.problem_solver(1800, 1_200_000, 6_500, C_inx=180)
+            T_salida, p_salida, C_salida, alfa_salida = solver.problem_solver(1800, 1_200_000, 6_500, m_dot=7.0)
             print(' T_out', T_salida, '\n', 'P_out', p_salida, '\n', 'C_out', C_salida, '\n', 'alfa_out', alfa_salida)
         else:
-            solver.problem_solver(1800, 1_200_000, 6_500, C_inx=180)
+            solver.problem_solver(1800, 1_200_000, 6_500, m_dot=7.0)
             solver_data_saver('file', solver)
     elif action == 'r':
         solver = solver_data_reader('file')
         problem_data_viewer(solver)
     elif action == 'rw':  # Se emplean semillas de la ejecución anterior
         solver = solver_data_reader('file')
-        solver.cfg.set_geometry([0, 39], [70, 90], [35, 52], [90, 50], 0.03, 0.3,
+        solver.cfg.set_geometry([0, 39], [70, 90], [35, 52], [90, 50], 0.03, [0.3, 0.25, 0.22, 0.20],
                                 H=[0.009, 0.016, 0.026, 0.0300, 0.0380], A_rel=0.75, t_max=0.008, r_r=0.003, r_c=0.002,
                                 t_e=0.004, K=0.0)
-        solver.problem_solver(1800, 1_200_000, 6_500, C_inx=180)
+        solver.problem_solver(1800, 1_200_000, 6_500, m_dot=7.0)
         solver_data_saver('file', solver)
         problem_data_viewer(solver)
