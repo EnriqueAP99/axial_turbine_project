@@ -127,7 +127,7 @@ class AM_loss_model:
             self.yp_s_c_b1kb2k[i] += [v]
         i_f, yp_f = [-4.1, -3.0, -2.0, -1.0, 0.05, 1.0, 1.7], [6.4, 4.3, 2.75, 1.6, 1.0, 2.1, 6.1]
         self.yp_f_i_f = [x_sp(i_f), f_sp(i_f, yp_f, 2)]
-        y_f, d_a2 = [1.0, 2.2], [0.0, -2.4]
+        y_f, d_a2 = [1.0, 2.2], [0.0, 2.4]
         self.d_a2_yp_f = [x_sp(y_f), f_sp(y_f, d_a2, 1)]
         x, lambdav = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5], [0.0055, 0.0063, 0.0087, 0.0130, 0.0192, 0.0276]
         self.sec_losses = [x_sp(x), f_sp(x, lambdav, 3)]
@@ -267,8 +267,6 @@ class AM_loss_model:
                 tau_2_iter = tau_2
             Yp = self.AM_loss_model_operations(tau_1, tau_2)
             d_tau_2 = self.d_a2_yp_f[1](Yp / self.Yp_min)
-            if d_tau_2 < 0:
-                d_tau_2 = 0.0
             tau_2 = d_tau_2 + self.tau2_ypmin
             self.Yp_preiter = Yp
             tau_2, tau_1 = radians(tau_2), radians(tau_1)
