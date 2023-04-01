@@ -5,7 +5,7 @@ las condiciones de funcionamiento de la turbina axial que se defina.
 from time import time
 from loss_model import *
 from gas_modeling import *
-from math import cos, sin, tan, fabs, sqrt, atan, asin, acos, log, degrees
+from math import cos, sin, fabs, sqrt, atan, asin, acos, log, degrees
 
 
 def solver_timer(solver_method):
@@ -263,9 +263,9 @@ class solver_process:
             msg = 'Se va a determinar la salida del rótor del escalonamiento número {}.'.format(count+1)
             logger.info('\n\n                %s', msg)
             h_r3 = h_r2 = h_2 + ((10 ** (-3)) * (omega_2 ** 2) / 2)
-            p_3, h_3, T_3, omega_3, rho_3, h_3s, T_3s, C_3x, M_3, beta_3, xi_rot = \
+            p_3, h_3, T_3, omega_3, rho_3, h_3s, T_3s, C_3x, M_3r, beta_3, xi_rot = \
                 self.blade_outlet_calculator('rot', count, A_tpl[2], beta_2, h_r3, m_dot, s_2, p_seed[1], rho_seed[1],
-                                             U=U, step_iter_mode=iter_mode, Re=Re)
+                                             step_iter_mode=iter_mode, Re=Re)
             omega_3u = omega_3 * sin(beta_3)
             omega_3x = omega_3 * cos(beta_3)
             C_3u = omega_3u - U
@@ -335,7 +335,7 @@ class solver_process:
                 p_01, T_01 = self.Zero_pt_calculator(p_1, s_1, h_01)
                 eta_p_esc = log(1 - (eta_TT * (1 - (T_03ss / T_01))), 10) / log(T_03ss / T_01, 10)
                 r_esc = p_01 / p_03
-                local_list_1 += [C_3x, C_3u, T_03, p_03, h_r3, h_3s, T_3s, omega_3, omega_3x, omega_3u, beta_3,
+                local_list_1 += [C_3x, C_3u, T_03, p_03, h_r3, h_3s, T_3s, omega_3, omega_3x, omega_3u, beta_3, M_3r,
                                  M_3, PHI_3, T_2, p_2, rho_2, s_2, h_2, h_02, C_2, C_2x, C_2u, alfa_2, T_02, p_02, h_r2,
                                  h_2s, T_2s, omega_2, omega_2x, omega_2u, beta_2, M_2, PHI_2, T_1, p_1, rho_1, s_1, h_1,
                                  h_01, C_1, C_1x, C_1u, alfa_1, T_01, p_01, M_1, Y_est, xi_est, Y_rot, xi_rot, w_esc,
@@ -361,7 +361,7 @@ class solver_process:
         return ll_1
 
     def blade_outlet_calculator(self, blade: str, counter: int, area_b: float, tau_a: float,
-                                h_tb: float, m_dot: float, s_a: float, p_seed: float, rho_seed: float, U=None,
+                                h_tb: float, m_dot: float, s_a: float, p_seed: float, rho_seed: float,
                                 step_iter_mode=False, xi=0.0, Re=0.0):
         """ Se hace un cálculo iterativo para conocer las propiedades a la salida del estátor y del rótor (según el
         caso, estátor / rótor, se proporciona el valor de la entalpía total / rotalpía y del ángulo que forma la
@@ -373,7 +373,6 @@ class solver_process:
 
             :param Re: Número de Reynolds, se recibe cuando se calcula el rótor.
             :param xi: Coeficiente adimensional de pérdidas de la corona en cuestión.
-            :param U: Velocidad tangencial de giro del rótor, argumento opcional (m/s).
             :param step_iter_mode: Permite diferenciar si se está aplicando recursividad para la corrección por
                                dependencia de Reynolds y así conocer las instrucciones más convenientes.
             :param tau_a: Ángulo del movimiento absoluto/relativo de entrada del fluido con la dirección axial
@@ -416,14 +415,11 @@ class solver_process:
                 a_b, _, _, gamma_b = self.prd.get_a(T_b, p_b, extra=True)
                 T_bs = self.prd.get_props_with_hs({'p': p_b, 's': s_a}, {'T': T_b}, tol)
                 h_bs = self.T_to_h_comparator(T_bs, key_prop2='p', value_prop2=p_b)
+                M_b = U_b/a_b   # Mach del flujo absoluto o relativo según si estátor o rótor (respectivamente)
                 if blade == 'est':
-                    M_b = U_b/a_b
                     if not step_iter_mode:
                         s, H = geom['s'][num], geom['H'][num]
                         Re = Reynolds(rho_b, U_b, T_b, s, H, geom['alfap_o_est'][counter], self.prd)
-                elif blade == 'rot':
-                    C_b = sqrt((U-(C_bx/tan(tau_b)))**2 + (C_bx**2))
-                    M_b = C_b/a_b
                 if self.cfg.loss_model == 'soderberg_correlation':
                     xi = ((1E5 / Re) ** 0.25) * xi
                     diff_tau_b = 0.0

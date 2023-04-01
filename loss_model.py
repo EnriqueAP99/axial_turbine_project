@@ -168,11 +168,11 @@ class AM_loss_model:
             tau_2n, tau_2nc = (tau_2_seed * (1 - d_tol)), tau_2_seed
         f_1, cond, Yp_n = None, False, 0.0
         if tau_1 < alfap_1*(1 - d_tol):
-            logger.warning('Incidencia negativa:    tau_1=%.2f°   ángulo_B.A.=%.2f°', tau_1, alfap_1)
+            logger.warning('Incidencia negativa:    tau_1=%.2f°   Ángulo del B.A.=%.2f°', tau_1, alfap_1)
         elif tau_1 - alfap_1 > 15:
-            logger.warning('Incidencia alta:    tau_1=%.2f°   ángulo_B.A.=%.2f°', tau_1, alfap_1)
+            logger.warning('Incidencia alta:    tau_1=%.2f°   Ángulo del B.A.=%.2f°', tau_1, alfap_1)
         else:
-            logger.info('Incidencia apta:    tau_1=%.2f°   ángulo_B.A.=%.2f°', tau_1, alfap_1)
+            logger.info('Incidencia apta:    tau_1=%.2f°   Ángulo del B.A.=%.2f°', tau_1, alfap_1)
         if abs(tau_1 - alfap_1) > d_tol:
             while not cond:
                 Yp_n = self.AM_loss_model_operations(tau_1, tau_2n)
@@ -196,7 +196,7 @@ class AM_loss_model:
         else:
             Yp_n, tau_2n = self.AM_loss_model_operations(tau_1, alfap_2, True), alfap_2
         logger.info('Se ha encontrado el mínimo ->    Pérdida primaria de presión adimensional mínima: %.4f    '
-                    'Valor ideal de tau_2: %.3f°', Yp_n, tau_2n)
+                    'Valor ideal de tau_2: %.2f°', Yp_n, tau_2n)
         self.Yp_min, self.tau2_ypmin = Yp_n, tau_2n
         return
 
@@ -288,8 +288,8 @@ class AM_loss_model:
                 self.Y_t_preiter.append(Y_total)
             else:
                 self.Y_t_preiter[-1] = Y_total
-            logger.info('Resulta ->    Pérdida total de presión adimensional: %.4f     Ángulo del B.S.: %.3f°     '
-                        'Valor de tau_2: %.3f°', fabs(Y_total), alfap_2, degrees(tau_2))
+            logger.info('Resulta ->    Pérdida total de presión adimensional: %.4f     Ángulo del B.S.: %.2f°     '
+                        'Valor de tau_2: %.2f°', fabs(Y_total), alfap_2, degrees(tau_2))
             return fabs(Y_total), tau_2
         else:
             if not bool(num % 2):
@@ -298,9 +298,11 @@ class AM_loss_model:
                 tau_2 = d_tau_2 + self.tau2_ypmin
                 tau_2 = radians(tau_2)
                 self.Y_t_rotor_iter_mode = Y_total
+                logger.info('El factor de corrección que se aplica sobre las pérdidas adimensionales de presión en '
+                            'ambas coronas del escalonamiento %s es: %.3f', 1+num//2, Y_total / self.Y_t_preiter[num])
                 return tau_2
             else:
-                # Y_total = self.Y_t_preiter[num]*self.Y_t_rotor_iter_mode/self.Y_t_preiter[num-1]
+                Y_total = self.Y_t_preiter[num]*self.Y_t_rotor_iter_mode/self.Y_t_preiter[num-1]
                 # Yp = (Y_total / self.Y_t_preiter[num]) * self.Yp_preiter[num]
                 Yp = (self.Y_t_rotor_iter_mode/self.Y_t_preiter[num-1]) * self.Yp_preiter[num]
                 d_tau_2 = self.d_a2_yp_f[1](Yp / self.Yp_min)
