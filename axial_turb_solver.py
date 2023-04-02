@@ -241,7 +241,7 @@ class solver_process:
             if C_1x > C_1:  # Evitar math domain error producido por error de cálculo cuando entrada completamente axial
                 C_1x = C_1
             alfa_1 = acos(C_1x / C_1)
-            msg = 'Se va a determinar la salida del estátor del escalonamiento número {}.'.format(count+1)
+            msg = 'Se va a calcular la salida del estátor del escalonamiento número {}.'.format(count+1)
             logger.info('\n\n                %s', msg)
             h_02 = h_01
             if not iter_mode:
@@ -260,7 +260,7 @@ class solver_process:
             omega_2x = C_2x
             beta_2 = atan(omega_2u / C_2x)
             omega_2 = C_2x / cos(beta_2)
-            msg = 'Se va a determinar la salida del rótor del escalonamiento número {}.'.format(count+1)
+            msg = 'Se va a calcular la salida del rótor del escalonamiento número {}.'.format(count+1)
             logger.info('\n\n                %s', msg)
             h_r3 = h_r2 = h_2 + ((10 ** (-3)) * (omega_2 ** 2) / 2)
             p_3, h_3, T_3, omega_3, rho_3, h_3s, T_3s, C_3x, M_3r, beta_3, xi_rot = \

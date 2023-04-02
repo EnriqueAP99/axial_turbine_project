@@ -195,7 +195,7 @@ if __name__ == '__main__':
                                             loss_model_id='ainley_and_mathieson', C_atoms=12, H_atoms=23.5, N=4,
                                             fast_mode=fast_mode)
         # alfap_1, theta_e, betap_2, theta_r, cuerda, R_average, alturas (degrees y metros)
-        settings.set_geometry([0, 39], [70, 90], 35, [90, 50], 0.03, [0.3, 0.28, 0.26, 0.24],
+        settings.set_geometry([0, 39], [70, 90], [35, 45], [90, 50], 0.03, [0.3, 0.28, 0.26, 0.24],
                               H=[0.009, 0.016, 0.026, 0.0300, 0.0380], A_rel=0.75, t_max=0.008, r_r=0.003, r_c=0.002,
                               t_e=0.004, K=0.0)
         solver = solver_process(settings)
@@ -211,7 +211,7 @@ if __name__ == '__main__':
         problem_data_viewer(solver)
     elif action == 'rwv':  # Se usan semillas de la ejecución anterior. Se leen, se guardan y se visualizan los datos.
         solver = solver_data_reader('file')
-        solver.cfg.set_geometry([0, 39], [70, 90], 35, [90, 50], 0.03, [0.3, 0.28, 0.26, 0.24],
+        solver.cfg.set_geometry([0, 39], [70, 90], [35, 45], [90, 50], 0.03, [0.3, 0.28, 0.26, 0.24],
                                 H=[0.009, 0.016, 0.026, 0.0300, 0.0380], A_rel=0.75, t_max=0.008, r_r=0.003, r_c=0.002,
                                 t_e=0.004, K=0.0)
         solver.problem_solver(1800, 1_200_000, 6_500, m_dot=7.0)
