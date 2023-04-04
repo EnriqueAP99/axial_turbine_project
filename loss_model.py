@@ -2,10 +2,8 @@
 En este módulo se caracteriza el modelo de pérdidas que se va a emplear en el módulo "axial_turb_solver.py", además se
 calcula el número de Reynolds.
 """
-from config_class import logger
-from config_class import configuration_parameters
+from config_class import logger, gas_model_to_solver, config_param
 from math import cos, fabs, atan, tan, radians, degrees, pi
-import gas_modeling
 from scipy.interpolate import InterpolatedUnivariateSpline
 import numpy as np
 # https://medium.com/@hdezfloresmiguelangel/introducci%C3%B3n-a-la-interpolaci%C3%B3n-unidimensional-con-python-1127abe510a1
@@ -14,7 +12,7 @@ import numpy as np
 
 
 def Reynolds(rho_2: float, C_2: float, T_2: float, s: float, H: float, alpha_2: float,
-             productos: gas_modeling.mixpm):
+             productos: gas_model_to_solver):
     """ Se calcula el número de Reynolds usando el diámetro hidráulico y las propiedades del fluido a la salida del
     estátor.
             :param rho_2: Densidad a la salida del estátor (kg/m^3).
@@ -26,7 +24,7 @@ def Reynolds(rho_2: float, C_2: float, T_2: float, s: float, H: float, alpha_2: 
             :param productos: objeto que modela los productos como clase mixpm del módulo gas_modeling.
                     :return: Se devuelve el número de Reynolds."""
     D_h = 2 * s * H * cos(alpha_2) / (s * cos(alpha_2) + H)
-    mu = productos.Wilke_visc_calculator(T_2)
+    mu = productos.get_din_visc(T_2)
     Re = rho_2 * C_2 * D_h / mu
     return Re
 
@@ -58,16 +56,18 @@ class AM_loss_model:
     interpolación por splines generados por la librería Scipy. Notar que una vez creado el objeto no se estará
     interpolando con cada llamada al módulo actual, sino que se llamará a una instancia del objeto que se inicializó
     durante la configuración del solver."""
-    def __init__(self, cfg: configuration_parameters, tau_2_seed=None):
+
+    def __init__(self, cfg: config_param, tau_2_seed: list = None):
         """ :param cfg: Argumento necesario para tener acceso a los parámetros geométricos que contiene dicho objeto."""
+
+        self.cfg = cfg
         self.tau2_ypmin = list()
-        self.tau2_ypmin_seed = list()
+        self.tau2_ypmin_seed = tau_2_seed
         self.Yp_min = list()
         self.crown_num = int()
         self.Yp_preiter = list()
         self.Y_t_preiter = list()
         self.Y_t_rotor_iter_mode = float()
-        self.cfg = cfg
 
         def x_sp(x_list):
             return np.linspace(x_list[0], x_list[-1])
@@ -134,29 +134,35 @@ class AM_loss_model:
         self.sec_losses = [x_sp(x), f_sp(x, lambdav, 3)]
 
         logger.info('Cáculo preliminar para el modelo de pérdidas "Ainley and Mathieson"')
-        for crown_num in range(self.cfg.n_step*2):
-            self.Yp_min_calculator(crown_num, tau_2_seed)
+        for crown_num in range(self.cfg.n_steps * 2):
+            self.Yp_min_calculator(crown_num, tau_2_seed[crown_num] if tau_2_seed is not None else None)
+        if self.tau2_ypmin_seed is None:
+            self.tau2_ypmin_seed = self.tau2_ypmin
+            # Se mantiene duplicidad para reevaluar los mínimos con la semilla y asegurar la solución correcta
 
     def Yp_min_calculator(self, num, tau_2_seed=None):
         """ Se determina el valor de tau_2 que hace mínimo Yp siendo nula la incidencia. Se almacenan el valor mínimo
         de Yp y el ángulo que corresponde de salida del flujo para que durante llamadas recursivas no sea necesario
         reevaluar estos valores constantemente.
                 :param num: Número que identifica cada corona de álabes, comenzando por 0.
-                :param tau_2_seed: Valor que se obtuvo en este método en cálculos previos.
-                        :return: No se devuelve nada. """
-        tol = self.cfg.TOL
+                :param tau_2_seed: Valor que se obtuvo en este método en cálculos previos. """
+
         alfap_1 = self.cfg.geom['alfap_i_est'][num//2] if num % 2 == 0 else self.cfg.geom['alfap_i_rot'][num//2]
         alfap_2 = self.cfg.geom['alfap_o_est'][num//2] if num % 2 == 0 else self.cfg.geom['alfap_o_rot'][num//2]
-        alfap_1, alfap_2, d_tol = degrees(alfap_1), degrees(alfap_2), 180*tol/pi
+        alfap_1, alfap_2, d_tol = degrees(alfap_1), degrees(alfap_2), 0.001
+
         if tau_2_seed is None:
-            tau_2n, tau_2nc = [alfap_2, (alfap_2 * (1 + d_tol))] if fabs(alfap_2) > d_tol else [d_tol, d_tol*(1+d_tol)]
+            tau_2n, tau_2nc = [alfap_2, (alfap_2 * (1 + d_tol))] if \
+                fabs(alfap_2) > d_tol else [d_tol, d_tol*(1+d_tol)]
         else:
             tau_2n, tau_2nc = (tau_2_seed * (1 - d_tol)), tau_2_seed
         f_1, cond, Yp_n = None, False, 0.0
+
         if 0 <= alfap_1 <= alfap_2:
             Yp_i0_a2 = self.AM_loss_model_operations(alfap_1, alfap_2)
         else:
             Yp_i0_a2 = self.AM_loss_model_operations(alfap_2, alfap_2)
+
         while not cond:
             if tau_2n < alfap_2:
                 tau_2n = alfap_2
@@ -185,8 +191,10 @@ class AM_loss_model:
 
         logger.info('%s del escalonamiento %s (Ángulo del B.S.: %.2f°) ->    tau_out que minimiza Yp: %.2f° ->    Yp '
                     'mínima: %.4f', 'Estátor' if not bool(num % 2) else 'Rótor', 1+(num//2), alfap_2, tau_2n, Yp_n)
+
         self.Yp_min.append(Yp_n)
         self.tau2_ypmin.append(tau_2n)
+
         return
 
     def AM_loss_model_operations(self, tau_1: float, tau_2: float):
@@ -216,6 +224,7 @@ class AM_loss_model:
         geom, num = self.cfg.geom, self.crown_num
         alfap_1 = degrees(geom['alfap_i_est'][num//2] if num % 2 == 0 else geom['alfap_i_rot'][num//2])
         s, b, t_max = geom['s'][num], geom['b'][num], geom['t_max'][num]
+
         a2_a2sc075 = self.alfa2rel_s_c[1](s / b)
         alpha_2_sc075 = tau_2 / a2_a2sc075
         is_sc075 = interp_series_a2(alpha_2_sc075, alfap_1 / alpha_2_sc075, self.is_b1a2_sc_075)
@@ -225,6 +234,7 @@ class AM_loss_model:
         yp_f = self.yp_f_i_f[1](i_is)
         Yp_i0_b1kn = interp_series_a2(tau_2, s / b, self.yp_s_c_b1kn)
         Yp_i0_b1kb2k = interp_series_a2(tau_2, s / b, self.yp_s_c_b1kb2k)
+
         t_max_b = t_max / b
         if t_max_b < 0.15:
             t_max_b = 0.15
@@ -245,10 +255,13 @@ class AM_loss_model:
                 :param Y_total: Parámetro de pérdidas del modelo de pérdidas AM.
                         :return: Se devuelve Y_total y tau_2, excepto cuando step_iter_mode, en dicho caso Y_total es
                                 conocido y solo se devuelve tau_2, en ambos casos en radianes. """
+
         self.crown_num, geom, tol = num, self.cfg.geom, self.cfg.TOL
         d_tol = 180*tol/pi
+
         alfap_1 = degrees(geom['alfap_i_est'][num//2] if num % 2 == 0 else geom['alfap_i_rot'][num//2])
         alfap_2 = degrees(geom['alfap_o_est'][num//2] if num % 2 == 0 else geom['alfap_o_rot'][num//2])
+
         if tau_1 < alfap_1*(1 - d_tol):
             logger.warning('Incidencia: %.2f°    tau_in: %.2f°   Ángulo del B.A.: %.2f°',
                            tau_1 - alfap_1, tau_1, alfap_1)
@@ -258,22 +271,27 @@ class AM_loss_model:
         else:
             logger.info('Incidencia: %.2f°    tau_in: %.2f°       Ángulo del B.A.: %.2f°',
                         tau_1 - alfap_1, tau_1, alfap_1)
-        A_1, s, K_i, t_max, H, r_r, r_c, b, \
-            t_e = [geom[i][num] for i in ['areas', 's', 'K', 't_max', 'H', 'r_r', 'r_c', 'b', 't_e']]
+
+        lista_local = [geom[i][num] for i in ['areas', 's', 'K', 't_max', 'H', 'r_r', 'r_c', 'b', 't_e']]
+        A_1, s, K_i, t_max, H, r_r, r_c, b, t_e = lista_local
         A_2 = geom['areas'][num+1]
+
         if not step_iter_mode:
             tau_diff = tau_2_iter = tau_2 = alfap_2
             Yp = 0.0
+
             while fabs(tau_diff / alfap_2) > tol:
                 Yp = self.AM_loss_model_operations(tau_1, tau_2_iter)
                 d_tau_2 = self.d_a2_yp_f[1](Yp / self.Yp_min[num]) if Yp/self.Yp_min[num] < 2.2 else 2.4
                 tau_2 = d_tau_2 + self.tau2_ypmin[num]
                 tau_diff = tau_2 - tau_2_iter
                 tau_2_iter = tau_2
+
             if len(self.Yp_preiter) < self.crown_num + 1:
                 self.Yp_preiter.append(Yp)
             else:
                 self.Yp_preiter[-1] = Yp
+
             tau_2, tau_1 = radians(tau_2), radians(tau_1)
             x = ((A_2*cos(tau_2)/(A_1*cos(tau_1)))**2)/(1+(r_r/r_c))
             lambda_ = self.sec_losses[1](x)
@@ -284,33 +302,46 @@ class AM_loss_model:
             Yk = 0.0
             if not K_i == 0.0:
                 Yk = 0.5 * (K_i / H) * Z
+
             Y_total = (Yp + Ys + Yk) * self.ji_Te_te_s[1](t_e / s)
+
             if len(self.Y_t_preiter) < num + 1:
                 self.Y_t_preiter.append(Y_total)
             else:
                 self.Y_t_preiter[-1] = Y_total
+
             logger.info('Desviación: %.2f°     tau_out: %.2f°     Ángulo del B.S.: %.2f°',
                         degrees(tau_2)-alfap_2, degrees(tau_2), alfap_2)
             logger.info('Recordatorio:       tau_out(Yp mínimo): %.2f°     Yp mínimo: %.4f',
                         self.tau2_ypmin[num], self.Yp_min[num])
             logger.info('Pérdidas:           Y_total: %.4f                Yp: %.4f   ', Y_total, Yp)
+
             return Y_total, tau_2
+
         else:
             if not bool(num % 2):
                 Yp = (Y_total / self.Y_t_preiter[num]) * self.Yp_preiter[num]
+
                 d_tau_2 = self.d_a2_yp_f[1](Yp / self.Yp_min[num]) if Yp/self.Yp_min[num] < 2.2 else 2.4
                 tau_2 = d_tau_2 + self.tau2_ypmin[num]
                 tau_2 = radians(tau_2)
+
                 self.Y_t_rotor_iter_mode = Y_total
+
                 logger.info('El factor de corrección que se aplica sobre las pérdidas adimensionales de presión en '
                             'ambas coronas del escalonamiento %s es: %.3f', 1+(num//2), Y_total / self.Y_t_preiter[num])
+
                 return tau_2
+
             else:
                 Y_total = self.Y_t_preiter[num]*self.Y_t_rotor_iter_mode/self.Y_t_preiter[num-1]
                 # Yp = (Y_total / self.Y_t_preiter[num]) * self.Yp_preiter[num]
                 Yp = (self.Y_t_rotor_iter_mode/self.Y_t_preiter[num-1]) * self.Yp_preiter[num]
+
                 d_tau_2 = self.d_a2_yp_f[1](Yp / self.Yp_min[num])
                 tau_2 = d_tau_2 + self.tau2_ypmin[num]
                 tau_2 = radians(tau_2)
+
                 self.Y_t_rotor_iter_mode = Y_total
+
                 return Y_total, tau_2
