@@ -35,12 +35,14 @@ def Reynolds_correction(tol: float, loss_model: str):
                 :param tol: Error relativo máximo que se establece en los cálculos.
                 :param loss_model: Cadena de caracteres identificadora del modelo de pérdidas establecido.
                             :return: Se devuelve el decorador real. """
+
     def Reynolds_corrector(step_inner_funct):
         """ Decorador real, gestiona la función interna del método gen_steps de la clase solver_process y posibilita
          aplicar la corrección por el número de Reynolds que en ocasiones requiere el modelo de pérdidas de Ainley and
          Mathieson.
                     :param step_inner_funct: Función que se decora.
                                 :return: Se devuelve el wrapper_r. """
+
         def corrector(eta_TT, Re, xi_est, rho_seed) -> list:
             """ Función que aplica la corrección de Reynolds cuando es llamada por wrapper_r. La solución se determina
                 aplicando el teorema de Bolzano y Régula Falsi. Se va a usar como semilla de la siguiente iteración los
@@ -51,9 +53,11 @@ def Reynolds_correction(tol: float, loss_model: str):
                     :param xi_est: Coeficiente adimensional de pérdidas en el estátor.
                             :return: Se devuelve la lista de variables que corresponda según el modo de
                                     funcionamiento que se defina."""
+
             eta_TT_obj = 1-(((1-eta_TT)/200_000)*Re)
             bolz_c, xi_e1, xi_e2, f1, f2, first, alt = 1.0, xi_est*0.9, xi_est, 0.0, 0.0, True, 0
             rho_seed_1 = rho_seed_2 = rho_seed_c = rho_seed
+
             while bolz_c > 0:
                 if not bool(alt % 2):
                     sif1 = step_inner_funct(True, False, xi_e1, rho_seed_1)
@@ -69,9 +73,11 @@ def Reynolds_correction(tol: float, loss_model: str):
                         xi_e2 = 1.1*xi_e2
                     else:
                         xi_e1 = 0.9*xi_e1
+
             xi_ec = float(xi_e2 - f2*(xi_e2-xi_e1)/(f2-f1))
             sifc = step_inner_funct(True, False, xi_ec, rho_seed_c)
             fc, rho_seed_c = sifc[0] - eta_TT_obj, sifc[1]
+
             while fabs(fc/eta_TT_obj) > tol:
                 if not first:
                     sif1 = step_inner_funct(True, False, xi_e1, rho_seed_1)
@@ -87,13 +93,16 @@ def Reynolds_correction(tol: float, loss_model: str):
                     xi_e1, rho_seed_1 = xi_ec, rho_seed_c
                 elif fc*f1 < 0:
                     xi_e2, rho_seed_2 = xi_ec, rho_seed_c
+
             _, _, ll_1 = step_inner_funct(True, True, xi_ec, rho_seed_c)
+
             return ll_1
 
         def wrapper_r():
             """ Función que evalúa el modelo de pérdidas que se ha definido y, si es el de Ainley and Mathieson, aplica
             una corrección en caso de que el número de Reynolds sea inferior a 50.000.
                             :return: Se devuelve la lista de variables que se procesan, según el modo que se defina. """
+
             if loss_model == 'ainley_and_mathieson':
                 Re, eta_TT, xi_est, rho_seed, ll_1 = step_inner_funct()
                 logger.info('Reynolds: %d', Re)
@@ -101,6 +110,7 @@ def Reynolds_correction(tol: float, loss_model: str):
                     ll_1 = corrector(eta_TT, Re, xi_est, rho_seed)
             else:
                 ll_1 = step_inner_funct()
+
             return ll_1
         return wrapper_r
     return Reynolds_corrector
@@ -109,13 +119,16 @@ def Reynolds_correction(tol: float, loss_model: str):
 class solver_process:
     """ Clase que define un objeto que agrupa y coordina al conjunto de métodos/atributos que conforman
     el procedimiento resolutivo propuesto para determinar unas condiciones de funcionamiento de una turbina axial."""
+
     def __init__(self, config: config_param, productos: gas_model_to_solver, AM_seed: list = None):
         """ :param config: Objeto que agrupa lo relativo a la configuración establecida para la ejecución del solver."""
+
         self.vmmr = []  # Almacena ciertas variables, para facilitar la comunicación de sus valores
         self.cfg = config
         self.rho_seed = None   # Para aligerar los cálculos para variaciones pequeñas de las variables de entrada
         self.prd = productos  # Modela las termodinámicamente los productos de la combustión
         self.AM_object = None
+
         if config.loss_model == 'ainley_and_mathieson':
             if AM_seed is None:
                 self.AM_object = AM_loss_model(config)
@@ -133,7 +146,8 @@ class solver_process:
                         :return: Si fast_mode se devuelven los valores a la salida de temperatura (K), presión (Pa),
                                 velocidad (m/s) y ángulo del flujo con la dirección axial (degrees), en caso contrario
                                 no se devuelve nada."""
-        ps_list = []
+
+        ps_list = []  # En esta lista se almacenan variables que se requieren según el modo de funconamiento.
 
         @solver_timer
         def inner_solver() -> None:
@@ -220,6 +234,7 @@ class solver_process:
                 :param n: Velocidad de giro tangencial (rpm).
                 :param rho_1: Densidad a la entrada (kg/m^3).
                         :return: Se devuelve una lista de valores de variables diferente según el modo establecido. """
+
         @Reynolds_correction(self.cfg.TOL, self.cfg.loss_model)
         def inner_funct(iter_mode=False, iter_end=False, xi_est=0.0, rho_seed=None):
             """ Esta función interna se crea para poder comunicar al decorador instancias de la clase.
@@ -427,8 +442,8 @@ class solver_process:
         # p: iteración previa .... b: estado que se quiere conocer, a la salida del álabe
         while fabs(rel_diff) > tol:
             C_bx = m_dot / (area_b * rho_b)  # C_bx: velocidad axial a la salida
-            diff_tau_b = tau_b
-            while fabs(diff_tau_b/tau_b) > tol:
+            diff_tau_b = 1
+            while fabs(diff_tau_b) > tol*10:
                 U_b = C_bx / cos(tau_b)  # U_b: vel. absoluta o relativa ... tau: alfa o beta ... según el caso
                 h_b = h_tb-((10**(-3))*(U_b**2)/2)
                 # Se aplica conservación de la entalpía total/rotalpía ... según el caso
@@ -508,18 +523,18 @@ def main():
                             loss_model='ainley_and_mathieson')
 
     settings.set_geometry(B_A_est=[0, 39], theta_est=[70, 90], B_A_rot=[35, 52], theta_rot=[90, 70],
-                          cuerda=0.03, radio_medio=0.3, H=[0.009, 0.016, 0.026, 0.0300, 0.0380],
+                          cuerda=0.05, radio_medio=0.3, H=[0.027, 0.048, 0.078, 0.0900, 0.1140],
                           A_rel=0.75, t_max=0.008, r_r=0.003, r_c=0.002, t_e=0.004, K=0.0)
 
     gas_model = gas_model_to_solver(thermo_mode="ig", rel_error=1E-9)
     solver = solver_process(settings, gas_model)
 
     if fast_mode:
-        T_salida, p_salida, C_salida, alfa_salida = solver.problem_solver(T_in=1800, p_in=1_200_000, n=6_500, C_inx=180)
+        T_salida, p_salida, C_salida, alfa_salida = solver.problem_solver(T_in=1400, p_in=1_300_000, n=6_500, C_inx=200)
         print(' T_out', T_salida, '\n', 'P_out', p_salida, '\n', 'C_out', C_salida, '\n', 'alfa_out', alfa_salida)
 
     else:
-        solver.problem_solver(T_in=1800, p_in=1_200_000, n=6_500, C_inx=180)
+        solver.problem_solver(T_in=1400, p_in=1_200_000, n=6_500, C_inx=180)
 
 
 if __name__ == '__main__':
