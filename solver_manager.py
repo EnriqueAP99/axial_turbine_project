@@ -43,22 +43,34 @@ def solver_data_saver(file: str, process_object: solver_process) -> None:
             :param process_object: Objeto solucionador (Solver).
                     :return: No se devuelve nada. """
     total_vars = process_object.vmmr
+
     with shelve.open(file, flag='c') as data:
-        cp = process_object.cfg
-        tol, ns, lm, c, h, n, tm = cp.TOL, cp.n_step, cp.loss_model, cp.C_atoms, cp.H_atoms, cp.N, cp.thermo_mode
-        p_sd, rho_sd = process_object.p_seed, process_object.rho_seed
+
+        cfg, prd = process_object.cfg, process_object.prd
+        tol, ns, lm, ig, fm = cfg.TOL, cfg.n_steps, cfg.loss_model, cfg.ideal_gas, cfg.fast_mode
+        c, h, n, tm = prd.C_atoms, prd.H_atoms, prd.air_excess, prd.thermo_mode
+        rho_sd = process_object.rho_seed
+
         if lm == 'ainley_and_mathieson':
             tau2_ypmin_seed = process_object.AM_object.tau2_ypmin_seed
-            data['tau2_ypmin_seed'] = tau2_ypmin_seed
-        status_dict = {'tol': tol, 'n_step': ns, 'loss_model': lm, 'C_atoms': c, 'H_atoms': h, 'N': n,
-                       'thermo_mode': tm, 'p_seed': p_sd, 'rho_seed': rho_sd, 'geom': cp.geom}
+            for n, tau2 in enumerate(tau2_ypmin_seed):
+                data[f'tau2_ypmin_seed_{n}'] = tau2_ypmin_seed[n]
+
+        status_dict = {'tol': tol, 'n_step': ns, 'loss_model': lm, 'C_atoms': c, 'H_atoms': h, 'air_excess': n,
+                       'ideal_gas': ig, 'rho_seed': rho_sd, 'geom': cfg.geom, 'thermo_mode': tm, 'fast_mode': fm}
+
         for key in status_dict:
             data[key] = status_dict[key]
-        for i in range(ns):
-            for n, item in enumerate(tpl_s_keys):
-                data[item + f'step{i + 1}'] = total_vars[i][n]  # Cuidado con repetir la misma clave y sobreescribir.
+
+        if not fm:
+            for i in range(ns):
+                for n, item in enumerate(tpl_s_keys):
+                    data[item + f'step{i + 1}'] = total_vars[i][n]
+                    # Se añade la cadena al final para no repetir la misma clave.
+
         for n, item in enumerate(tpl_t_keys):
             data[item] = total_vars[ns][n]
+
         return
 
 
@@ -67,29 +79,47 @@ def solver_data_reader(file: str) -> solver_process:
     reestableciendo la configuración y el estado del solver.
             :param file: Nombre de los archivos generados.
                     :return: Se devuelve el solver ya configurado. """
+
     with shelve.open(file, flag='r') as data:
-        cfg_args = ['tol', 'n_step', 'loss_model', 'thermo_mode', 'C_atoms', 'H_atoms', 'N']
+
+        cfg_args = ('tol', 'n_step', 'loss_model', 'ideal_gas')
         args = list()
         for v, var in enumerate(cfg_args):
             args.append(data[cfg_args[v]])
         args.insert(2, False)
-        cfg = configuration_parameters(*args)
-        cfg.geom = data['geom']
-        solver_obj = solver_process(cfg)
-        solver_obj.p_seed, solver_obj.rho_seed = data['p_seed'], data['rho_seed']
-        local_list = list()
-        for i in range(solver_obj.cfg.n_step):
-            sub_local_list = list()
-            for item in tpl_s_keys:
-                sub_local_list.append(data[item + f'step{i + 1}'])
-            local_list.append(sub_local_list)
-        solver_obj.vmmr = local_list
-        local_list = list()
-        for n, item in enumerate(tpl_t_keys):
-            local_list.append(data[item])
-        solver_obj.vmmr.append(local_list)
-        if solver_obj.cfg.loss_model == 'ainley_and_mathieson':
-            solver_obj.AM_object.tau2_ypmin_seed = data['tau2_ypmin_seed']
+        cfg = config_param(*args)
+        geom = data['geom']
+        cfg.__setattr__('geom', geom)
+
+        gm_args = ('thermo_mode', 'rel_error', 'C_atoms', 'H_atoms', 'air_excesss')
+        args = list()
+        for v, var in enumerate(gm_args):
+            args.append(data[gm_args[v]])
+        gas_model = gas_model_to_solver()
+
+        if cfg.loss_model == 'ainley_and_mathieson':
+            tau2_ypmin_seed = list()
+            for n in range(2*cfg.n_steps):
+                tau2_ypmin_seed.append(data[f'tau2_ypmin_seed_{n}'])
+
+        solver_obj = solver_process(cfg, gas_model, tau2_ypmin_seed)
+        solver_obj.rho_seed = data['rho_seed']
+
+        if not cfg.fast_mode:
+            local_list = list()
+
+            for i in range(solver_obj.cfg.n_steps):
+                sub_local_list = list()
+                for item in tpl_s_keys:
+                    sub_local_list.append(data[item + f'step{i + 1}'])
+                local_list.append(sub_local_list)
+            solver_obj.vmmr = local_list
+
+            local_list = list()
+            for n, item in enumerate(tpl_t_keys):
+                local_list.append(data[item])
+            solver_obj.vmmr.append(local_list)
+
     return solver_obj
 
 
@@ -100,13 +130,15 @@ def data_to_df(process_object: solver_process, req_vars=None) -> [pd.DataFrame |
             :param process_object: Objeto 'solver'.
             :param req_vars: Identificador de las variables que se requieren. Parámetro opcional.
                     :return: Devuelve los dataframes generados. """
-    total_vars = process_object.vmmr
-    dict_df = dict()
+
+    total_vars, dict_df = process_object.vmmr, dict()
     df_a = df_b = df_c = None
+
     lista_a = ['M', 'C', 'Cx', 'Cu', 'omega', 'omegax', 'omegau', 'alfa', 'beta', 'h', 'h0', 'T', 'T0',
                'p', 'p0', 'rho', ]
     lista_b = ['GR', 'w_esc', 'w_s_esc', 'w_ss_esc', 'eta_TT', 'Y_est', 'Y_rot', 'Y_esc', 'U']
     lista_c = ['w_total', 'w_ss_total', 'eta_maq', 'P_total', 'r_turbina', 'm_dot', ]
+
     if req_vars is None:
         pass
     else:
@@ -132,10 +164,12 @@ def data_to_df(process_object: solver_process, req_vars=None) -> [pd.DataFrame |
                 if not not_a_number:
                     index_mmr = tpl_s_keys.index(item_id)
             dict_df[k_var + tpl_s_units[index_mmr]] = v_list.copy()
+
         pt_list_a = list()
         for j in ['1', '2', '2s', '3', '3s', '3ss']:
             pt_list_a.append(f'Step_{step_count + 1}_pt_' + j)
         local_df = pd.DataFrame(data=dict_df, index=pt_list_a) if len(lista_a) != 0 else None
+
         return local_df
 
     def default_b(step_count: int) -> pd.DataFrame:
@@ -154,7 +188,7 @@ def data_to_df(process_object: solver_process, req_vars=None) -> [pd.DataFrame |
         local_df = local_serie.to_frame(name='Turbina') if len(lista_c) != 0 else None
         return local_df
 
-    for n in range(process_object.cfg.n_step):
+    for n in range(process_object.cfg.n_steps):
         if df_a is None and df_b is None and df_c is None:
             df_a = default_a(n)
             df_b = default_b(n)
@@ -164,18 +198,19 @@ def data_to_df(process_object: solver_process, req_vars=None) -> [pd.DataFrame |
         else:
             df_a = pd.concat([df_a, default_a(n)], axis=0) if df_a is not None else None
             df_b = pd.concat([df_b, default_b(n).T], axis=0) if df_b is not None else None
+
     if df_b is not None:
-        df_b['Steps'] = [i for i in range(process_object.cfg.n_step + 1) if i != 0]
+        df_b['Steps'] = [i for i in range(process_object.cfg.n_steps + 1) if i != 0]
         df_b.set_index('Steps', inplace=True)
+
     return df_a, df_b, df_c
 
 
 def problem_data_viewer(solver_object: solver_process, req_vars=None) -> None:
-    """
-    Se visualiza el dataframe generado.
-    :return: No se devuelve nada
-    """
+    """ Se visualiza el dataframe generado. """
+
     df_a, df_b, df_c = data_to_df(solver_object, req_vars)
+
     with pd.option_context('display.max_rows', None, 'display.max_columns', None, 'display.max_colwidth', None,
                            'display.width', 1000, 'display.precision', 4):
         if df_a is not None:
@@ -184,36 +219,46 @@ def problem_data_viewer(solver_object: solver_process, req_vars=None) -> None:
             print(df_b, '\n')
         if df_c is not None:
             print(df_c, '\n')
+
     return
 
 
-if __name__ == '__main__':
-    action = 'w'
-    fast_mode = False
+def main(fast_mode, action):
+
     if action == 'w':
-        settings = configuration_parameters(rel_error=1E-6, number_steps=2, thermo_mode="ig",
-                                            loss_model_id='ainley_and_mathieson', C_atoms=12, H_atoms=23.5, N=4,
-                                            fast_mode=fast_mode)
-        # alfap_1, theta_e, betap_2, theta_r, cuerda, R_average, alturas (degrees y metros)
-        settings.set_geometry([0, 39], [70, 90], [35, 45], [90, 50], 0.03, [0.3, 0.28, 0.26, 0.24],
-                              H=[0.009, 0.016, 0.026, 0.0300, 0.0380], A_rel=0.75, t_max=0.008, r_r=0.003, r_c=0.002,
-                              t_e=0.004, K=0.0)
-        solver = solver_process(settings)
-        # T_in, P_in, C_xin, n  (K , Pa, m/s, rpm)
+        settings = config_param(TOL=1E-9, n_steps=2, ideal_gas=True, fast_mode=fast_mode,
+                                loss_model='ainley_and_mathieson')
+
+        settings.set_geometry(B_A_est=[0, 39], theta_est=[70, 90], B_A_rot=[35, 52], theta_rot=[100, 90],
+                              cuerda=0.03, radio_medio=0.3, H=[0.009, 0.016, 0.026, 0.0300, 0.0380],
+                              A_rel=0.75, t_max=0.008, r_r=0.003, r_c=0.002, t_e=0.004, K=0.0)
+
+        gas_model = gas_model_to_solver(thermo_mode="ig", rel_error=1E-9)
+
+        solver = solver_process(settings, gas_model)
+
         if fast_mode:
-            T_salida, p_salida, C_salida, alfa_salida = solver.problem_solver(1800, 1_200_000, 6_500, m_dot=7.0)
+            output = solver.problem_solver(T_in=1800, p_in=1_200_000, n=6_500, m_dot=7.0)
+            T_salida, p_salida, C_salida, alfa_salida = output
             print(' T_out', T_salida, '\n', 'P_out', p_salida, '\n', 'C_out', C_salida, '\n', 'alfa_out', alfa_salida)
         else:
-            solver.problem_solver(1800, 1_200_000, 6_500, m_dot=7.0)
+            solver.problem_solver(T_in=1800, p_in=1_200_000, n=6_500, m_dot=7.0)
             solver_data_saver('file', solver)
+
     elif action == 'r':
         solver = solver_data_reader('file')
         problem_data_viewer(solver)
+
     elif action == 'rwv':  # Se usan semillas de la ejecución anterior. Se leen, se guardan y se visualizan los datos.
         solver = solver_data_reader('file')
-        solver.cfg.set_geometry([0, 39], [70, 90], [35, 45], [90, 50], 0.03, [0.3, 0.28, 0.26, 0.24],
-                                H=[0.009, 0.016, 0.026, 0.0300, 0.0380], A_rel=0.75, t_max=0.008, r_r=0.003, r_c=0.002,
-                                t_e=0.004, K=0.0)
+        solver.cfg.set_geometry(B_A_est=[0, 39], theta_est=[70, 90], B_A_rot=[35, 52], theta_rot=[100, 90],
+                                cuerda=0.03, radio_medio=0.3, H=[0.009, 0.016, 0.026, 0.0300, 0.0380],
+                                A_rel=0.75, t_max=0.008, r_r=0.003, r_c=0.002, t_e=0.004, K=0.0)
+
         solver.problem_solver(1800, 1_200_000, 6_500, m_dot=7.0)
         solver_data_saver('file', solver)
         problem_data_viewer(solver)
+
+
+if __name__ == '__main__':
+    main(fast_mode=False, action='w')
