@@ -7,7 +7,6 @@ from axial_turb_solver import *
 import pandas as pd
 
 # https://conocepython.blogspot.com/2019/05/ (este es interesante)
-# https://docs.python.org/3/library/shelve.html (documentación)
 # http://josearcosaneas.github.io/python/serializaci%C3%B3n/persistencia/2016/12/26/serializacion-persistencia.html
 
 s_keys = 'T_3, p_3, rho_3, s_3, h_3, h0_3, C_3, alfa_3, Cx_3, Cu_3, T0_3, p0_3, h_r3, h_3s, T_3s, omega_3, omegax_3, ' \
@@ -35,7 +34,6 @@ tpl_s_units, tpl_t_units = tuple(s_units.split(',')), tuple(t_units.split(','))
 
 
 # https://www.freecodecamp.org/news/with-open-in-python-with-statement-syntax-example/ (funcionamiento de with open as)
-# https://docs.python.org/es/dev/library/dbm.html#dbm.open (flag keyword)
 def solver_data_saver(file: str, process_object: solver_process) -> None:
     """ Se almacena la información necesaria para poder restablecer la situación del programa en la siguiente
     ejecución.
