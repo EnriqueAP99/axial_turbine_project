@@ -2,10 +2,9 @@
 Se emplea la librería PyroMat para modelar los productos como mezcla de gases ideales no perfectos y determinar
 sus propiedades.
 """
-from config_class import logger
+
 import pyromat as pm
 from math import fabs, sqrt
-import sys
 
 pm.config['unit_pressure'] = 'Pa'
 
@@ -29,23 +28,24 @@ class mixpm:
         self.xmi = []  # xmi son las fracciones másicas de los componentes
         self.xni = []  # xni son las fracciones molares de los componentes
         self.mode = mode
-        self.__cpmix = 0.0  # Calor específico a presión constante de la mezcla
-        self.__cvmix = 0.0  # Calor específico a volumen constante de la mezcla
-        self.__gammamix = 0.0  # Coeficiente adiabático de la mezcla
+        self._cpmix = 0.0  # Calor específico a presión constante de la mezcla
+        self._cvmix = 0.0  # Calor específico a volumen constante de la mezcla
+        self._gammamix = 0.0  # Coeficiente adiabático de la mezcla
         self.__Mwtotal = 0.0  # Molar weight de la mezcla
-        self.mw_elem = [44.010, 18.0153, 28.0134, 31.999]
+        self.mw_elem = (44.010, 18.0153, 28.0134, 31.999)
         self.sumprops_Tpd = 0.0  # Almacenaje de la parte o la totalidad de la propiedad que se calcula
         self.x = 0.0  # Átomos de carbono en cada átomo de hidrocarburo en los reactivos
         self.y = 0.0  # Átomos de hidrógeno en cada átomo de hidrocarburo en los reactivos
         self.N = 0.0  # Exceso de aire que se considera en el ajuste estequiométrico de la combustión completa
         self.mu_elem = []
         self.mu_mix = 0.0
+        self.rel_error = 1E-7  # Máximo error relativo permitido.
 
         ''' En las líneas que siguen se almacenan en una lista atributo de la clase 'mixpm' identificadores de 
             los componentes como objetos de la librería PyroMat según el modelo especificado. '''
 
-        modes = ["ig", "mp", ]
-        componentes = ["CO2", "H2O", "N2", "O2", ]
+        modes = ("ig", "mp", )
+        componentes = ("CO2", "H2O", "N2", "O2", )
         self.components = []
         if mode in modes:
             for comp in componentes:
@@ -54,12 +54,6 @@ class mixpm:
                 else:
                     self.components.append(pm.get(f'ig.{comp}'))
             self.components = tuple(self.components)
-        else:
-            logger.critical("Los modos a elegir para el H2O son ig (gas ideal con NASA coefs) o mp ('multi-phase').\n "
-                            "El modo mp se aplica solo en el vapor de agua, porque sino los límites del cálculo "
-                            "disminuirían demasiado y se realentiza todo el cálculo innecesariamente. \n "
-                            "Para  el modelo del Çengel usar el módulo IGmodelfromCengel.py \n")
-            sys.exit()
 
     # den es la masa total por kmol de combustible en combustión completa
     def setmix(self, x: float, y: float, N: float):
@@ -94,29 +88,27 @@ class mixpm:
                 :param p: Presión total de los productos (Pa).
                         :return: En el mismo orden: Cp, Cv y gamma. Las unidades de los calores
                                 específicos son kJ/(kg*K). """
-        self.__cpmix = 0.0
-        self.__cvmix = 0.0
+        self._cpmix = 0.0
+        self._cvmix = 0.0
         if self.mode == "mp":
             for i, xm in enumerate(self.xmi):  # i = 0, 1, 2, 3
                 if i == 1:  # cp y cv se reciben como kJ/(kg*K)
-                    self.__cpmix = self.__cpmix + xm * self.components[i].cp(T=T, p=p * xm)
-                    self.__cvmix = self.__cvmix + xm * self.components[i].cv(T=T, p=p * xm)
+                    self._cpmix = self._cpmix + xm * self.components[i].cp(T=T, p=p * xm)
+                    self._cvmix = self._cvmix + xm * self.components[i].cv(T=T, p=p * xm)
                 else:
-                    self.__cpmix = self.__cpmix + xm * self.components[i].cp(T)
-                    self.__cvmix = self.__cvmix + xm * self.components[i].cv(T)
+                    self._cpmix = self._cpmix + xm * self.components[i].cp(T)
+                    self._cvmix = self._cvmix + xm * self.components[i].cv(T)
         else:
             for i, xm in enumerate(self.xmi):
-                self.__cpmix = self.__cpmix + xm * self.components[i].cp(T)
-                self.__cvmix = self.__cvmix + xm * self.components[i].cv(T)
-        self.__gammamix = self.__cpmix / self.__cvmix
-        return [float(self.__cpmix), float(self.__cvmix), float(self.__gammamix)]
+                self._cpmix = self._cpmix + xm * self.components[i].cp(T)
+                self._cvmix = self._cvmix + xm * self.components[i].cv(T)
+        self._gammamix = self._cpmix / self._cvmix
+        return [float(self._cpmix), float(self._cvmix), float(self._gammamix)]
 
-    # se hace el encapsulado para evitar errores en que se llame la propiedad sin usar la función y no esté actualizada
-
-    def get_a(self, T: float, p=101_300.0, extra=None):     # Este cálculo asume gas ideal
+    def get_a(self, T: float, p=101_300.0, extra=False):  # Este cálculo asume gas ideal
         C_p, C_v, gamma = self.get_coeffs(T, p)
         a = sqrt(gamma * (C_p - C_v) * 1000 * T)
-        if extra is None or not extra:
+        if not extra:
             return a
         else:
             return a, C_p, C_v, gamma
@@ -129,11 +121,19 @@ class mixpm:
                                    propiedad/es conocidas y, como valor, el valor de la misma.
                 :param req_prop: El caracter que identifique la propiedad que se requiere.
                         :return: El valor de la propiedad que se requiere con las unidades de Pyromat. """
+
         frac_prop, self.sumprops_Tpd, code_get_sumando, xa, xb, xc = 0.0, 0.0, '', [], [], []
-        k_0, v_0, k_1, v_1 = list(known_props.keys())[0], list(known_props.values())[0], '', 0.0
-        var_list_gr = [req_prop, k_0]
+        k_0 = v_0 = k_1 = v_1 = None
         xj = [xa, xb]
-        if len(known_props) == 2:
+        if self.mode == "ig":
+            if req_prop == 'h':
+                if len(known_props) == 2:
+                    if list(known_props.keys())[1] == 'T':
+                        k_0, v_0 = list(known_props.keys())[1], list(known_props.values())[1]
+        if v_0 is None:
+            k_0, v_0 = list(known_props.keys())[0], list(known_props.values())[0]
+        var_list_gr = [req_prop, k_0]
+        if not ('T' in known_props and req_prop == 'h' and self.mode == "ig") or self.mode == "mp":
             k_1 = list(known_props.keys())[1]
             v_1 = list(known_props.values())[1]
             var_list_gr.append(k_1)
@@ -154,26 +154,25 @@ class mixpm:
                         exp = exp * (-1)  # De esta manera resultan kg de productos en denominador y la suma es el total
                 xj[j].append(xji ** exp)
         for i in range(len(self.xmi)):  # i = 0, 1, 2, 3
-            if len(known_props) == 2:
-                code_get_sumando = f'self.sumprops_Tpd = xa[i]*float(self.components[i].{req_prop}({k_0}=' \
-                                   f'v_0*xb[i], {k_1}={v_1 * xc[i]}));'
-            else:
+            if v_1 is None:
                 code_get_sumando = f'self.sumprops_Tpd = xa[i]*float(self.components[i].{req_prop}({k_0}=' \
                                    f'v_0*xb[i]));'
+            else:
+                code_get_sumando = f'self.sumprops_Tpd = xa[i]*float(self.components[i].{req_prop}({k_0}=' \
+                                   f'v_0*xb[i], {k_1}=v_1 * xc[i]));'
             exec(code_get_sumando)
             frac_prop += self.sumprops_Tpd
             if req_prop == 'T':
                 break
         return frac_prop
 
-    def get_props_with_hs(self, known_props: dict, init_guess: dict, tolerance: float):
+    def get_props_with_hs(self, known_props: dict, init_guess: dict):
         """ Con este método y mediante el método numérico régula falsi, se posibilita usar como propiedad conocida la
         entropía o la entalpía de la mezcla de gases, sin embargo, no será posible establecer la otra como output
         requerido, por no poder ser entrada del método 'get_props_with_Tpd'.
                 :param known_props: Diccionario que a cada clave, caracter que identifica una propiedad que se conoce,
                                    le asigna el valor de la misma.
                 :param init_guess: Diccionario que indica la clave y la estimación inicial de la propiedad a determinar.
-                :param tolerance: Máximo error relativo permitido.
                         :return: El valor de la propiedad calculada. """
         k_0, v_0, k_1, v_1 = list(known_props.keys())[0], list(known_props.values())[0], '', 0.0
         k_a, k_b, v_a, v_b = '', '', 0.0, 0.0
@@ -186,40 +185,40 @@ class mixpm:
                 k_b, v_b = k_1, v_1
         else:
             k_a, v_a, k_b, v_b = k_1, v_1, k_0, v_0
-        fvg = fabs(2 * v_a * tolerance)
+        fvg = fabs(2 * v_a * self.rel_error)
         k_g, v_g, vp_g, bolz = list(init_guess.keys())[0], list(init_guess.values())[0], 0.0, 1.0
-        v_g1, v_g2, start, f1, f2 = 0.999 * v_g, 1.001 * v_g, True, 0.0, 0.0
+        v_g1, v_g2, start, f1, f2 = v_g, v_g*1.05, True, 0.0, 0.0
         # Este bloque while es para que se verifique la condición del tma. de Bolzano
         while bolz > 0:
-            if len(known_props) == 2:
-                f1 = self.get_props_by_Tpd({k_g: v_g1, k_b: v_b}, k_a) - v_a
-                f2 = self.get_props_by_Tpd({k_g: v_g2, k_b: v_b}, k_a) - v_a
-            else:
+            if 'T' in init_guess and k_a == 'h' and self.mode == "ig":
                 f1 = self.get_props_by_Tpd({k_g: v_g1}, k_a) - v_a
                 f2 = self.get_props_by_Tpd({k_g: v_g2}, k_a) - v_a
+            else:
+                f1 = self.get_props_by_Tpd({k_g: v_g1, k_b: v_b}, k_a) - v_a
+                f2 = self.get_props_by_Tpd({k_g: v_g2, k_b: v_b}, k_a) - v_a
             bolz = f1 * f2
             if bolz < 0:
                 pass
             else:
-                v_g1 = 0.999 * v_g1
-                v_g2 = 1.001 * v_g2
-        c = float(v_g2 - f2 * (v_g2 - v_g1) / (f2 - f1))
+                v_g1 = v_g1 * 0.999
+                v_g2 = v_g2 * 1.001
+        c = float(v_g2 - (f2 * (v_g2 - v_g1) / (f2 - f1)))
         if len(known_props) == 2:
             fc = self.get_props_by_Tpd({k_g: c, k_b: v_b}, k_a) - v_a
         else:
             fc = self.get_props_by_Tpd({k_g: c}, k_a) - v_a
-        while fvg > tolerance:
+        while fvg > self.rel_error:
             if not start:
-                if len(known_props) == 2:
-                    f1 = self.get_props_by_Tpd({k_g: v_g1, k_b: v_b}, k_a) - v_a
-                    f2 = self.get_props_by_Tpd({k_g: v_g2, k_b: v_b}, k_a) - v_a
-                    c = float(v_g2 - f2 * (v_g2 - v_g1) / (f2 - f1))
-                    fc = self.get_props_by_Tpd({k_g: c, k_b: v_b}, k_a) - v_a
-                else:
+                if 'T' in init_guess and k_a == 'h' and self.mode == "ig":
                     f1 = self.get_props_by_Tpd({k_g: v_g1}, k_a) - v_a
                     f2 = self.get_props_by_Tpd({k_g: v_g2}, k_a) - v_a
                     c = float(v_g2 - f2 * (v_g2 - v_g1) / (f2 - f1))
                     fc = self.get_props_by_Tpd({k_g: c}, k_a) - v_a
+                else:
+                    f1 = self.get_props_by_Tpd({k_g: v_g1, k_b: v_b}, k_a) - v_a
+                    f2 = self.get_props_by_Tpd({k_g: v_g2, k_b: v_b}, k_a) - v_a
+                    c = float(v_g2 - f2 * (v_g2 - v_g1) / (f2 - f1))
+                    fc = self.get_props_by_Tpd({k_g: c, k_b: v_b}, k_a) - v_a
             else:
                 start = False
             if fc * f2 < 0:
@@ -275,18 +274,24 @@ class mixpm:
         return self.mu_mix
 
 
-if __name__ == '__main__':
+def main():
     mezcla = mixpm("ig")
+    mezcla.rel_error = 1E-9
     mezcla.setmix(12.0, 23.5, 2)
     press = mezcla.get_props_by_Tpd({'T': 1800, 'd': 2}, 'p')
     print(f'Resulta una presión de {(press / 101300):.7f} atm')
     enthalpy = mezcla.get_props_by_Tpd({'T': 1800, 'd': 2}, 'h')
-    print(f'Resulta una entalpía de {(enthalpy * 1E-3):.7f} kJ/kg')
+    print(f'Resulta una entalpía de {enthalpy:.7f} kJ/kg')
     entropy = mezcla.get_props_by_Tpd({'T': 1800, 'd': 2}, 's')
-    print(f'Resulta una entropía de {entropy:.7f} J/kgK')
-    pr = mezcla.get_props_with_hs({'s': entropy, 'T': 1800}, {'p': 10 * 101300}, 1E-9)
+    print(f'Resulta una entropía de {entropy:.7f} kJ/kgK')
+    pr = mezcla.get_props_with_hs({'s': entropy, 'T': 1800}, {'p': 10 * 101300})
     print(f'Resulta una presión de {(pr / 101300):.7f} atm')
-    Temperature = mezcla.get_props_with_hs({'h': enthalpy}, {'T': 1500}, 1E-9)
+    Temperature = mezcla.get_props_with_hs({'h': enthalpy}, {'T': 1500})
     print(f'Resulta una temperatura de {Temperature:.7f} K')
     entropy2 = mezcla.get_props_by_Tpd({'T': Temperature, 'p': press}, 's')
-    print(f'Resulta una entropía de {entropy2:.7f} J/kgK')
+    print(f'Resulta una entropía de {entropy2:.7f} kJ/kgK')
+    return
+
+
+if __name__ == '__main__':
+    main()
