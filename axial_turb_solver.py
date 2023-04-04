@@ -269,7 +269,7 @@ class solver_process:
             s_2 = self.prd.get_prop(known_props={'p': p_2, 'T': T_2}, req_prop='s')
 
             # En las líneas que siguen se determinan los triángulos de velocidades
-            U = self.cfg.geom['Rm'][(count*2)+1]*n*2*pi/60
+            U = self.cfg.geom['Rm'][(count * 2) + 1] * n * 2 * pi / 60
             C_2u = C_2 * sin(alfa_2)
             omega_2u = C_2u - U
             omega_2x = C_2x

@@ -147,8 +147,8 @@ class AM_loss_model:
                 :param num: Número que identifica cada corona de álabes, comenzando por 0.
                 :param tau_2_seed: Valor que se obtuvo en este método en cálculos previos. """
 
-        alfap_1 = self.cfg.geom['alfap_i_est'][num//2] if num % 2 == 0 else self.cfg.geom['alfap_i_rot'][num//2]
-        alfap_2 = self.cfg.geom['alfap_o_est'][num//2] if num % 2 == 0 else self.cfg.geom['alfap_o_rot'][num//2]
+        alfap_1 = self.cfg.geom['alfap_i_est'][num // 2] if num % 2 == 0 else self.cfg.geom['alfap_i_rot'][num // 2]
+        alfap_2 = self.cfg.geom['alfap_o_est'][num // 2] if num % 2 == 0 else self.cfg.geom['alfap_o_rot'][num // 2]
         alfap_1, alfap_2, d_tol = degrees(alfap_1), degrees(alfap_2), 0.001
 
         if tau_2_seed is None:

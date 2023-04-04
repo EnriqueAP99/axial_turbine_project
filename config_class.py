@@ -4,22 +4,24 @@ que se emplearán en el cálculo. Se emplea un módulo aparte para esta clase pa
 se va a almacenar información que será necesaria en varios módulos. Además, también se crea una clase que facilita
 el intercambio del módulo "gas_modeling.py" por otro.
 """
+
 import logging  # https://docs.python.org/es/3/howto/logging.html
 from gas_modeling import mixpm
 import sys
 from math import pi, radians, cos, tan
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
-@dataclass(kw_only=True, frozen=True)
+@dataclass(frozen=True)
 class config_param:
     """ Objeto que agrupa los parámetros necesarios para configurar la ejecución del solver. """
+
     TOL: float  # Máximo error relativo que se tolera en los cálculos iterativos
     n_steps: int  # Número de escalonamientos que se definen
     fast_mode: bool  # Limitar cálculos y determinar temperatura, presión y velocidad a la salida
     loss_model: str  # Cadena identificador del modelo de pérdidas establecido
-    geom: dict = field(default_factory=dict)  # Diccionario para almacenar parámetros geométricos de la turbina
-    ideal_gas: bool = True  # True cuando se establece hipótesis de gas ideal
+    ideal_gas: bool  # True cuando se establece hipótesis de gas ideal
+    geom: dict = None  # Diccionario para almacenar parámetros geométricos de la turbina
 
     def __post_init__(self):
         if self.loss_model not in ['soderberg_correlation', 'ainley_and_mathieson']:
@@ -58,6 +60,7 @@ class config_param:
                                K (parámetro para el hueco libre de Ainley and Mathieson), s (paso, distancia
                                tangencial entre álabes).
                         :return: No se devuelve nada. """
+
         ns, geom = self.n_steps, dict()
         local_dict1 = {'alfap_i_est': B_A_est, 'alfap_i_rot': B_A_rot}
 
@@ -134,7 +137,7 @@ class gas_model_to_solver:
     C_atoms: float | int = 12.0  # Átomos de carbono en cada átomo de hidrocarburo en los reactivos.
     H_atoms: float | int = 23.5  # Átomos de hidrógeno en cada átomo de hidrocarburo en los reactivos.
     air_excess: float | int = 4  # Exceso de aire considerado en el ajuste estequiométrico de la combustión completa.
-    _memory: list = field(default_factory=list)
+    _memory: list = None
     _gamma: float = None
 
     def __post_init__(self):
@@ -165,7 +168,7 @@ class gas_model_to_solver:
         return sound_speed
 
     def get_gamma(self, T: float, p: float):
-        if self._gamma is None:
+        if self._gamma is None and self._memory is None:
             _, _, self._gamma = self.gas_model.get_coeffs(T, p)
         elif T == self._memory[0] and p == self._memory[1]:
             pass

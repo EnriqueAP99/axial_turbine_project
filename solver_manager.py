@@ -1,8 +1,8 @@
 """
-Se almacenan y procesan los datos haciendo uso de las librerías Shelve y Pandas.
+Se almacenan y procesan los datos haciendo uso de las librerías Pickle y Pandas.
 """
 
-import shelve
+import pickle
 from axial_turb_solver import *
 import pandas as pd
 
@@ -37,88 +37,36 @@ tpl_s_units, tpl_t_units = tuple(s_units.split(',')), tuple(t_units.split(','))
 # https://www.freecodecamp.org/news/with-open-in-python-with-statement-syntax-example/ (funcionamiento de with open as)
 # https://docs.python.org/es/dev/library/dbm.html#dbm.open (flag keyword)
 def solver_data_saver(file: str, process_object: solver_process) -> None:
-    """ Se almacena la información necesaria para hacer posible restablecer la situación del programa en la siguiente
+    """ Se almacena la información necesaria para poder restablecer la situación del programa en la siguiente
     ejecución.
             :param file: Nombre de los archivos .db generados.
-            :param process_object: Objeto solucionador (Solver).
+            :param process_object: Objeto proceso (Solver).
                     :return: No se devuelve nada. """
-    total_vars = process_object.vmmr
 
-    with shelve.open(file, flag='c') as data:
+    prd = process_object.prd
+    product_attr = {'tm': prd.thermo_mode, 'tol': prd.rel_error,
+                    'C': prd.C_atoms, 'H': prd.H_atoms, 'N': prd.air_excess}
+    process_object.prd = None   # Esto se hace así para evitar un error que surge
 
-        cfg, prd = process_object.cfg, process_object.prd
-        tol, ns, lm, ig, fm = cfg.TOL, cfg.n_steps, cfg.loss_model, cfg.ideal_gas, cfg.fast_mode
-        c, h, n, tm = prd.C_atoms, prd.H_atoms, prd.air_excess, prd.thermo_mode
-        rho_sd = process_object.rho_seed
+    with open(file, 'wb') as solver_pickle:
+        pickle.dump(process_object, solver_pickle)
+        pickle.dump(product_attr, solver_pickle)
 
-        if lm == 'ainley_and_mathieson':
-            tau2_ypmin_seed = process_object.AM_object.tau2_ypmin_seed
-            for n, tau2 in enumerate(tau2_ypmin_seed):
-                data[f'tau2_ypmin_seed_{n}'] = tau2_ypmin_seed[n]
-
-        status_dict = {'tol': tol, 'n_step': ns, 'loss_model': lm, 'C_atoms': c, 'H_atoms': h, 'air_excess': n,
-                       'ideal_gas': ig, 'rho_seed': rho_sd, 'geom': cfg.geom, 'thermo_mode': tm, 'fast_mode': fm}
-
-        for key in status_dict:
-            data[key] = status_dict[key]
-
-        if not fm:
-            for i in range(ns):
-                for n, item in enumerate(tpl_s_keys):
-                    data[item + f'step{i + 1}'] = total_vars[i][n]
-                    # Se añade la cadena al final para no repetir la misma clave.
-
-        for n, item in enumerate(tpl_t_keys):
-            data[item] = total_vars[ns][n]
-
-        return
+    return
 
 
 def solver_data_reader(file: str) -> solver_process:
-    """ Se restablece el estado del programa en la ejecución en que fue ejecutada la función 'solver_data_saver',
+    """ Se restablece el estado del programa en la ejecución en que fue efectuada la función 'solver_data_saver',
     reestableciendo la configuración y el estado del solver.
             :param file: Nombre de los archivos generados.
                     :return: Se devuelve el solver ya configurado. """
 
-    with shelve.open(file, flag='r') as data:
+    with open(file, 'rb') as obj_pickle:
+        solver_obj: solver_process = pickle.load(obj_pickle)
+        prd_attr = pickle.load(obj_pickle)
 
-        cfg_args = ('tol', 'n_step', 'loss_model', 'ideal_gas')
-        args = list()
-        for v, var in enumerate(cfg_args):
-            args.append(data[cfg_args[v]])
-        args.insert(2, False)
-        cfg = config_param(*args)
-        geom = data['geom']
-        cfg.__setattr__('geom', geom)
-
-        gm_args = ('thermo_mode', 'rel_error', 'C_atoms', 'H_atoms', 'air_excesss')
-        args = list()
-        for v, var in enumerate(gm_args):
-            args.append(data[gm_args[v]])
-        gas_model = gas_model_to_solver()
-
-        if cfg.loss_model == 'ainley_and_mathieson':
-            tau2_ypmin_seed = list()
-            for n in range(2*cfg.n_steps):
-                tau2_ypmin_seed.append(data[f'tau2_ypmin_seed_{n}'])
-
-        solver_obj = solver_process(cfg, gas_model, tau2_ypmin_seed)
-        solver_obj.rho_seed = data['rho_seed']
-
-        if not cfg.fast_mode:
-            local_list = list()
-
-            for i in range(solver_obj.cfg.n_steps):
-                sub_local_list = list()
-                for item in tpl_s_keys:
-                    sub_local_list.append(data[item + f'step{i + 1}'])
-                local_list.append(sub_local_list)
-            solver_obj.vmmr = local_list
-
-            local_list = list()
-            for n, item in enumerate(tpl_t_keys):
-                local_list.append(data[item])
-            solver_obj.vmmr.append(local_list)
+    solver_obj.prd = gas_model_to_solver(thermo_mode=prd_attr['tm'], rel_error=prd_attr['tol'],
+                                         C_atoms=prd_attr['C'], H_atoms=prd_attr['H'], air_excess=prd_attr['N'])
 
     return solver_obj
 
@@ -243,22 +191,23 @@ def main(fast_mode, action):
             print(' T_out', T_salida, '\n', 'P_out', p_salida, '\n', 'C_out', C_salida, '\n', 'alfa_out', alfa_salida)
         else:
             solver.problem_solver(T_in=1800, p_in=1_200_000, n=6_500, m_dot=7.0)
-            solver_data_saver('file', solver)
+            solver_data_saver('process_object.pkl', solver)
 
     elif action == 'r':
-        solver = solver_data_reader('file')
+        solver = solver_data_reader('process_object.pkl')
         problem_data_viewer(solver)
 
-    elif action == 'rwv':  # Se usan semillas de la ejecución anterior. Se leen, se guardan y se visualizan los datos.
-        solver = solver_data_reader('file')
+    elif action == 'wr':
+        # Se usan semillas de la ejecución anterior. Se leen, se guardan y se visualizan los datos.
+        solver = solver_data_reader('process_object.pkl')
         solver.cfg.set_geometry(B_A_est=[0, 39], theta_est=[70, 90], B_A_rot=[35, 52], theta_rot=[100, 90],
                                 cuerda=0.03, radio_medio=0.3, H=[0.009, 0.016, 0.026, 0.0300, 0.0380],
                                 A_rel=0.75, t_max=0.008, r_r=0.003, r_c=0.002, t_e=0.004, K=0.0)
 
         solver.problem_solver(1800, 1_200_000, 6_500, m_dot=7.0)
-        solver_data_saver('file', solver)
+        solver_data_saver('process_object.pkl', solver)
         problem_data_viewer(solver)
 
 
 if __name__ == '__main__':
-    main(fast_mode=False, action='w')
+    main(fast_mode=False, action='wr')
