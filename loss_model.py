@@ -3,7 +3,7 @@ En este módulo se caracteriza el modelo de pérdidas que se va a emplear en el 
 calcula el número de Reynolds.
 """
 from config_class import logger, gas_model_to_solver, config_param
-from math import cos, fabs, atan, tan, radians, degrees, pi
+from math import cos, fabs, atan, tan, radians, degrees
 from scipy.interpolate import InterpolatedUnivariateSpline
 import numpy as np
 # https://medium.com/@hdezfloresmiguelangel/introducci%C3%B3n-a-la-interpolaci%C3%B3n-unidimensional-con-python-1127abe510a1
@@ -57,7 +57,7 @@ class AM_loss_model:
     interpolando con cada llamada al módulo actual, sino que se llamará a una instancia del objeto que se inicializó
     durante la configuración del solver."""
 
-    def __init__(self, cfg: config_param, tau_2_seed: list = None):
+    def __init__(self, cfg: config_param, tau_2_seed: list = None, e_method=False):
         """ :param cfg: Argumento necesario para tener acceso a los parámetros geométricos que contiene dicho objeto."""
 
         self.cfg = cfg
@@ -68,6 +68,7 @@ class AM_loss_model:
         self.Yp_preiter = list()
         self.Y_t_preiter = list()
         self.Y_t_rotor_iter_mode = float()
+        self.limit_mssg = False
 
         def x_sp(x_list):
             return np.linspace(x_list[0], x_list[-1])
@@ -128,17 +129,25 @@ class AM_loss_model:
             self.yp_s_c_b1kb2k[i] += [v]
         i_f, yp_f = [-4.1, -3.0, -2.0, -1.0, 0.05, 1.0, 1.7], [6.4, 4.3, 2.75, 1.6, 1.0, 2.1, 6.1]
         self.yp_f_i_f = [x_sp(i_f), f_sp(i_f, yp_f, 2)]
-        y_f, d_a2 = [1.0, 2.2], [0.0, 2.4]
+        y_f, d_a2 = [1.0, 2.2], [0.0, -2.4]
         self.d_a2_yp_f = [x_sp(y_f), f_sp(y_f, d_a2, 1)]
         x, lambdav = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5], [0.0055, 0.0063, 0.0087, 0.0130, 0.0192, 0.0276]
         self.sec_losses = [x_sp(x), f_sp(x, lambdav, 3)]
 
-        logger.info('Cáculo preliminar para el modelo de pérdidas "Ainley and Mathieson"')
-        for crown_num in range(self.cfg.n_steps * 2):
-            self.Yp_min_calculator(crown_num, tau_2_seed[crown_num] if tau_2_seed is not None else None)
-        if self.tau2_ypmin_seed is None:
-            self.tau2_ypmin_seed = self.tau2_ypmin
-            # Se mantiene duplicidad para reevaluar los mínimos con la semilla y asegurar la solución correcta
+        for num, cuerda in enumerate(self.cfg.geom['b']):
+            solidez = cuerda / self.cfg.geom['s'][num]
+            if solidez < 0.3 or solidez > 1:
+                logger.warning('El %s del escalonamiento %s no cumple el criterio de solidez que requiere el modelo AM'
+                               '. El valor es %.2f y los límites [0.3, 1].',
+                               'estátor' if bool((num+1) % 2) else 'rótor', (num//2)+1, solidez)
+
+        if not e_method:
+            logger.info('Cáculo preliminar para el modelo de pérdidas "Ainley and Mathieson".')
+            for crown_num in range(self.cfg.n_steps * 2):
+                self.Yp_min_calculator(crown_num, tau_2_seed[crown_num] if tau_2_seed is not None else None)
+            if self.tau2_ypmin_seed is None:
+                self.tau2_ypmin_seed = self.tau2_ypmin
+                # Se mantiene duplicidad para diferenciar soluciones de semillas por simplicidad.
 
     def Yp_min_calculator(self, num, tau_2_seed=None):
         """ Se determina el valor de tau_2 que hace mínimo Yp siendo nula la incidencia. Se almacenan el valor mínimo
@@ -149,7 +158,7 @@ class AM_loss_model:
 
         alfap_1 = self.cfg.geom['alfap_i_est'][num // 2] if num % 2 == 0 else self.cfg.geom['alfap_i_rot'][num // 2]
         alfap_2 = self.cfg.geom['alfap_o_est'][num // 2] if num % 2 == 0 else self.cfg.geom['alfap_o_rot'][num // 2]
-        alfap_1, alfap_2, d_tol = degrees(alfap_1), degrees(alfap_2), 0.001
+        alfap_1, alfap_2, d_tol = degrees(alfap_1), degrees(alfap_2), 0.0001
 
         if tau_2_seed is None:
             tau_2n, tau_2nc = [alfap_2, (alfap_2 * (1 + d_tol))] if \
@@ -185,6 +194,7 @@ class AM_loss_model:
                     tau_2n -= tau_2n * d_tol
                     tau_2nc -= tau_2nc * d_tol
                     if Yp_n < Yp_i0_a2:
+                        print(Yp_i0_a2)
                         Yp_n = Yp_i0_a2
                         tau_2n = alfap_2
                         break
@@ -216,6 +226,7 @@ class AM_loss_model:
                                      el valor de la función generada por splines a partir de los valores de las
                                      funciones originales evaluadas en 'x' frente a los ángulos que corresponden a cada
                                      función original. """
+
             serie_a2 = [a2 for _, _, a2 in series]
             serie_y = [float(funcion(x)) for _, funcion, _ in series]
             f_a2 = InterpolatedUnivariateSpline(list(reversed(serie_a2)), list(reversed(serie_y)), k=2)
@@ -227,22 +238,45 @@ class AM_loss_model:
 
         a2_a2sc075 = self.alfa2rel_s_c[1](s / b)
         alpha_2_sc075 = tau_2 / a2_a2sc075
+        if self.limit_mssg:
+            if -alfap_1 / alpha_2_sc075 < -1.1 or -alfap_1 / alpha_2_sc075 > 1:
+                logger.warning('La relación B.A. - Ángulo de salida (s/c=0.75) sobrepasa los límites válidos. '
+                               'El valor es %.2f y los límites son [-1.1, 1].', -alfap_1 / alpha_2_sc075)
+                self.limit_mssg = False
+
         is_sc075 = interp_series_a2(alpha_2_sc075, alfap_1 / alpha_2_sc075, self.is_b1a2_sc_075)
         delta_is = interp_series_a2(tau_2, s / b, self.d_i_s_s_c)
         i_s = delta_is + is_sc075
         i_is = (tau_1 - alfap_1) / i_s
+
+        if self.limit_mssg:
+            if i_is > 1.7 or i_is < -4.1:
+                logger.warning('La relación entre la incidencia y la incidencia de desprendimiento sobrepasa los '
+                               'límites de validez del ajuste. El valor es %.3f y los límites son [-4.1, 1.7]', i_is)
+                self.limit_mssg = False
+
         yp_f = self.yp_f_i_f[1](i_is)
         Yp_i0_b1kn = interp_series_a2(tau_2, s / b, self.yp_s_c_b1kn)
         Yp_i0_b1kb2k = interp_series_a2(tau_2, s / b, self.yp_s_c_b1kb2k)
 
         t_max_b = t_max / b
+
         if t_max_b < 0.15:
+            if self.limit_mssg:
+                logger.warning('La relación espesor-cuerda es demasiado baja, se ha corregido el valor.')
+                self.limit_mssg = False
             t_max_b = 0.15
+
         elif t_max_b > 0.25:
+            if self.limit_mssg:
+                logger.warning('La relación espesor-cuerda es demasiado alta, se ha corregido el valor.')
+                self.limit_mssg = False
             t_max_b = 0.25
+
         Yp_i0 = (Yp_i0_b1kn + (((alfap_1 / tau_2) ** 2) * (Yp_i0_b1kb2k - Yp_i0_b1kn))) * ((t_max_b / 0.2) **
                                                                                            (alfap_1 / tau_2))
         Yp = Yp_i0*yp_f
+
         return fabs(Yp)
 
     def Ainley_and_Mathieson_Loss_Model(self, num: int, tau_1: float, step_iter_mode=False,
@@ -256,21 +290,17 @@ class AM_loss_model:
                         :return: Se devuelve Y_total y tau_2, excepto cuando step_iter_mode, en dicho caso Y_total es
                                 conocido y solo se devuelve tau_2, en ambos casos en radianes. """
 
+        def tau2_lim_verificator():
+            if tau_2 > radians(70) or tau_2 < radians(30):
+                logger.warning('El ángulo de salida relativo excede los límites de validez del ajuste.')
+
         self.crown_num, geom, tol = num, self.cfg.geom, self.cfg.TOL
-        d_tol = 180*tol/pi
 
         alfap_1 = degrees(geom['alfap_i_est'][num//2] if num % 2 == 0 else geom['alfap_i_rot'][num//2])
         alfap_2 = degrees(geom['alfap_o_est'][num//2] if num % 2 == 0 else geom['alfap_o_rot'][num//2])
 
-        if tau_1 < alfap_1*(1 - d_tol):
-            logger.warning('Incidencia: %.2f°    tau_in: %.2f°   Ángulo del B.A.: %.2f°',
-                           tau_1 - alfap_1, tau_1, alfap_1)
-        elif tau_1 - alfap_1 > 15:
-            logger.warning('Incidencia: %.2f°    tau_in: %.2f°   Ángulo del B.A.: %.2f°',
-                           tau_1 - alfap_1, tau_1, alfap_1)
-        else:
-            logger.info('Incidencia: %.2f°    tau_in: %.2f°       Ángulo del B.A.: %.2f°',
-                        tau_1 - alfap_1, tau_1, alfap_1)
+        logger.info('Incidencia: %.2f°    tau_in: %.2f°       Ángulo del B.A.: %.2f°',
+                    tau_1 - alfap_1, tau_1, alfap_1)
 
         lista_local = [geom[i][num] for i in ['areas', 's', 'K', 't_max', 'H', 'r_r', 'r_c', 'b', 't_e']]
         A_1, s, K_i, t_max, H, r_r, r_c, b, t_e = lista_local
@@ -279,11 +309,12 @@ class AM_loss_model:
         if not step_iter_mode:
             tau_diff = tau_2_iter = tau_2 = alfap_2
             Yp = 0.0
-
+            self.limit_mssg = True
             while fabs(tau_diff / alfap_2) > tol:
                 Yp = self.AM_loss_model_operations(tau_1, tau_2_iter)
-                d_tau_2 = self.d_a2_yp_f[1](Yp / self.Yp_min[num]) if Yp/self.Yp_min[num] < 2.2 else 2.4
+                d_tau_2 = self.d_a2_yp_f[1](Yp / self.Yp_min[num])
                 tau_2 = d_tau_2 + self.tau2_ypmin[num]
+                # añadir aquí corrección por Reynolds de alfa_2
                 tau_diff = tau_2 - tau_2_iter
                 tau_2_iter = tau_2
 
@@ -316,14 +347,16 @@ class AM_loss_model:
                         self.tau2_ypmin[num], self.Yp_min[num])
             logger.info('Pérdidas:           Y_total: %.4f                Yp: %.4f   ', Y_total, Yp)
 
+            tau2_lim_verificator()
             return Y_total, tau_2
 
         else:
             if not bool(num % 2):
                 Yp = (Y_total / self.Y_t_preiter[num]) * self.Yp_preiter[num]
 
-                d_tau_2 = self.d_a2_yp_f[1](Yp / self.Yp_min[num]) if Yp/self.Yp_min[num] < 2.2 else 2.4
+                d_tau_2 = self.d_a2_yp_f[1](Yp / self.Yp_min[num])
                 tau_2 = d_tau_2 + self.tau2_ypmin[num]
+                # añadir aquí corrección por Reynolds de alfa_2
                 tau_2 = radians(tau_2)
 
                 self.Y_t_rotor_iter_mode = Y_total
@@ -331,6 +364,7 @@ class AM_loss_model:
                 logger.info('El factor de corrección que se aplica sobre las pérdidas adimensionales de presión en '
                             'ambas coronas del escalonamiento %s es: %.3f', 1+(num//2), Y_total / self.Y_t_preiter[num])
 
+                tau2_lim_verificator()
                 return tau_2
 
             else:
@@ -340,8 +374,10 @@ class AM_loss_model:
 
                 d_tau_2 = self.d_a2_yp_f[1](Yp / self.Yp_min[num])
                 tau_2 = d_tau_2 + self.tau2_ypmin[num]
+                # añadir aquí corrección por Reynolds
                 tau_2 = radians(tau_2)
 
                 self.Y_t_rotor_iter_mode = Y_total
 
+                tau2_lim_verificator()
                 return Y_total, tau_2

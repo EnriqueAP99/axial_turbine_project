@@ -7,6 +7,7 @@ from axial_turb_solver import *
 import pandas as pd
 
 # https://conocepython.blogspot.com/2019/05/ (este es interesante)
+# https://www.youtube.com/watch?v=eWrTSBIQess (tutorial de Pickle útil)
 # http://josearcosaneas.github.io/python/serializaci%C3%B3n/persistencia/2016/12/26/serializacion-persistencia.html
 
 s_keys = 'T_3, p_3, rho_3, s_3, h_3, h0_3, C_3, alfa_3, Cx_3, Cu_3, T0_3, p0_3, h_r3, h_3s, T_3s, omega_3, omegax_3, ' \
@@ -175,20 +176,20 @@ def main(fast_mode, action):
         settings = config_param(TOL=1E-9, n_steps=2, ideal_gas=True, fast_mode=fast_mode,
                                 loss_model='ainley_and_mathieson')
 
-        settings.set_geometry(B_A_est=[0, 39], theta_est=[70, 90], B_A_rot=[35, 52], theta_rot=[100, 90],
-                              cuerda=0.03, radio_medio=0.3, H=[0.009, 0.016, 0.026, 0.0300, 0.0380],
-                              A_rel=0.75, t_max=0.008, r_r=0.003, r_c=0.002, t_e=0.004, K=0.0)
+        settings.set_geometry(B_A_est=[0, 5], theta_est=[70, 75], B_A_rot=[65, 65], theta_rot=[105, 105],
+                              cuerda=0.03, radio_medio=0.30, H=[0.030, 0.035, 0.041, 0.048, 0.052],
+                              A_rel=0.75, t_max=0.006, r_r=0.003, r_c=0.002, t_e=0.004, K=0.00)
 
         gas_model = gas_model_to_solver(thermo_mode="ig", rel_error=1E-9)
 
         solver = solver_process(settings, gas_model)
 
         if fast_mode:
-            output = solver.problem_solver(T_in=1800, p_in=1_200_000, n=6_500, m_dot=7.0)
+            output = solver.problem_solver(T_in=1800, p_in=1_000_000, n=5_000, m_dot=18.0)
             T_salida, p_salida, C_salida, alfa_salida = output
             print(' T_out', T_salida, '\n', 'P_out', p_salida, '\n', 'C_out', C_salida, '\n', 'alfa_out', alfa_salida)
         else:
-            solver.problem_solver(T_in=1800, p_in=1_200_000, n=6_500, m_dot=7.0)
+            solver.problem_solver(T_in=1800, p_in=1_000_000, n=5_000, m_dot=18.0)
             solver_data_saver('process_object.pkl', solver)
 
     elif action == 'r':
@@ -198,14 +199,14 @@ def main(fast_mode, action):
     elif action == 'wr':
         # Se usan semillas de la ejecución anterior. Se leen, se guardan y se visualizan los datos.
         solver = solver_data_reader('process_object.pkl')
-        solver.cfg.set_geometry(B_A_est=[0, 39], theta_est=[70, 90], B_A_rot=[35, 52], theta_rot=[100, 90],
-                                cuerda=0.03, radio_medio=0.3, H=[0.009, 0.016, 0.026, 0.0300, 0.0380],
-                                A_rel=0.75, t_max=0.008, r_r=0.003, r_c=0.002, t_e=0.004, K=0.0)
+        solver.cfg.set_geometry(B_A_est=[0, 5], theta_est=[70, 75], B_A_rot=[65, 65], theta_rot=[105, 105],
+                                cuerda=0.03, radio_medio=0.30, H=[0.030, 0.035, 0.041, 0.048, 0.052],
+                                A_rel=0.75, t_max=0.006, r_r=0.003, r_c=0.002, t_e=0.004, K=0.00)
 
-        solver.problem_solver(1800, 1_200_000, 6_500, m_dot=7.0)
+        solver.problem_solver(T_in=1800, p_in=1_000_000, n=5_000, m_dot=18.0)
         solver_data_saver('process_object.pkl', solver)
         problem_data_viewer(solver)
 
 
 if __name__ == '__main__':
-    main(fast_mode=False, action='wr')
+    main(fast_mode=False, action='w')

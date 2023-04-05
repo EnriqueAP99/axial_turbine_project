@@ -6,7 +6,7 @@ from time import time
 from loss_model import *
 from config_class import gas_model_to_solver
 import sys
-from math import cos, sin, fabs, sqrt, atan, asin, acos, log, degrees
+from math import cos, sin, fabs, sqrt, atan, asin, acos, log, degrees, pi
 
 
 def solver_timer(solver_method):
@@ -126,14 +126,14 @@ class solver_process:
         self.vmmr = []  # Almacena ciertas variables, para facilitar la comunicación de sus valores
         self.cfg = config
         self.rho_seed = None   # Para aligerar los cálculos para variaciones pequeñas de las variables de entrada
-        self.prd = productos  # Modela las termodinámicamente los productos de la combustión
+        self.prd = productos  # Modela el comportamiento termodinámico de los productos de la combustión
         self.AM_object = None
 
         if config.loss_model == 'ainley_and_mathieson':
-            if AM_seed is None:
-                self.AM_object = AM_loss_model(config)
-            else:
-                self.AM_object = AM_loss_model(config, AM_seed)
+            using_e_method_for_alfa_out = True  # Método empleado en calcular alfa_out según si se proporciona 'e'.
+            if 'e' not in self.cfg.geom:
+                using_e_method_for_alfa_out = False
+            self.AM_object = AM_loss_model(config, tau_2_seed=AM_seed, e_method=using_e_method_for_alfa_out)
 
     def problem_solver(self, T_in: float, p_in: float, n: float, C_inx=None, m_dot=None):
         """Esta función inicia la resolución del problema definido por la geometría configurada y las variables
@@ -420,6 +420,8 @@ class solver_process:
                     :return: Se devuelven las variables que contienen las propiedades a la salida que se han
                     determinado (p_b, h_b, T_b, U_b, rho_b, h_bs, T_bs, C_bx). """
 
+        if self.cfg.loss_model == 'ainley_and_mathieson':
+            self.AM_object.limit_mssg = True
         rho_b = rho_bp = rho_outer_seed
         M_b = h_b = U_b = h_bs = C_bx = tau_b = Y_total = 0.0
         rel_diff, tol, geom = 1.0, self.cfg.TOL, self.cfg.geom

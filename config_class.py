@@ -37,7 +37,7 @@ class config_param:
         cada álabe. Algunos parámetros siguen el mismo razonamiento de alternancia, por cuestión de flexibilidad.\n
 
         Los parámetros pueden indicarse en forma de lista o en forma de un único número, entero o de coma flotante, en
-        el caso de que este se repita para cada escalonamiento.\n
+        el caso de que se repita para cada escalonamiento.\n
 
         Usar sistema internacional excepto para los ángulos, que se deben indicar en grados sexagecimales.
 
@@ -57,8 +57,8 @@ class config_param:
                                Las claves son: Rm (radio medio), H (alturas), areas,
                                A_rel (relacion área álabes - área total), t_max (espesor máximo de un álabe),
                                r_r (radio raiz), r_c (radio cabeza), t_e (espesor del borde de salida),
-                               K (parámetro para el hueco libre de Ainley and Mathieson), s (paso, distancia
-                               tangencial entre álabes).
+                               K (parámetro para el hueco libre de Ainley and Mathieson), s (paso, distancia entre
+                               álabes de la misma corona).
                         :return: No se devuelve nada. """
 
         ns, geom = self.n_steps, dict()
@@ -84,13 +84,13 @@ class config_param:
         ld_list = [local_dict1, local_dict2]
         for index, ld in enumerate(ld_list):
             for i, v in ld.items():
-                if not isinstance(v, int) and not isinstance(v, float):
+                if not isinstance(v, (int, float)):
                     if index == 0:
                         v = [radians(elem) for elem in v]
                     geom[i] = tuple(v)
                 else:
                     geom[i] = []
-                    for _ in range(ns if index == 0 else ns*2):
+                    for _ in range(ns if index == 0 else ns * 2):
                         geom[i] += [radians(v) if index == 0 else v]
                     geom[i] = tuple(geom[i])
 
@@ -98,16 +98,16 @@ class config_param:
         for i1, i2 in [['areas', 'H'], ['H', 'areas']]:
             if i1 not in kwargs:
                 geom[i1] = list()
-                geom[i2] = kwargs[i2]
+                geom[i2] = tuple(kwargs[i2])
                 for num, v2 in enumerate(geom[i2]):
                     num2 = num - 1 if num > 0 else 0
                     geom[i1].append(2 * pi * Rm[num2] * v2 if (i1 == 'areas') else v2 / (2 * pi * Rm[num2]))
                 geom[i1] = tuple(geom[i1])
 
-        for num, h in enumerate(geom['H']):  # h: 0 1 2 3 4 ... Rm: 0 0 1 2 3
+        for num, h in enumerate(geom['H']):   # h: 0 1 2 3 4 ... Rm: 0 0 1 2 3
             num2 = num - 1 if num > 0 else 0
-            if h/(2*Rm[num2]) > 0.3:
-                logging.warning('No se verifica la hipótesis de bidimensionalidad.')
+            if (2*Rm[num2]-h)/(2*Rm[num2]-h) > 1.4:
+                logging.critical('No se verifica la hipótesis de bidimensionalidad.')
                 sys.exit()
 
         if s == 0.0:
@@ -158,12 +158,12 @@ class gas_model_to_solver:
             output_value = self.gas_model.get_props_by_Tpd(known_props, req_prop)
         return output_value
 
-    def get_din_visc(self, T: float):
+    def get_din_visc(self, T: float):   # Se emplea solo en el cálculo del número de Reynolds.
         din_visc = self.gas_model.Wilke_visc_calculator(T)
         return din_visc
 
     def get_sound_speed(self, T: float, p: float):
-        self._gamma, _, _, sound_speed = self.gas_model.get_a(T, p, extra=True)
+        sound_speed, _, _, self._gamma = self.gas_model.get_a(T, p, extra=True)
         self._memory = [T, p].copy()
         return sound_speed
 
