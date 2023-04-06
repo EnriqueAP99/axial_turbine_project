@@ -1,5 +1,9 @@
 # This file may be used to create an environment using:
 # $ conda create --name <env> --file <this file>
+# After that it is needed to run these comands:
+# $ conda install git
+# $ conda install pip
+# $ pip install git+https://github.com/chmarti1/PYroMat
 # platform: win-64
 @EXPLICIT
 https://repo.anaconda.com/pkgs/main/win-64/blas-1.0-mkl.conda
