@@ -1,1 +1,1 @@
-Guardar archivos en la dirección C:\Users\Usuario
+Guardar archivo yml en la dirección C:\Users\Usuario
