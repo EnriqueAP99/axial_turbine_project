@@ -156,6 +156,8 @@ class solver_object:
         self.prd = productos  # Modela el comportamiento termodinámico de los productos de la combustión
         self.AM_object = None
         self.inputs_props = None  # Se emplea como valor de referencia en las primeras semillas.
+        self.step_iter_mode = False
+        self.step_iter_end = False
         self.Re_corrector_counter = 0  # Contador del número de llamadas efectuadas durante la corrección por Re.
         self.step_counter = 0  # Número empleado para iterar por cada escalonamiento comenzando por 0.
         self.corrector_seed = None
@@ -294,6 +296,8 @@ class solver_object:
                             :return: Se devuelven diferentes variables que se requieren según la situación."""
 
             count = self.step_counter
+            self.step_iter_mode = iter_mode
+            self.step_iter_end = iter_end
 
             if rho_seed is None:
                 if self.rho_seed is not None and len(self.rho_seed) == self.cfg.n_steps:
@@ -309,7 +313,7 @@ class solver_object:
 
             eta_TT = Re_in = Re_out = Re = None
 
-            if not iter_mode:
+            if not iter_mode and not iter_end:
                 s, H = self.cfg.geom['s'][count*2], self.cfg.geom['H'][count*2]
                 Re_in = Reynolds(rho_1, C_1, T_1, s, H, self.cfg.geom['alfap_o_est'][count], self.prd)
             else:
@@ -331,13 +335,13 @@ class solver_object:
 
             h_02 = h_01
 
-            if not iter_mode:
+            if not iter_mode and not iter_end:
                 args = ['est', A_tpl[1], alfa_1, h_02, m_dot, s_1, rho_seed[0]]
-                outputs = self.blade_outlet_calculator(*args, step_iter_mode=iter_mode, Re_in=Re_in)
+                outputs = self.blade_outlet_calculator(*args, Re_in=Re_in)
                 p_2, h_2, T_2, C_2, rho_2, h_2s, T_2s, C_2x, M_2, alfa_2, xi_est, Re_in = outputs
             else:
                 args = ['est', A_tpl[1], alfa_1, h_02, m_dot, s_1, rho_seed[0]]
-                outputs = self.blade_outlet_calculator(*args, step_iter_mode=iter_mode, xi=xi_est)
+                outputs = self.blade_outlet_calculator(*args, xi=xi_est)
                 p_2, h_2, T_2, C_2, rho_2, h_2s, T_2s, C_2x, M_2, alfa_2 = outputs
 
             s_2 = self.prd.get_prop(known_props={'p': p_2, 'T': T_2}, req_prop='s')
@@ -354,9 +358,8 @@ class solver_object:
 
             registro.info(' Se va a calcular la salida del rótor del escalonamiento número %d.     ', count+1)
             h_r3 = h_r2 = h_2 + ((10 ** (-3)) * (omega_2 ** 2) / 2)
-            args = ['rot', A_tpl[2], beta_2, h_r3, m_dot, s_2, rho_seed[1]]
-            outputs = self.blade_outlet_calculator(*args, step_iter_mode=iter_mode)
-            if not iter_mode:
+            outputs = self.blade_outlet_calculator('rot', A_tpl[2], beta_2, h_r3, m_dot, s_2, rho_seed[1])
+            if not iter_mode and not iter_end:
                 p_3, h_3, T_3, omega_3, rho_3, h_3s, T_3s, C_3x, M_3r, beta_3, xi_rot, Re_out = outputs
             else:
                 p_3, h_3, T_3, omega_3, rho_3, h_3s, T_3s, C_3x, M_3r, beta_3, xi_rot = outputs
@@ -375,7 +378,7 @@ class solver_object:
                 registro.error('No se extrae energía del fluido.')
 
             # Media aritmética de Re a la entrada y a la salida recomendada por AM para la corrección.
-            if not iter_mode:
+            if not iter_mode and not iter_end:
                 Re = (Re_in + Re_out)/2
                 registro.debug('Reynolds a la entrada: %d, Reynolds a la salida: %d, Reynolds promedio del '
                                'escalonamiento: %d', Re_in, Re_out, Re)
@@ -449,7 +452,7 @@ class solver_object:
                                  T_3ss, T_03s, T_03ss, h_3ss, h_03s, h_03ss, U]
 
                 # eta_TT se debe enviar siempre que iter_mode para evaluar la condición del decorador
-                if not iter_mode and self.cfg.loss_model == 'ainley_and_mathieson':
+                if not iter_mode and not iter_end and self.cfg.loss_model == 'ainley_and_mathieson':
                     return Re, eta_TT, xi_est, [rho_2, rho_3].copy(), local_list_1.copy()
                 elif self.cfg.loss_model == 'ainley_and_mathieson':
                     return eta_TT, [rho_2, rho_3].copy(), local_list_1.copy()
@@ -457,7 +460,7 @@ class solver_object:
                     return local_list_1.copy()
 
             else:
-                if not iter_mode and self.cfg.loss_model == 'ainley_and_mathieson':
+                if not iter_mode and not iter_end and self.cfg.loss_model == 'ainley_and_mathieson':
                     return Re, eta_TT, xi_est, [rho_2, rho_3].copy(), local_list_1
                 elif self.cfg.loss_model == 'ainley_and_mathieson':
                     return eta_TT, [rho_2, rho_3].copy(), local_list_1
@@ -468,7 +471,7 @@ class solver_object:
         return ll_1
 
     def blade_outlet_calculator(self, blade: str, area_b: float, tau_a: float, h_tb: float, m_dot: float,
-                                s_a: float, rho_outer_seed: float, step_iter_mode=False, xi=0.0, Re_in=0.0):
+                                s_a: float, rho_outer_seed: float, xi=0.0, Re_in=0.0):
         """ Se hace un cálculo iterativo para conocer las propiedades a la salida del estátor y del rótor (según el
         caso, estátor / rótor, se proporciona el valor de la entalpía total / rotalpía y del ángulo que forma la
         velocidad absoluta / relativa del fluido con la dirección del eje de la turbina axial, respectivamente).
@@ -479,8 +482,6 @@ class solver_object:
 
             :param Re_in: Valor del número de Reynolds a la entrada del estátor.
             :param xi: Coeficiente adimensional de pérdidas de la corona en cuestión.
-            :param step_iter_mode: Permite diferenciar si se está aplicando recursividad para la corrección por
-                               dependencia de Reynolds y así conocer las instrucciones más convenientes.
             :param tau_a: Ángulo del movimiento absoluto/relativo de entrada del fluido con la dirección axial
                          (rads).
             :param blade: Diferenciador del tipo de álabe, puede ser 'est' o 'rot'.
@@ -543,7 +544,7 @@ class solver_object:
 
                 M_b = U_b/a_b   # Mach del flujo absoluto o relativo según si estátor o rótor (respectivamente)
 
-                if not step_iter_mode:
+                if not self.step_iter_mode and not self.step_iter_end:
                     if blade == 'est':
                         Re = Re_in
                     else:
@@ -556,12 +557,12 @@ class solver_object:
                 elif self.cfg.loss_model == 'ainley_and_mathieson':
                     tau_b_n = self.AM_object.tau2_corrector(num, M_b)
                     # Se ejecuta el primer bloque a excepción de si es estátor y step_iter_mode.
-                    if not step_iter_mode or blade == 'rot':
-                        args = [num, degrees(tau_a), degrees(tau_b), step_iter_mode]
+                    if (not self.step_iter_mode and not self.step_iter_end) or blade == 'rot':
+                        args = [num, degrees(tau_a), degrees(tau_b), self.step_iter_mode or self.step_iter_end]
                         Y_total = self.AM_object.Ainley_and_Mathieson_Loss_Model(*args)
-                        xi = Y_total/(1 + (0.5*gamma_b*(M_b*M_b)))
+                        xi = Y_total / (1 + (0.5*gamma_b*(M_b*M_b)))
                     else:
-                        Y_total = xi*(1 + (0.5*gamma_b*(M_b*M_b)))
+                        Y_total = xi * (1 + (0.5*gamma_b*(M_b*M_b)))
                         args = [num, degrees(tau_a), degrees(tau_b), True, Y_total]
                         self.AM_object.Ainley_and_Mathieson_Loss_Model(*args)
 
@@ -583,27 +584,30 @@ class solver_object:
             registro.debug('Valor del número de Mach %sa la salida: %.2f',
                            '' if num % 2 == 0 else 'relativo ', M_b)
 
-        if step_iter_mode:
+        if self.step_iter_mode or self.step_iter_end:
             registro.debug('La relación entre el valor actual y el inicial de las pérdidas adimensionales de presión '
                            'en ambas coronas del escalonamiento %s es: %.3f\n  ...   ',
                            1 + (num//2), Y_total / self.AM_object.Y_t_preiter[num])
-
         registro.debug('Incidencia: %.2f°  ...  tau_in: %.2f°  ...  Ángulo del B.A.: %.2f°',
                        degrees(tau_a) - alfap_1, degrees(tau_a), alfap_1)
         registro.debug('Desviación: %.2f°  ...  tau_out: %.2f°  ...  Ángulo del B.S.: %.2f°',
                        degrees(tau_b) - alfap_2, degrees(tau_b), alfap_2)
+        if not self.step_iter_mode and not self.step_iter_end:
+            Yp = self.AM_object.Yp_preiter[num]
+        else:
+            Yp = self.AM_object.Yp_iter_mode
         registro.debug('Pérdidas:  ...  Y_total: %.4f  ...  Yp: %.4f   ',
-                       Y_total, self.AM_object.Yp_preiter[num] if not step_iter_mode else self.AM_object.Yp_iter_mode)
+                       Y_total, Yp)
 
         return_vars = [p_b, h_b, T_b, U_b, rho_b, h_bs, T_bs, C_bx, M_b, tau_b]
 
         if blade == 'est':
-            if not step_iter_mode:
+            if not self.step_iter_mode and not self.step_iter_end:
                 return *return_vars, xi, Re
             else:
                 return return_vars
         else:
-            if not step_iter_mode:
+            if not self.step_iter_mode and not self.step_iter_end:
                 return *return_vars, xi, Re
             else:
                 return *return_vars, xi
