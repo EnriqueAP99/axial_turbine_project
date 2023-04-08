@@ -120,7 +120,7 @@ class config_parameters:
         for num, h in enumerate(geom['H']):   # h: 0 1 2 3 4 ... Rm: 0 0 1 2 3
             num2 = num - 1 if num > 0 else 0
             if (2*Rm[num2]-h)/(2*Rm[num2]-h) > 1.4:
-                logging.critical('No se verifica la hipótesis de bidimensionalidad.')
+                courier.critical('No se verifica la hipótesis de bidimensionalidad.')
                 sys.exit()
 
         if s == 0.0:
