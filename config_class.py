@@ -206,6 +206,7 @@ class gas_model_to_solver:
 # Para omitir estos mensajes, establecer el argumento level en un nivel superior al tipo de mensaje a omitir.
 # https://youtu.be/KSQ4KxCtsf8
 FMT = "[{levelname}]:  ...  {message}  ...  [FILE: {filename}   FUNC: {funcName}   LINE: {lineno}]"
+
 FORMATS = {
     logging.DEBUG: f"\33[36m{FMT}\33[0m",
     logging.INFO: f"\33[92m{FMT}\33[0m",

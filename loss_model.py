@@ -305,7 +305,7 @@ class AM_loss_model:  # Ver paper: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf
             if len(self.Yp_preiter) < self.crown_num + 1:
                 self.Yp_preiter.append(Yp)
             else:
-                self.Yp_preiter[-1] = Yp
+                self.Yp_preiter[num] = Yp
 
             tau_2, tau_1 = radians(tau_2), radians(tau_1)
 
@@ -324,7 +324,7 @@ class AM_loss_model:  # Ver paper: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf
             if len(self.Y_t_preiter) < num + 1:
                 self.Y_t_preiter.append(Y_total)
             else:
-                self.Y_t_preiter[-1] = Y_total
+                self.Y_t_preiter[num] = Y_total
 
             return Y_total
 

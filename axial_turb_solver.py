@@ -56,24 +56,23 @@ def Reynolds_correction(corrector_tol: float, loss_model: str,
                             :return: Se devuelve la lista de variables que corresponda según el modo de
                                     funcionamiento que se defina."""
 
-            # Almacenar solución y comprobar si existe antes de nada y emplearla como semilla.
-
             eta_TT_obj = 1 - (((1-eta_TT) / (200_000**(-1/5))) * (Re**(-1/5)))
+
             if step_corrector_memory is not None:
                 xi_e1 = step_corrector_memory[0]*(1 - corrector_tol)
                 xi_e2 = step_corrector_memory[0]*(1 + corrector_tol)
                 rho_seed_1 = rho_seed_2 = rho_seed_c = step_corrector_memory[1]
             else:
                 xi_e0 = xi_est * (Re**(-1/5)) / (200_000**(-1/5))
-                xi_e1 = xi_e0 * 0.99
-                xi_e2 = xi_e0 * 1.01
+                xi_e1 = xi_e0 * 0.999
+                xi_e2 = xi_e0 * 1.001
                 rho_seed_1 = rho_seed_2 = rho_seed_c = rho_seed
             bolz_c, f1, f2, ff = 1.0, None, None, 1.0
 
             while bolz_c > 0:
                 registro.info('Buscando el rango que garantice encontrar la solución.')
 
-                if f1 is None and f2 is None:
+                if (f1 is None and f2 is None) or step_corrector_memory is not None:
                     sif1 = step_inner_funct(True, False, xi_e1, rho_seed_1)
                     f1, rho_seed_1 = sif1[0] - eta_TT_obj, sif1[1]
                     sif2 = step_inner_funct(True, False, xi_e2, rho_seed_2)
@@ -91,10 +90,13 @@ def Reynolds_correction(corrector_tol: float, loss_model: str,
                 if bolz_c < 0:
                     pass
                 else:
-                    if ff > 0:
-                        xi_e1 = 0.95*xi_e1
+                    if step_corrector_memory is not None:
+                        xi_e1 = (1-corrector_tol) * xi_e1
+                        xi_e2 = (1+corrector_tol) * xi_e2
+                    elif ff > 0:
+                        xi_e1 = 0.9*xi_e1
                     else:
-                        xi_e2 = 1.05*xi_e2
+                        xi_e2 = 1.1*xi_e2
 
             registro.info('Corrección iniciada.')
 
@@ -152,7 +154,7 @@ class solver_object:
 
         self.vmmr = []  # Almacena ciertas variables, para facilitar la comunicación de sus valores
         self.cfg = config  # Objeto que contiene los parámetros de interés para la ejecución del solver.
-        self.rho_seed = None   # Para aligerar los cálculos para variaciones pequeñas de las variables de entrada
+        self.rho_seed_list = None   # Para aligerar los cálculos para variaciones pequeñas de las variables de entrada
         self.prd = productos  # Modela el comportamiento termodinámico de los productos de la combustión
         self.AM_object = None
         self.inputs_props = None  # Se emplea como valor de referencia en las primeras semillas.
@@ -189,6 +191,11 @@ class solver_object:
         def inner_solver() -> None:
 
             nonlocal m_dot, C_inx, ps_list
+
+            self.step_iter_mode = self.step_iter_end = False
+            self.step_counter = 0
+            self.Re_corrector_counter = 0
+
             tol = self.cfg.TOL
             registro.debug('El error relativo establecido en el solver es: %s', tol)
 
@@ -210,8 +217,7 @@ class solver_object:
             for i in range(self.cfg.n_steps):
                 list_i = ps_list[i-1] if i > 0 and not self.cfg.fast_mode else ps_list
                 args = list_i[0], list_i[1], list_i[6], list_i[3], list_i[4], list_i[5], m_dot, n, list_i[2]
-                self.step_counter = 0
-                self.Re_corrector_counter = 0
+
                 if self.cfg.fast_mode:
                     ps_list = self.step_block(*args)
                 else:
@@ -220,6 +226,7 @@ class solver_object:
                     else:
                         ps_list += [self.step_block(*args)]
 
+                self.Re_corrector_counter = 0
                 self.step_counter += 1
 
             if not self.cfg.fast_mode:  # Los subindices A y B indican, resp., los pts. inicio y fin de la turbina.
@@ -284,7 +291,7 @@ class solver_object:
                 corrector_memory = None
 
         @Reynolds_correction(self.cfg.ETA_TOL, self.cfg.loss_model, corrector_memory)
-        def inner_funct(iter_mode=False, iter_end=False, xi_est=0.0, rho_seed=None):
+        def inner_funct(iter_mode=False, iter_end=False, xi_est=None, rho_seed=None):
             """ Esta función interna se crea para poder comunicar al decorador instancias de la clase.
                     :param rho_seed: Densidad que se emplea como valor semilla en bucle_while_x2 (kg/m^3).
                     :param xi_est: Valor opcional que permite al decorador aplicar recursividad para efectuar la
@@ -300,12 +307,12 @@ class solver_object:
             self.step_iter_end = iter_end
 
             if rho_seed is None:
-                if self.rho_seed is not None and len(self.rho_seed) == self.cfg.n_steps:
-                    rho_seed = self.rho_seed[count]
+                if self.rho_seed_list is not None and len(self.rho_seed_list) == self.cfg.n_steps:
+                    rho_seed = self.rho_seed_list[count]
                 else:
                     rho_seed = [rho_1*0.8, rho_1*0.9]
                     if count == 0:
-                        self.rho_seed = []
+                        self.rho_seed_list = []
 
             A_tpl = (self.cfg.geom['areas'][count * 2],
                      self.cfg.geom['areas'][count * 2 + 1],
@@ -385,11 +392,8 @@ class solver_object:
                 if Re < 50_000:
                     registro.warning('El número de Reynolds es demasiado bajo.')
 
-            if len(self.rho_seed) < self.cfg.n_steps:
-                if not iter_mode:
-                    self.rho_seed.append([rho_2, rho_3].copy())
-                elif iter_end:
-                    self.rho_seed[-1] = [rho_2, rho_3].copy()
+            if (len(self.rho_seed_list) < self.cfg.n_steps) and not iter_mode and not iter_end:
+                self.rho_seed_list.append([rho_2, rho_3].copy())
 
             # Se determina en estas líneas el rendimiento total a total para que sea posible aplicar la corrección:
             if self.cfg.loss_model == 'ainley_and_mathieson' and (self.cfg.fast_mode or iter_mode):
@@ -400,8 +404,8 @@ class solver_object:
                 Y_esc = h_03 - h_03ss
                 eta_TT = w_esc / (w_esc + Y_esc)
 
-            if iter_end:
-                self.corrector_seed.append([xi_est, [rho_2, rho_3]])
+            if iter_end and len(self.corrector_seed) < self.cfg.n_steps:
+                self.corrector_seed.append([xi_est, [rho_2, rho_3].copy()])
 
             if not self.cfg.fast_mode and (iter_end or not iter_mode):
                 Y_est = xi_est * ((10 ** (-3)) * (C_2 ** 2) / 2)

@@ -209,4 +209,4 @@ def main(fast_mode, action):
 
 
 if __name__ == '__main__':
-    main(fast_mode=False, action='w')
+    main(fast_mode=False, action='wr')
