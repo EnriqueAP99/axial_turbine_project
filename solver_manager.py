@@ -35,7 +35,7 @@ tpl_s_units, tpl_t_units = tuple(s_units.split(',')), tuple(t_units.split(','))
 
 
 # https://www.freecodecamp.org/news/with-open-in-python-with-statement-syntax-example/ (funcionamiento de with open as)
-def solver_data_saver(file: str, process_object: solver_process) -> None:
+def solver_data_saver(file: str, process_object: solver_object) -> None:
     """ Se almacena la información necesaria para poder restablecer la situación del programa en la siguiente
     ejecución.
             :param file: Nombre de los archivos .db generados.
@@ -54,14 +54,14 @@ def solver_data_saver(file: str, process_object: solver_process) -> None:
     return
 
 
-def solver_data_reader(file: str) -> solver_process:
+def solver_data_reader(file: str) -> solver_object:
     """ Se restablece el estado del programa en la ejecución en que fue efectuada la función 'solver_data_saver',
     reestableciendo la configuración y el estado del solver.
             :param file: Nombre de los archivos generados.
                     :return: Se devuelve el solver ya configurado. """
 
     with open(file, 'rb') as obj_pickle:
-        solver_obj: solver_process = pickle.load(obj_pickle)
+        solver_obj: solver_object = pickle.load(obj_pickle)
         prd_attr = pickle.load(obj_pickle)
 
     solver_obj.prd = gas_model_to_solver(thermo_mode=prd_attr['tm'], rel_error=prd_attr['tol'],
@@ -70,8 +70,8 @@ def solver_data_reader(file: str) -> solver_process:
     return solver_obj
 
 
-def data_to_df(process_object: solver_process, req_vars=None) -> [pd.DataFrame | None, pd.DataFrame | None,
-                                                                  pd.DataFrame | None]:
+def data_to_df(process_object: solver_object, req_vars=None) -> [pd.DataFrame | None, pd.DataFrame | None,
+                                                                 pd.DataFrame | None]:
     """ Se trata la información que se obtiene del solver empleando la librería 'pandas'. Se posibilita modificar el
     contenido almacenado, en caso de que no se especifique se establecen unas por defecto.
             :param process_object: Objeto 'solver'.
@@ -153,7 +153,7 @@ def data_to_df(process_object: solver_process, req_vars=None) -> [pd.DataFrame |
     return df_a, df_b, df_c
 
 
-def problem_data_viewer(solver_object: solver_process, req_vars=None) -> None:
+def problem_data_viewer(solver_object: solver_object, req_vars=None) -> None:
     """ Se visualiza el dataframe generado. """
 
     df_a, df_b, df_c = data_to_df(solver_object, req_vars)
@@ -173,16 +173,16 @@ def problem_data_viewer(solver_object: solver_process, req_vars=None) -> None:
 def main(fast_mode, action):
 
     if action == 'w':
-        settings = config_param(TOL=1E-9, n_steps=2, ideal_gas=True, fast_mode=fast_mode,
-                                loss_model='ainley_and_mathieson')
+        settings = config_parameters(TOL=1E-6, n_steps=2, ideal_gas=True, fast_mode=fast_mode,
+                                     loss_model='ainley_and_mathieson')
 
         settings.set_geometry(B_A_est=[0, 5], theta_est=[70, 75], B_A_rot=[65, 65], theta_rot=[105, 105],
-                              cuerda=0.03, radio_medio=0.30, H=[0.030, 0.035, 0.041, 0.048, 0.052],
-                              A_rel=0.75, t_max=0.006, r_r=0.003, r_c=0.002, t_e=0.004, K=0.00)
+                              cuerda=0.03, radio_medio=0.30, H=[0.030, 0.035, 0.041, 0.048, 0.052], e=0.015, o=0.015,
+                              A_rel=0.75, t_max=0.006, r_r=0.003, r_c=0.002, t_e=0.004, k=0.002, holgura_radial=False)
 
-        gas_model = gas_model_to_solver(thermo_mode="ig", rel_error=1E-9)
+        gas_model = gas_model_to_solver(thermo_mode="ig", rel_error=1E-6)
 
-        solver = solver_process(settings, gas_model)
+        solver = solver_object(settings, gas_model)
 
         if fast_mode:
             output = solver.problem_solver(T_in=1800, p_in=1_000_000, n=5_000, m_dot=18.0)
@@ -200,8 +200,8 @@ def main(fast_mode, action):
         # Se usan semillas de la ejecución anterior. Se leen, se guardan y se visualizan los datos.
         solver = solver_data_reader('process_object.pkl')
         solver.cfg.set_geometry(B_A_est=[0, 5], theta_est=[70, 75], B_A_rot=[65, 65], theta_rot=[105, 105],
-                                cuerda=0.03, radio_medio=0.30, H=[0.030, 0.035, 0.041, 0.048, 0.052],
-                                A_rel=0.75, t_max=0.006, r_r=0.003, r_c=0.002, t_e=0.004, K=0.00)
+                                cuerda=0.03, radio_medio=0.30, H=[0.030, 0.035, 0.041, 0.048, 0.052], e=0.015, o=0.015,
+                                A_rel=0.75, t_max=0.006, r_r=0.003, r_c=0.002, t_e=0.004, k=0.002, holgura_radial=False)
 
         solver.problem_solver(T_in=1800, p_in=1_000_000, n=5_000, m_dot=18.0)
         solver_data_saver('process_object.pkl', solver)

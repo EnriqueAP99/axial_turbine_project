@@ -25,6 +25,7 @@ class mixpm:
     def __init__(self, mode: str):
         """ :param mode: Cadena de caracteres que indica el modo de funcionamiento según si se emplea, o no, modelo de
                          gas ideal en todos los componentes de los productos. Debe ser "ig" o "mp". """
+
         self.xmi = []  # xmi son las fracciones másicas de los componentes
         self.xni = []  # xni son las fracciones molares de los componentes
         self.mode = mode
@@ -88,8 +89,10 @@ class mixpm:
                 :param p: Presión total de los productos (Pa).
                         :return: En el mismo orden: Cp, Cv y gamma. Las unidades de los calores
                                 específicos son kJ/(kg*K). """
+
         self._cpmix = 0.0
         self._cvmix = 0.0
+
         if self.mode == "mp":
             for i, xm in enumerate(self.xmi):  # i = 0, 1, 2, 3
                 if i == 1:  # cp y cv se reciben como kJ/(kg*K)
@@ -102,12 +105,15 @@ class mixpm:
             for i, xm in enumerate(self.xmi):
                 self._cpmix = self._cpmix + xm * self.components[i].cp(T)
                 self._cvmix = self._cvmix + xm * self.components[i].cv(T)
+
         self._gammamix = self._cpmix / self._cvmix
         return [float(self._cpmix), float(self._cvmix), float(self._gammamix)]
 
     def get_a(self, T: float, p=101_300.0, extra=False):  # Este cálculo asume gas ideal
+
         C_p, C_v, gamma = self.get_coeffs(T, p)
         a = sqrt(gamma * (C_p - C_v) * 1000 * T)
+
         if not extra:
             return a
         else:
@@ -130,14 +136,17 @@ class mixpm:
                 if len(known_props) == 2:
                     if list(known_props.keys())[1] == 'T':
                         k_0, v_0 = list(known_props.keys())[1], list(known_props.values())[1]
+
         if v_0 is None:
             k_0, v_0 = list(known_props.keys())[0], list(known_props.values())[0]
         var_list_gr = [req_prop, k_0]
+
         if not ('T' in known_props and req_prop == 'h' and self.mode == "ig") or self.mode == "mp":
             k_1 = list(known_props.keys())[1]
             v_1 = list(known_props.values())[1]
             var_list_gr.append(k_1)
             xj.append(xc)
+
         for j in range(len(xj)):
             for i in range(len(self.xmi)):
                 exp, xji = 1, 1.0  # Establecido así considerando 'T'
@@ -153,6 +162,7 @@ class mixpm:
                     elif var_list_gr[j] in ['h', 's']:
                         exp = exp * (-1)  # De esta manera resultan kg de productos en denominador y la suma es el total
                 xj[j].append(xji ** exp)
+
         for i in range(len(self.xmi)):  # i = 0, 1, 2, 3
             if v_1 is None:
                 code_get_sumando = f'self.sumprops_Tpd = xa[i]*float(self.components[i].{req_prop}({k_0}=' \
@@ -164,6 +174,7 @@ class mixpm:
             frac_prop += self.sumprops_Tpd
             if req_prop == 'T':
                 break
+
         return frac_prop
 
     def get_props_with_hs(self, known_props: dict, init_guess: dict):
@@ -174,20 +185,25 @@ class mixpm:
                                    le asigna el valor de la misma.
                 :param init_guess: Diccionario que indica la clave y la estimación inicial de la propiedad a determinar.
                         :return: El valor de la propiedad calculada. """
+
         k_0, v_0, k_1, v_1 = list(known_props.keys())[0], list(known_props.values())[0], '', 0.0
         k_a, k_b, v_a, v_b = '', '', 0.0, 0.0
+
         if len(known_props) == 2:
             k_1 = list(known_props.keys())[1]
             v_1 = list(known_props.values())[1]
+
         if k_0 in ['h', 's']:
             k_a, v_a = k_0, v_0
             if len(known_props) == 2:
                 k_b, v_b = k_1, v_1
         else:
             k_a, v_a, k_b, v_b = k_1, v_1, k_0, v_0
+
         fvg = fabs(2 * v_a * self.rel_error)
         k_g, v_g, vp_g, bolz = list(init_guess.keys())[0], list(init_guess.values())[0], 0.0, 1.0
         v_g1, v_g2, start, f1, f2 = v_g, v_g*1.05, True, 0.0, 0.0
+
         # Este bloque while es para que se verifique la condición del tma. de Bolzano
         while bolz > 0:
             if 'T' in init_guess and k_a == 'h' and self.mode == "ig":
@@ -202,11 +218,13 @@ class mixpm:
             else:
                 v_g1 = v_g1 * 0.999
                 v_g2 = v_g2 * 1.001
+
         c = float(v_g2 - (f2 * (v_g2 - v_g1) / (f2 - f1)))
         if len(known_props) == 2:
             fc = self.get_props_by_Tpd({k_g: c, k_b: v_b}, k_a) - v_a
         else:
             fc = self.get_props_by_Tpd({k_g: c}, k_a) - v_a
+
         while fvg > self.rel_error:
             if not start:
                 if 'T' in init_guess and k_a == 'h' and self.mode == "ig":
@@ -226,6 +244,7 @@ class mixpm:
             elif fc * f1 < 0:
                 v_g2 = c
             fvg = fabs(fc / v_a)
+
         return c
 
     def getTsat(self, p: float):
@@ -244,6 +263,7 @@ class mixpm:
     # https://doc.comsol.com/5.5/doc/com.comsol.help.cfd/cfd_ug_fluidflow_high_mach.08.27.html
     # https://repositorio.upct.es/bitstream/handle/10317/6091/tfm-mu%C3%B1-est.pdf?sequence=1 (Wilke)
     def Wilke_visc_calculator(self, T: float):
+
         def Sutherlands_law(comp: str):
             mu_0, T_0, S_mu = 0.0, 0.0, 0.0
             if comp == 'CO2':
@@ -271,13 +291,16 @@ class mixpm:
         mu_CO2, mu_N2, mu_O2 = Sutherlands_law('CO2'), Sutherlands_law('N2'), Sutherlands_law('O2')
         self.mu_elem = [mu_CO2, mu_w, mu_N2, mu_O2]
         self.mu_mix = Wilke_mix_rule()
+
         return self.mu_mix
 
 
 def main():
+
     mezcla = mixpm("ig")
     mezcla.rel_error = 1E-9
     mezcla.setmix(12.0, 23.5, 2)
+
     press = mezcla.get_props_by_Tpd({'T': 1800, 'd': 2}, 'p')
     print(f'Resulta una presión de {(press / 101300):.7f} atm')
     enthalpy = mezcla.get_props_by_Tpd({'T': 1800, 'd': 2}, 'h')
@@ -290,6 +313,7 @@ def main():
     print(f'Resulta una temperatura de {Temperature:.7f} K')
     entropy2 = mezcla.get_props_by_Tpd({'T': Temperature, 'p': press}, 's')
     print(f'Resulta una entropía de {entropy2:.7f} kJ/kgK')
+
     return
 
 

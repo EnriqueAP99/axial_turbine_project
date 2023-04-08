@@ -10,7 +10,7 @@ from math import cos, sin, fabs, sqrt, atan, asin, acos, log, degrees, pi
 
 
 def solver_timer(solver_method):
-    """ Decorador que gestiona la función interna del método problem_solver de la clase solver_process, para
+    """ Decorador que gestiona la función interna del método problem_solver de la clase solver_object, para
     conocer el tiempo de cálculo.
             :param solver_method: Función que se decora.
                     :return: Se devuelve wrapper_t."""
@@ -24,26 +24,26 @@ def solver_timer(solver_method):
         solver_method(*args)
         t_2 = (time() - t_1).__trunc__()
         m, s = divmod(t_2, 60)
-        logger.info('Tiempo de cálculo: %s minutos y %s segundos.', m, s)
+        courier.info('Tiempo de cálculo: %s minutos y %s segundos.', m, s)
         return
     return wrapper_t
 
 
-def Reynolds_correction(tol: float, loss_model: str):
+def Reynolds_correction(eta_tol: float, loss_model: str):
     """ Decorador del decorador real, permite referenciar los parámetros necesarios para manipular la salida de la
     función decorada.
-                :param tol: Error relativo máximo que se establece en los cálculos.
+                :param eta_tol: Error relativo máximo que se permite sobre el rendimiento corregido.
                 :param loss_model: Cadena de caracteres identificadora del modelo de pérdidas establecido.
                             :return: Se devuelve el decorador real. """
 
     def Reynolds_corrector(step_inner_funct):
-        """ Decorador real, gestiona la función interna del método gen_steps de la clase solver_process y posibilita
+        """ Decorador real, gestiona la función interna del método gen_steps de la clase solver_object y posibilita
          aplicar la corrección por el número de Reynolds que en ocasiones requiere el modelo de pérdidas de Ainley and
          Mathieson.
                     :param step_inner_funct: Función que se decora.
                                 :return: Se devuelve el wrapper_r. """
 
-        def corrector(eta_TT, Re, xi_est, rho_seed) -> list:
+        def corrector(eta_TT: float, Re: int, xi_est: float, rho_seed: float) -> list:
             """ Función que aplica la corrección de Reynolds cuando es llamada por wrapper_r. La solución se determina
                 aplicando el teorema de Bolzano y Régula Falsi. Se va a usar como semilla de la siguiente iteración los
                 valores que resultan de la anterior.
@@ -54,31 +54,49 @@ def Reynolds_correction(tol: float, loss_model: str):
                             :return: Se devuelve la lista de variables que corresponda según el modo de
                                     funcionamiento que se defina."""
 
-            eta_TT_obj = 1-(((1-eta_TT)/200_000)*Re)
-            bolz_c, xi_e1, xi_e2, f1, f2, first, alt = 1.0, xi_est*0.9, xi_est, 0.0, 0.0, True, 0
+            # Almacenar solución y comprobar si existe antes de nada y emplearla como semilla.
+
+            eta_TT_obj = 1-(((1-eta_TT)/(200_000**(-1/5)))*(Re**(-1/5)))
+            xi_e0 = xi_est*(Re**(-1/5))/(200_000**(-1/5))
+            xi_e1 = xi_e0 * 0.99
+            xi_e2 = xi_e0 * 1.01
+            bolz_c, f1, f2, ff = 1.0, None, None, 1.0
             rho_seed_1 = rho_seed_2 = rho_seed_c = rho_seed
 
             while bolz_c > 0:
-                if not bool(alt % 2):
+                courier.warning('Buscando el rango que garantice encontrar la solución.')
+                if f1 is None and f2 is None:
+                    sif1 = step_inner_funct(True, False, xi_e1, rho_seed_1)
+                    f1, rho_seed_1 = sif1[0] - eta_TT_obj, sif1[1]
+                    sif2 = step_inner_funct(True, False, xi_e2, rho_seed_2)
+                    f2, rho_seed_2 = sif2[0] - eta_TT_obj, sif2[1]
+                elif ff > 0:
                     sif1 = step_inner_funct(True, False, xi_e1, rho_seed_1)
                     f1, rho_seed_1 = sif1[0] - eta_TT_obj, sif1[1]
                 else:
                     sif2 = step_inner_funct(True, False, xi_e2, rho_seed_2)
                     f2, rho_seed_2 = sif2[0] - eta_TT_obj, sif2[1]
+
+                ff = (f2 - f1)/(xi_e2 - xi_e1)
                 bolz_c = f1*f2
+
                 if bolz_c < 0:
                     pass
                 else:
-                    if not bool(alt % 2):
-                        xi_e2 = 1.1*xi_e2
+                    if ff > 0:
+                        xi_e1 = 0.95*xi_e1
                     else:
-                        xi_e1 = 0.9*xi_e1
+                        xi_e2 = 1.05*xi_e2
 
+            courier.warning('Corrección iniciada.')
             xi_ec = float(xi_e2 - f2*(xi_e2-xi_e1)/(f2-f1))
             sifc = step_inner_funct(True, False, xi_ec, rho_seed_c)
             fc, rho_seed_c = sifc[0] - eta_TT_obj, sifc[1]
+            first, rel_error_eta_TT = True, fc/eta_TT_obj
+            courier.warning('Corrección en proceso  ...  eta_TT: %.5f  ...  Error: %.5f',
+                            sifc[0], rel_error_eta_TT)
 
-            while fabs(fc/eta_TT_obj) > tol:
+            while fabs(rel_error_eta_TT) > eta_tol:
                 if not first:
                     sif1 = step_inner_funct(True, False, xi_e1, rho_seed_1)
                     f1, rho_seed_1 = sif1[0] - eta_TT_obj, sif1[1]
@@ -94,7 +112,12 @@ def Reynolds_correction(tol: float, loss_model: str):
                 elif fc*f1 < 0:
                     xi_e2, rho_seed_2 = xi_ec, rho_seed_c
 
+                rel_error_eta_TT = fc/eta_TT_obj
+                courier.warning('Corrección en proceso  ...  eta_TT: %.10f  ...  Error: %.10f',
+                                sifc[0], rel_error_eta_TT)
+
             _, _, ll_1 = step_inner_funct(True, True, xi_ec, rho_seed_c)
+            courier.warning('Corrección finalizada.')
 
             return ll_1
 
@@ -105,9 +128,7 @@ def Reynolds_correction(tol: float, loss_model: str):
 
             if loss_model == 'ainley_and_mathieson':
                 Re, eta_TT, xi_est, rho_seed, ll_1 = step_inner_funct()
-                logger.info('Reynolds: %d', Re)
-                if Re < 50_000:
-                    ll_1 = corrector(eta_TT, Re, xi_est, rho_seed)
+                ll_1 = corrector(eta_TT, Re, xi_est, rho_seed)
             else:
                 ll_1 = step_inner_funct()
 
@@ -116,26 +137,27 @@ def Reynolds_correction(tol: float, loss_model: str):
     return Reynolds_corrector
 
 
-class solver_process:
+class solver_object:
     """ Clase que define un objeto que agrupa y coordina al conjunto de métodos/atributos que conforman
     el procedimiento resolutivo propuesto para determinar unas condiciones de funcionamiento de una turbina axial."""
 
-    def __init__(self, config: config_param, productos: gas_model_to_solver, AM_seed: list = None):
+    def __init__(self, config: config_parameters, productos: gas_model_to_solver):
         """ :param config: Objeto que agrupa lo relativo a la configuración establecida para la ejecución del solver."""
 
         self.vmmr = []  # Almacena ciertas variables, para facilitar la comunicación de sus valores
-        self.cfg = config
+        self.cfg = config  # Objeto que contiene los parámetros de interés para la ejecución del solver.
         self.rho_seed = None   # Para aligerar los cálculos para variaciones pequeñas de las variables de entrada
         self.prd = productos  # Modela el comportamiento termodinámico de los productos de la combustión
         self.AM_object = None
+        self.inputs_props = None  # Se emplea como valor de referencia en las primeras semillas.
+        self.Re_corrector_counter = 0  # Contador del número de llamadas efectuadas durante la corrección por Re.
+        self.step_counter = 0  # Número empleado para iterar por cada escalonamiento comenzando por 0.
 
         if config.loss_model == 'ainley_and_mathieson':
-            using_e_method_for_alfa_out = True  # Método empleado en calcular alfa_out según si se proporciona 'e'.
-            if 'e' not in self.cfg.geom:
-                using_e_method_for_alfa_out = False
-            self.AM_object = AM_loss_model(config, tau_2_seed=AM_seed, e_method=using_e_method_for_alfa_out)
+            self.AM_object = AM_loss_model(config)
 
-    def problem_solver(self, T_in: float, p_in: float, n: float, C_inx=None, m_dot=None):
+    def problem_solver(self, T_in: float, p_in: float, n: float,
+                       C_inx=None, m_dot=None) -> None | tuple[float, float, float, float]:
         """Esta función inicia la resolución del problema definido por la geometría configurada y las variables
         requeridas como argumento.
                 :param m_dot:
@@ -147,22 +169,26 @@ class solver_process:
                                 velocidad (m/s) y ángulo del flujo con la dirección axial (degrees), en caso contrario
                                 no se devuelve nada."""
 
-        ps_list = []  # En esta lista se almacenan variables que se requieren según el modo de funconamiento.
+        # En esta lista se almacenan variables que se requieren según el modo de funconamiento.
+        ps_list: list[float] = []
+
+        self.inputs_props = (T_in, p_in)
 
         @solver_timer
         def inner_solver() -> None:
 
             nonlocal m_dot, C_inx, ps_list
             tol = self.cfg.TOL
-            logger.info('El error relativo establecido es: %s', tol)
+            courier.info('El error relativo establecido en el solver es: %s', tol)
 
             rho_in = self.prd.get_prop(known_props={'T': T_in, 'p': p_in}, req_prop='d')
+
             if m_dot is None:
                 m_dot = rho_in * self.cfg.geom['areas'][0] * C_inx
             elif C_inx is None:
                 C_inx = m_dot / (rho_in * self.cfg.geom['areas'][0])
             else:
-                logger.critical('Se debe establecer uno de los parámetros opcionales "Cinx" ó "m_dot".')
+                courier.critical('Se debe establecer uno de los parámetros opcionales "Cinx" ó "m_dot".')
                 sys.exit()
 
             s_in = self.prd.get_prop(known_props={'T': T_in, 'p': p_in}, req_prop='s')
@@ -172,7 +198,7 @@ class solver_process:
             ps_list = [T_in, p_in, rho_in, s_in, h_in, h_0in, C_inx]
             for i in range(self.cfg.n_steps):
                 list_i = ps_list[i-1] if i > 0 and not self.cfg.fast_mode else ps_list
-                args = i, list_i[0], list_i[1], list_i[6], list_i[3], list_i[4], list_i[5], m_dot, n, list_i[2]
+                args = list_i[0], list_i[1], list_i[6], list_i[3], list_i[4], list_i[5], m_dot, n, list_i[2]
 
                 if self.cfg.fast_mode:
                     ps_list = self.step_block(*args)
@@ -181,6 +207,8 @@ class solver_process:
                         ps_list = [self.step_block(*args)]
                     else:
                         ps_list += [self.step_block(*args)]
+
+                self.step_counter += 1
 
             if not self.cfg.fast_mode:  # Los subindices A y B indican, resp., los pts. inicio y fin de la turbina.
                 p_B, s_B, h_B, h_0B = [ps_list[-1][1]] + ps_list[-1][3:6]
@@ -212,7 +240,7 @@ class solver_process:
         else:
             return
 
-    def step_block(self, count: int, T_1: float, p_1: float, C_1: float, s_1: float, h_1: float, h_01: float,
+    def step_block(self, T_1: float, p_1: float, C_1: float, s_1: float, h_1: float, h_01: float,
                    m_dot: float, n: float, rho_1: float) -> list:
         """ Método que se llama de manera recurrente por cada escalonamiento definido, para determinar las propiedades
         del fluido en los puntos de interés del mismo.
@@ -223,7 +251,6 @@ class solver_process:
 
         Punto 3: Salida del escalonamiento
 
-                :param count: Numeración del escalonamiento comenzando por 0.
                 :param T_1: Temperatura a la entrada del escalonamiento (K).
                 :param p_1: Presión a la entrada del escalonamiento (Pa).
                 :param C_1: Velocidad absoluta a la entrada del escalonamiento (m/s).
@@ -235,7 +262,7 @@ class solver_process:
                 :param rho_1: Densidad a la entrada (kg/m^3).
                         :return: Se devuelve una lista de valores de variables diferente según el modo establecido. """
 
-        @Reynolds_correction(self.cfg.TOL, self.cfg.loss_model)
+        @Reynolds_correction(self.cfg.ETA_TOL, self.cfg.loss_model)
         def inner_funct(iter_mode=False, iter_end=False, xi_est=0.0, rho_seed=None):
             """ Esta función interna se crea para poder comunicar al decorador instancias de la clase.
                     :param rho_seed: Densidad que se emplea como valor semilla en bucle_while_x2 (kg/m^3).
@@ -247,11 +274,13 @@ class solver_process:
                                     Reynolds.
                             :return: Se devuelven diferentes variables que se requieren según la situación."""
 
+            count = self.step_counter
+
             if rho_seed is None:
                 if self.rho_seed is not None and len(self.rho_seed) == self.cfg.n_steps:
                     rho_seed = self.rho_seed[count]
                 else:
-                    rho_seed = [rho_1*0.9, rho_1*0.9]
+                    rho_seed = [rho_1*0.8, rho_1*0.9]
                     if count == 0:
                         self.rho_seed = []
 
@@ -259,44 +288,60 @@ class solver_process:
                      self.cfg.geom['areas'][count * 2 + 1],
                      self.cfg.geom['areas'][count * 2 + 2])
 
-            Re, eta_TT = 0.0, 0.0
+            eta_TT = Re_in = Re_out = Re = None
+            if not iter_mode:
+                s, H = self.cfg.geom['s'][count*2], self.cfg.geom['H'][count*2]
+                Re_in = Reynolds(rho_1, C_1, T_1, s, H, self.cfg.geom['alfap_o_est'][count], self.prd)
+            else:
+                self.Re_corrector_counter += 1
 
-            C_1x = m_dot / (rho_1 * A_tpl[0])
-            logger.info('La velocidad axial establecida a la entrada del escalonamiento %s es: %.2f m/s', count+1, C_1x)
-            if C_1x > C_1:  # Evitar math domain error producido por error de cálculo cuando entrada completamente axial
+            courier.warning('Iter mode: %s  ...  Llamadas: %s',
+                            iter_mode, self.Re_corrector_counter)
+
+            if count > 0:
+                C_1x = m_dot / (rho_1 * A_tpl[0])
+                alfa_1 = acos(C_1x / C_1)
+            else:
                 C_1x = C_1
-            alfa_1 = acos(C_1x / C_1)
+                alfa_1 = 0.0
+            courier.info('\n  ...    ...  \n  ...    ...  La velocidad axial establecida a la entrada del '
+                         'escalonamiento %s es: %.2f m/s', count + 1, C_1x)
 
-            msg = 'Se va a calcular la salida del estátor del escalonamiento número {}.'.format(count+1)
-            logger.info('\n\n                %s', msg)
+            courier.info('Se va a calcular la salida del estátor del escalonamiento número %d',
+                         count + 1)
 
             h_02 = h_01
-            if not iter_mode:
-                args = ['est', count, A_tpl[1], alfa_1, h_02, m_dot, s_1, rho_seed[0]]
-                outputs = self.blade_outlet_calculator(*args, step_iter_mode=iter_mode)
-                p_2, h_2, T_2, C_2, rho_2, h_2s, T_2s, C_2x, M_2, alfa_2, xi_est, Re = outputs
 
+            if not iter_mode:
+                args = ['est', A_tpl[1], alfa_1, h_02, m_dot, s_1, rho_seed[0]]
+                outputs = self.blade_outlet_calculator(*args, step_iter_mode=iter_mode, Re_in=Re_in)
+                p_2, h_2, T_2, C_2, rho_2, h_2s, T_2s, C_2x, M_2, alfa_2, xi_est, Re_in = outputs
             else:
-                args = ['est', count, A_tpl[1], alfa_1, h_02, m_dot, s_1, rho_seed[0]]
+                args = ['est', A_tpl[1], alfa_1, h_02, m_dot, s_1, rho_seed[0]]
                 outputs = self.blade_outlet_calculator(*args, step_iter_mode=iter_mode, xi=xi_est)
-                p_2, h_2, T_2, C_2, rho_2, h_2s, T_2s, C_2x, M_2, alfa_2, Re = outputs
+                p_2, h_2, T_2, C_2, rho_2, h_2s, T_2s, C_2x, M_2, alfa_2 = outputs
 
             s_2 = self.prd.get_prop(known_props={'p': p_2, 'T': T_2}, req_prop='s')
 
             # En las líneas que siguen se determinan los triángulos de velocidades
             U = self.cfg.geom['Rm'][(count * 2) + 1] * n * 2 * pi / 60
+            courier.info('La velocidad tangencial de giro en el radio medio es: %.2f m/s', U)
             C_2u = C_2 * sin(alfa_2)
+            courier.info('La velocidad tangencial del flujo a la entrada del rótor es: %.2f m/s', C_2u)
             omega_2u = C_2u - U
             omega_2x = C_2x
             beta_2 = atan(omega_2u / C_2x)
             omega_2 = C_2x / cos(beta_2)
 
-            msg = 'Se va a calcular la salida del rótor del escalonamiento número {}.'.format(count+1)
-            logger.info('\n\n                %s', msg)
+            msg = 'Se va a calcular la salida del rótor del escalonamiento número {}.     '.format(count+1)
+            courier.info('\n  ...    ...  \n  ...    ...  %s', msg)
             h_r3 = h_r2 = h_2 + ((10 ** (-3)) * (omega_2 ** 2) / 2)
-            args = ['rot', count, A_tpl[2], beta_2, h_r3, m_dot, s_2, rho_seed[1]]
-            outputs = self.blade_outlet_calculator(*args, step_iter_mode=iter_mode, Re=Re)
-            p_3, h_3, T_3, omega_3, rho_3, h_3s, T_3s, C_3x, M_3r, beta_3, xi_rot = outputs
+            args = ['rot', A_tpl[2], beta_2, h_r3, m_dot, s_2, rho_seed[1]]
+            outputs = self.blade_outlet_calculator(*args, step_iter_mode=iter_mode)
+            if not iter_mode:
+                p_3, h_3, T_3, omega_3, rho_3, h_3s, T_3s, C_3x, M_3r, beta_3, xi_rot, Re_out = outputs
+            else:
+                p_3, h_3, T_3, omega_3, rho_3, h_3s, T_3s, C_3x, M_3r, beta_3, xi_rot = outputs
 
             omega_3u = omega_3 * sin(beta_3)
             omega_3x = omega_3 * cos(beta_3)
@@ -309,7 +354,15 @@ class solver_process:
             local_list_1 = [T_3, p_3, rho_3, s_3, h_3, h_03, C_3, alfa_3]
 
             if h_02 - h_03 < 0:
-                logger.error('No se extrae energía del fluido.')
+                courier.error('No se extrae energía del fluido.')
+
+            # Media aritmética de Re a la entrada y a la salida recomendada por AM para la corrección.
+            if not iter_mode:
+                Re = (Re_in + Re_out)/2
+                courier.info('Reynolds a la entrada: %d, Reynolds a la salida: %d, Reynolds promedio del '
+                             'escalonamiento: %d', Re_in, Re_out, Re)
+                if Re < 50_000:
+                    courier.warning('El número de Reynolds es demasiado bajo.')
 
             if len(self.rho_seed) < self.cfg.n_steps:
                 if not iter_mode:
@@ -376,26 +429,25 @@ class solver_process:
 
                 # eta_TT se debe enviar siempre que iter_mode para evaluar la condición del decorador
                 if not iter_mode and self.cfg.loss_model == 'ainley_and_mathieson':
-                    return Re, eta_TT, xi_est, [rho_2, rho_3], local_list_1.copy()
+                    return Re, eta_TT, xi_est, [rho_2, rho_3].copy(), local_list_1.copy()
                 elif self.cfg.loss_model == 'ainley_and_mathieson':
-                    return eta_TT, [rho_2, rho_3], local_list_1.copy()
+                    return eta_TT, [rho_2, rho_3].copy(), local_list_1.copy()
                 else:
                     return local_list_1.copy()
 
             else:
                 if not iter_mode and self.cfg.loss_model == 'ainley_and_mathieson':
-                    return Re, eta_TT, xi_est, [rho_2, rho_3], local_list_1
+                    return Re, eta_TT, xi_est, [rho_2, rho_3].copy(), local_list_1
                 elif self.cfg.loss_model == 'ainley_and_mathieson':
-                    return eta_TT, [rho_2, rho_3], local_list_1
+                    return eta_TT, [rho_2, rho_3].copy(), local_list_1
                 else:
                     return local_list_1
 
         ll_1 = inner_funct()
         return ll_1
 
-    def blade_outlet_calculator(self, blade: str, counter: int, area_b: float, tau_a: float,
-                                h_tb: float, m_dot: float, s_a: float, rho_outer_seed: float,
-                                step_iter_mode=False, xi=0.0, Re=0.0):
+    def blade_outlet_calculator(self, blade: str, area_b: float, tau_a: float, h_tb: float, m_dot: float,
+                                s_a: float, rho_outer_seed: float, step_iter_mode=False, xi=0.0, Re_in=0.0):
         """ Se hace un cálculo iterativo para conocer las propiedades a la salida del estátor y del rótor (según el
         caso, estátor / rótor, se proporciona el valor de la entalpía total / rotalpía y del ángulo que forma la
         velocidad absoluta / relativa del fluido con la dirección del eje de la turbina axial, respectivamente).
@@ -404,13 +456,12 @@ class solver_process:
 
         Punto b: Sección al final del álabe
 
-            :param Re: Número de Reynolds, se recibe cuando se calcula el rótor.
+            :param Re_in: Valor del número de Reynolds a la entrada del estátor.
             :param xi: Coeficiente adimensional de pérdidas de la corona en cuestión.
             :param step_iter_mode: Permite diferenciar si se está aplicando recursividad para la corrección por
                                dependencia de Reynolds y así conocer las instrucciones más convenientes.
             :param tau_a: Ángulo del movimiento absoluto/relativo de entrada del fluido con la dirección axial
                          (rads).
-            :param counter: Contador de cada escalonamiento, comienza por 0.
             :param blade: Diferenciador del tipo de álabe, puede ser 'est' o 'rot'.
             :param area_b: El área de la sección de paso al final de la corona (m^2).
             :param h_tb: Entalpía total / rotalpía a la salida del álabe (kJ/kg).
@@ -421,33 +472,44 @@ class solver_process:
                     determinado (p_b, h_b, T_b, U_b, rho_b, h_bs, T_bs, C_bx). """
 
         if self.cfg.loss_model == 'ainley_and_mathieson':
-            self.AM_object.limit_mssg = True
-        rho_b = rho_bp = rho_outer_seed
-        M_b = h_b = U_b = h_bs = C_bx = tau_b = Y_total = 0.0
-        rel_diff, tol, geom = 1.0, self.cfg.TOL, self.cfg.geom
-        T_b, T_bs, p_b = 1500, 1450, 1_000_000
+            self.AM_object.limit_mssg = [True, True, True]
 
+        rho_b = rho_bp = rho_outer_seed
+        M_b = h_b = U_b = h_bs = C_bx = tau_b = xi_preiter = Y_total = Re = None
+        rel_diff, tol, geom = 1.0, self.cfg.TOL, self.cfg.geom
+
+        T_b, T_bs, p_b = self.inputs_props[0]*0.95, self.inputs_props[0]*0.9, self.inputs_props[1]*0.95
+
+        counter = self.step_counter
         num = counter*2 + (0 if blade == 'est' else 1)
 
         if self.cfg.loss_model == 'soderberg_correlation':
             s, H, b = geom['s'][num], geom['H'][num], geom['b'][num]
-            args = [blade, geom['alfap_i_est'][counter], geom['alfap_i_rot'][counter], H, b]
-            xi = geom['A_rel'][num]*Soderberg_correlation(*args)
+            args = [blade, geom['alfap_i_est'][counter], geom['alfap_i_rot'][counter], H, b, geom['A_rel'][num]]
+            xi_preiter = Soderberg_correlation(*args)
             tau_b = geom['alfap_o_est'][counter] if blade == 'est' else geom['alfap_o_rot'][counter]
 
         elif self.cfg.loss_model == 'ainley_and_mathieson':
-            if not step_iter_mode or blade == 'rot':
-                Y_total, tau_b = self.AM_object.Ainley_and_Mathieson_Loss_Model(num, degrees(tau_a), step_iter_mode)
-            else:
-                tau_b = geom['alfap_o_est'][counter] if blade == 'est' else geom['alfap_o_rot'][counter]
+            # tau_2 debe ser corregida si Mb < 0.5, ahora se asigna el valor calculado inicialmente en cualquier caso.
+            # El valor de xi se conoce únicamente cuando iter_mode y estátor, pero no el de tau_2 (Y_total no default).
+            # El resto de veces depende xi depende de si se modifica o no el valor de tau_2.
+            tau_b = self.AM_object.outlet_angle_before_mod[num]
 
         # p: iteración previa .... b: estado que se quiere conocer, a la salida del álabe
         while fabs(rel_diff) > tol:
+
             C_bx = m_dot / (area_b * rho_b)  # C_bx: velocidad axial a la salida
-            diff_tau_b = 1
-            while fabs(diff_tau_b) > tol*10:
+            tau_b_n = None
+
+            while tau_b_n is None or fabs(tau_b_n - tau_b) > tol:
+
+                if tau_b_n is None:
+                    tau_b_n = tau_b
+                else:
+                    tau_b = tau_b_n
+
                 U_b = C_bx / cos(tau_b)  # U_b: vel. absoluta o relativa ... tau: alfa o beta ... según el caso
-                h_b = h_tb-((10**(-3))*(U_b**2)/2)
+                h_b = h_tb-(0.001*(U_b*U_b)/2)
                 # Se aplica conservación de la entalpía total/rotalpía ... según el caso
                 # (no se puede determinar otra variable con h2s y s1 con PyroMat)
 
@@ -457,43 +519,73 @@ class solver_process:
                 gamma_b = self.prd.get_gamma(T_b, p_b)
                 T_bs = self.prd.get_prop(known_props={'p': p_b, 's': s_a}, req_prop={'T': T_bs})
                 h_bs = self.prd.get_prop(known_props={'T': T_bs, 'p': p_b}, req_prop='h')
+
                 M_b = U_b/a_b   # Mach del flujo absoluto o relativo según si estátor o rótor (respectivamente)
 
-                if blade == 'est':
-                    if not step_iter_mode:
+                if not step_iter_mode:
+                    if blade == 'est':
+                        Re = Re_in
+                    else:
                         s, H = geom['s'][num], geom['H'][num]
                         Re = Reynolds(rho_b, U_b, T_b, s, H, geom['alfap_o_est'][counter], self.prd)
 
                 if self.cfg.loss_model == 'soderberg_correlation':
-                    xi = ((1E5 / Re) ** 0.25) * xi
-                    diff_tau_b = 0.0
+                    xi = soder_Re_mod(xi_preiter, Re)  # Una variable aparte para no repetir la corrección.
 
-                elif self.cfg.loss_model == 'ainley_and_mathieson' and (not step_iter_mode or blade == 'rot'):
-                    xi = Y_total/(1 + (0.5*gamma_b*(M_b**2)))
-                    diff_tau_b = 0.0
+                elif self.cfg.loss_model == 'ainley_and_mathieson':
+                    tau_b_n = self.AM_object.tau2_corrector(num, M_b)
+                    # Se ejecuta el primer bloque a excepción de si es estátor y step_iter_mode.
+                    if not step_iter_mode or blade == 'rot':
+                        args = [num, degrees(tau_a), degrees(tau_b), step_iter_mode]
+                        Y_total = self.AM_object.Ainley_and_Mathieson_Loss_Model(*args)
+                        xi = Y_total/(1 + (0.5*gamma_b*(M_b*M_b)))
+                    else:
+                        Y_total = xi*(1 + (0.5*gamma_b*(M_b*M_b)))
+                        args = [num, degrees(tau_a), degrees(tau_b), True, Y_total]
+                        self.AM_object.Ainley_and_Mathieson_Loss_Model(*args)
 
-                else:
-                    Y_total = xi*(1 + (0.5*gamma_b*(M_b**2)))
-                    args = [num, degrees(tau_a), True, Y_total]
-                    tau_b_n = self.AM_object.Ainley_and_Mathieson_Loss_Model(*args)
-                    diff_tau_b = tau_b - tau_b_n
-                    tau_b = tau_b_n
-
-            h_b = ((10 ** (-3)) * xi * (U_b ** 2) / 2) + h_bs
+            h_b = (0.001 * xi * (U_b * U_b) / 2) + h_bs
             rho_b = self.prd.get_prop({'p': p_b, 'h': h_b}, {'d': rho_b})
 
             rel_diff = (rho_bp - rho_b) / rho_b
             rho_bp = rho_b
-            logger.info('Densidad (kg/m^3): %.10f    Error relativo: %.10f', rho_b, rel_diff)
+
+            courier.info('Densidad (kg/m^3): %.12f  ...  Error relativo: %.12f', rho_b, rel_diff)
+
+        alfap_1 = degrees(geom['alfap_i_est'][num//2] if num % 2 == 0 else geom['alfap_i_rot'][num//2])
+        alfap_2 = degrees(geom['alfap_o_est'][num//2] if num % 2 == 0 else geom['alfap_o_rot'][num//2])
+
+        if M_b > 0.5:
+            courier.warning('Mach %sa la salida superior a 0.5 ... Valor: %.2f',
+                            '' if num % 2 == 0 else 'relativo ', M_b)
+        else:
+            courier.info('Valor del número de Mach %sa la salida: %.2f',
+                         '' if num % 2 == 0 else 'relativo ', M_b)
+
+        if step_iter_mode:
+            courier.info('La relación entre el valor actual y el inicial de las pérdidas adimensionales de presión en '
+                         'ambas coronas del escalonamiento %s es: %.3f\n  ...  ',
+                         1 + (num//2), Y_total / self.AM_object.Y_t_preiter[num])
+
+        courier.info('Incidencia: %.2f°  ...  tau_in: %.2f°  ...  Ángulo del B.A.: %.2f°',
+                     degrees(tau_a) - alfap_1, degrees(tau_a), alfap_1)
+        courier.info('Desviación: %.2f°  ...  tau_out: %.2f°  ...  Ángulo del B.S.: %.2f°',
+                     degrees(tau_b) - alfap_2, degrees(tau_b), alfap_2)
+        courier.info('Pérdidas:  ...  Y_total: %.4f  ...  Yp: %.4f   ',
+                     Y_total, self.AM_object.Yp_preiter[num] if not step_iter_mode else self.AM_object.Yp_iter_mode)
 
         return_vars = [p_b, h_b, T_b, U_b, rho_b, h_bs, T_bs, C_bx, M_b, tau_b]
+
         if blade == 'est':
             if not step_iter_mode:
                 return *return_vars, xi, Re
             else:
-                return *return_vars, Re
+                return return_vars
         else:
-            return *return_vars, xi
+            if not step_iter_mode:
+                return *return_vars, xi, Re
+            else:
+                return *return_vars, xi
 
     def Zero_pt_calculator(self, p_x: float, s_x: float, h_0x: float):
         """ Este método es para determinar presiones y temperaturas de remanso.
@@ -503,7 +595,7 @@ class solver_process:
                 :param h_0x: Entalpía total en la sección x (kJ/kg).
                         :return: Devuelve la presión total (Pa) y la temperatura total (K) en una sección x. """
 
-        p_0x, T_0x, end, tol = p_x * 1.1, 1600, False, self.cfg.TOL
+        p_0x, T_0x, end, tol = p_x * 1.1, self.inputs_props[0]*1.1, False, self.cfg.TOL
 
         while not end:
             T_0x = self.prd.get_prop(known_props={'h': h_0x, 'p': p_0x}, req_prop={'T': T_0x})
@@ -520,23 +612,38 @@ class solver_process:
 
 
 def main():
-    fast_mode = True
-    settings = config_param(TOL=1E-9, n_steps=2, ideal_gas=True, fast_mode=True,
-                            loss_model='ainley_and_mathieson')
+    fast_mode = False
+    settings = config_parameters(TOL=1E-6, ETA_TOL=1E-3, n_steps=1, ideal_gas=True, fast_mode=True,
+                                 loss_model='ainley_and_mathieson')
 
-    settings.set_geometry(B_A_est=[0, 39], theta_est=[70, 90], B_A_rot=[35, 52], theta_rot=[90, 70],
-                          cuerda=0.05, radio_medio=0.3, H=[0.027, 0.048, 0.078, 0.0900, 0.1140],
-                          A_rel=0.75, t_max=0.008, r_r=0.003, r_c=0.002, t_e=0.004, K=0.0)
+    # Geometría procedente de: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf
+    Rm = 0.1429
+    heights = [0.0445 for _ in range(3)]
+    areas = [0.0399 for _ in range(3)]
+    chord = [0.0338, 0.0241]
+    t_max = [0.2*chord[0], 0.15*chord[1]]
+    pitch = [0.0249, 0.0196]
+    t_e = [0.01*s for s in pitch]
+    blade_opening = [0.01090, 0.01354]
+    e_param = [0.0893, 0.01135]
+    tip_clearance = [0.0, 0.0008]
 
-    gas_model = gas_model_to_solver(thermo_mode="ig", rel_error=1E-9)
-    solver = solver_process(settings, gas_model)
+    settings.set_geometry(B_A_est=0, theta_est=70, B_A_rot=36, theta_rot=100, areas=areas,
+                          cuerda=chord, radio_medio=Rm, e=e_param, o=blade_opening, s=pitch,
+                          H=heights, t_max=t_max, r_r=0.002, r_c=0.001, t_e=t_e,
+                          k=tip_clearance, holgura_radial=False)
+
+    gas_model = gas_model_to_solver(thermo_mode="ig", rel_error=1E-6)
+    solver = solver_object(settings, gas_model)
 
     if fast_mode:
-        T_salida, p_salida, C_salida, alfa_salida = solver.problem_solver(T_in=1400, p_in=1_300_000, n=6_500, C_inx=200)
-        print(' T_out', T_salida, '\n', 'P_out', p_salida, '\n', 'C_out', C_salida, '\n', 'alfa_out', alfa_salida)
+        output = solver.problem_solver(T_in=1100, p_in=275_790, n=14_427.32, C_inx=130)
+        T_salida, p_salida, C_salida, alfa_salida = output
+        print(' T_out =', T_salida, '\n', 'P_out =', p_salida,
+              '\n', 'C_out =', C_salida, '\n', 'alfa_out =', alfa_salida)
 
     else:
-        solver.problem_solver(T_in=1400, p_in=1_200_000, n=6_500, C_inx=180)
+        solver.problem_solver(T_in=1100, p_in=275_790, n=14_427.32, C_inx=130)
 
 
 if __name__ == '__main__':

@@ -1,8 +1,8 @@
 """
 En este módulo se define una clase que caracteriza un objeto que contiene la configuración y los parámetros geométricos
-que se emplearán en el cálculo. Se emplea un módulo aparte para esta clase para evitar importaciones circulares, ya que
-se va a almacenar información que será necesaria en varios módulos. Además, también se crea una clase que facilita
-el intercambio del módulo "gas_modeling.py" por otro.
+que se emplearán en el cálculo (config_parameters). Se emplea un módulo aparte para esta clase para evitar importaciones
+circulares, ya que se va a almacenar información que será necesaria en varios módulos. Además, también se crea una
+clase que facilita el intercambio del módulo "gas_modeling.py" por otro.
 """
 
 import logging  # https://docs.python.org/es/3/howto/logging.html
@@ -13,7 +13,7 @@ from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
-class config_param:
+class config_parameters:
     """ Objeto que agrupa los parámetros necesarios para configurar la ejecución del solver. """
 
     TOL: float  # Máximo error relativo que se tolera en los cálculos iterativos
@@ -21,6 +21,7 @@ class config_param:
     fast_mode: bool  # Limitar cálculos y determinar temperatura, presión y velocidad a la salida
     loss_model: str  # Cadena identificador del modelo de pérdidas establecido
     ideal_gas: bool  # True cuando se establece hipótesis de gas ideal
+    ETA_TOL: float = 1E-3  # Máximo error relativo que se tolera en la corrección de reynolds
     geom: dict = None  # Diccionario para almacenar parámetros geométricos de la turbina
 
     def __post_init__(self):
@@ -34,12 +35,16 @@ class config_param:
                      B_S_rot: int | float | list = None, theta_est: int | float | list = None,
                      theta_rot: int | float | list = None, **kwargs: int | float | list[float]):
         """ Se establece la geometría de la turbina del problema. Se debe indicar el borde de salida o la deflexión de
-        cada álabe. Algunos parámetros siguen el mismo razonamiento de alternancia, por cuestión de flexibilidad.\n
+        cada álabe. Algunos parámetros siguen el mismo razonamiento de alternancia, por cuestión de flexibilidad.
+
+        Los valores de los parámetros son los que corresponden al radio de referencia.
 
         Los parámetros pueden indicarse en forma de lista o en forma de un único número, entero o de coma flotante, en
-        el caso de que se repita para cada escalonamiento.\n
+        el caso de que se repita para cada escalonamiento.
 
-        Usar sistema internacional excepto para los ángulos, que se deben indicar en grados sexagecimales.
+        Para mantener uniformidad los parámetros se almacenan en un diccionario como tuplas.
+
+        Emplear sistema internacional excepto para los ángulos, que se deben indicar en grados sexagecimales.
 
                 :param cuerda: Cuerda de cada álabe.
                 :param radio_medio: Radio medio de un álabe de escalonamiento, si se indica un valor único se considera
@@ -57,9 +62,10 @@ class config_param:
                                Las claves son: Rm (radio medio), H (alturas), areas,
                                A_rel (relacion área álabes - área total), t_max (espesor máximo de un álabe),
                                r_r (radio raiz), r_c (radio cabeza), t_e (espesor del borde de salida),
-                               K (parámetro para el hueco libre de Ainley and Mathieson), s (paso, distancia entre
-                               álabes de la misma corona).
-                        :return: No se devuelve nada. """
+                               K (holgura en el extremo del álabe), s (paso, distancia entre
+                               álabes de la misma corona), o (distancia de la garganta, "Blade opening"),
+                               e (radio medio de curvatura entre la garganta y el borde de estela),
+                               holgura_radial (True o False, según si existe espacio libre en la punta del álabe)."""
 
         ns, geom = self.n_steps, dict()
         local_dict1 = {'alfap_i_est': B_A_est, 'alfap_i_rot': B_A_rot}
@@ -71,16 +77,20 @@ class config_param:
             elif theta_rot is not None:
                 local_dict1[theta_name] = theta
             else:
-                logger.critical('Se precisa definir de alguna manera la deflexión de cada álabe.')
+                courier.critical('Se precisa definir de alguna manera la deflexión de cada álabe.')
                 sys.exit()
 
-        list_items2, local_dict2 = ['A_rel', 't_max', 'r_r', 'r_c', 't_e', 'K'], {}
+        list_items2, local_dict2 = ['A_rel', 't_max', 'r_r', 'r_c', 't_e', 'k', ], {}
+        if 'o' in kwargs and 'e' in kwargs:
+            list_items2.append('o')
+            list_items2.append('e')
         for par_id in list_items2:
             local_dict2[par_id] = kwargs.get(par_id, 0.0)
         local_dict2['b'], local_dict2['Rm'] = cuerda, radio_medio
         s = kwargs.get('s', 0.0)
         if not s == 0.0:
             local_dict2['s'] = s
+
         ld_list = [local_dict1, local_dict2]
         for index, ld in enumerate(ld_list):
             for i, v in ld.items():
@@ -104,6 +114,9 @@ class config_param:
                     geom[i1].append(2 * pi * Rm[num2] * v2 if (i1 == 'areas') else v2 / (2 * pi * Rm[num2]))
                 geom[i1] = tuple(geom[i1])
 
+        if 'areas' not in geom:
+            geom['areas'], geom['H'] = kwargs['areas'], kwargs['H']
+
         for num, h in enumerate(geom['H']):   # h: 0 1 2 3 4 ... Rm: 0 0 1 2 3
             num2 = num - 1 if num > 0 else 0
             if (2*Rm[num2]-h)/(2*Rm[num2]-h) > 1.4:
@@ -119,9 +132,21 @@ class config_param:
                                                     [B_S_est, 'alfap_o_est', 'alfap_i_est', 'theta_e']]:
             if B_S is None:
                 geom[B_S_name] = [geom[theta_name][i] - geom[B_A_name][i] for i in range(ns)]
+                geom[B_S_name] = tuple(geom[B_S_name])
             else:
                 geom[theta_name] = [geom[B_S_name][i] + geom[B_A_name][i] for i in range(ns)]
 
+        if 'holgura_radial' in kwargs:
+            geom['X'] = 1.35 if kwargs['holgura_radial'] else 0.7
+
+        object.__setattr__(self, 'geom', geom)
+        return
+
+    def edit_geom(self, key, values: tuple):
+        """ Se permite modificar parámetros ya introducidos mediante este método. """
+
+        geom = self.geom
+        geom[key] = values
         object.__setattr__(self, 'geom', geom)
         return
 
@@ -137,15 +162,15 @@ class gas_model_to_solver:
     C_atoms: float | int = 12.0  # Átomos de carbono en cada átomo de hidrocarburo en los reactivos.
     H_atoms: float | int = 23.5  # Átomos de hidrógeno en cada átomo de hidrocarburo en los reactivos.
     air_excess: float | int = 4  # Exceso de aire considerado en el ajuste estequiométrico de la combustión completa.
-    _memory: list = None
+    _memory: list = None  # La finalidad de esta memoria es no recalcular las propiedades si ya se habían determinado.
     _gamma: float = None
 
     def __post_init__(self):
         if self.thermo_mode not in ("ig", "mp", ):
-            logger.critical("Los modos a elegir son ig (gas ideal con NASA coefs) o mp ('multi-phase').\n "
-                            "El modo mp se aplica solo en el vapor de agua, en caso contrario los límites del cálculo "
-                            "disminuirían demasiado y se realentiza todo el cálculo innecesariamente. \n "
-                            "Para  el modelo del Çengel usar el módulo IGmodelfromCengel.py. \n")
+            courier.critical("Los modos a elegir son ig (gas ideal con NASA coefs) o mp ('multi-phase').\n "
+                             "El modo mp se aplica solo en el vapor de agua, en caso contrario los límites del cálculo "
+                             "disminuirían demasiado y se realentiza todo el cálculo innecesariamente. \n "
+                             "Para  el modelo del Çengel usar el módulo IGmodelfromCengel.py. \n")
             sys.exit()
         self.gas_model = mixpm(self.thermo_mode)
         self.gas_model.setmix(self.C_atoms, self.H_atoms, self.air_excess)
@@ -178,8 +203,10 @@ class gas_model_to_solver:
         return self._gamma
 
 
+# Las líneas que siguen son orientadas a la customización del mensaje de salida.
+# Para omitir estos mensajes, establecer el argumento level en un nivel superior al tipo de mensaje a omitir.
 # https://youtu.be/KSQ4KxCtsf8
-FMT = "[{levelname}]:       {message}       [FILE: {filename}   FUNC: {funcName}   LINE: {lineno}]"
+FMT = "[{levelname}]:  ...  {message}  ...  [FILE: {filename}   FUNC: {funcName}   LINE: {lineno}]"
 FORMATS = {
     logging.DEBUG: FMT,
     logging.INFO: f"\33[36m{FMT}\33[0m",
@@ -200,4 +227,4 @@ handler = logging.StreamHandler()
 handler.setFormatter(CustomFormatter())
 logging.basicConfig(level=logging.DEBUG, handlers=[handler])
 
-logger = logging.getLogger("coloured-logger")
+courier = logging.getLogger("coloured-courier")
