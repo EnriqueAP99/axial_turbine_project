@@ -47,8 +47,7 @@ class config_parameters:
         Emplear sistema internacional excepto para los ángulos, que se deben indicar en grados sexagecimales.
 
                 :param cuerda: Cuerda de cada álabe.
-                :param radio_medio: Radio medio de un álabe de escalonamiento, si se indica un valor único se considera
-                           constante a lo largo de los escalonamientos (indicar número o lista).
+                :param radio_medio: Radio medio de un álabe de escalonamiento.
                 :param B_A_est: Ángulo del borde de ataque de un álabe del estátor.
                 :param B_A_rot: Ángulo del borde de ataque de un álabe del rótor.
                 :param B_S_est: Ángulo del borde de salida de un álabe del estátor.
@@ -77,7 +76,7 @@ class config_parameters:
             elif theta_rot is not None:
                 local_dict1[theta_name] = theta
             else:
-                courier.critical('Se precisa definir de alguna manera la deflexión de cada álabe.')
+                registro.critical('Se precisa definir de alguna manera la deflexión de cada álabe.')
                 sys.exit()
 
         list_items2, local_dict2 = ['A_rel', 't_max', 'r_r', 'r_c', 't_e', 'k', ], {}
@@ -120,7 +119,7 @@ class config_parameters:
         for num, h in enumerate(geom['H']):   # h: 0 1 2 3 4 ... Rm: 0 0 1 2 3
             num2 = num - 1 if num > 0 else 0
             if (2*Rm[num2]-h)/(2*Rm[num2]-h) > 1.4:
-                courier.critical('No se verifica la hipótesis de bidimensionalidad.')
+                registro.critical('No se verifica la hipótesis de bidimensionalidad.')
                 sys.exit()
 
         if s == 0.0:
@@ -158,7 +157,7 @@ class gas_model_to_solver:
     de manera adecuada para adaptar un módulo alternativo a "gas_modeling.py"."""
 
     thermo_mode: str = "ig"  # Cadena que identifica si se establece modelo multifase o ideal para el vapor de agua.
-    rel_error: float = 1E-7  # Máximo error relativo que se permite en los cálculos.
+    relative_error: float = 1E-7  # Máximo error relativo que se permite en los cálculos.
     C_atoms: float | int = 12.0  # Átomos de carbono en cada átomo de hidrocarburo en los reactivos.
     H_atoms: float | int = 23.5  # Átomos de hidrógeno en cada átomo de hidrocarburo en los reactivos.
     air_excess: float | int = 4  # Exceso de aire considerado en el ajuste estequiométrico de la combustión completa.
@@ -167,14 +166,14 @@ class gas_model_to_solver:
 
     def __post_init__(self):
         if self.thermo_mode not in ("ig", "mp", ):
-            courier.critical("Los modos a elegir son ig (gas ideal con NASA coefs) o mp ('multi-phase').\n "
-                             "El modo mp se aplica solo en el vapor de agua, en caso contrario los límites del cálculo "
-                             "disminuirían demasiado y se realentiza todo el cálculo innecesariamente. \n "
-                             "Para  el modelo del Çengel usar el módulo IGmodelfromCengel.py. \n")
+            registro.critical("Los modos a elegir son ig (gas ideal con NASA coefs) o mp ('multi-phase').\n "
+                              "El modo mp se aplica solo en el vapor de agua, en caso contrario los límites del "
+                              "cálculo disminuirían demasiado y se realentiza todo el cálculo innecesariamente. \n "
+                              "Para  el modelo del Çengel usar el módulo IGmodelfromCengel.py. \n")
             sys.exit()
         self.gas_model = mixpm(self.thermo_mode)
         self.gas_model.setmix(self.C_atoms, self.H_atoms, self.air_excess)
-        self.gas_model.rel_error = self.rel_error
+        self.gas_model.rel_error = self.relative_error
 
     def get_prop(self, known_props: dict[str, float], req_prop: dict[str, float] | str):
         if 'h' in known_props or 's' in known_props:
@@ -208,8 +207,8 @@ class gas_model_to_solver:
 # https://youtu.be/KSQ4KxCtsf8
 FMT = "[{levelname}]:  ...  {message}  ...  [FILE: {filename}   FUNC: {funcName}   LINE: {lineno}]"
 FORMATS = {
-    logging.DEBUG: FMT,
-    logging.INFO: f"\33[36m{FMT}\33[0m",
+    logging.DEBUG: f"\33[36m{FMT}\33[0m",
+    logging.INFO: f"\33[92m{FMT}\33[0m",
     logging.WARNING: f"\33[33m{FMT}\33[0m",
     logging.ERROR: f"\33[31m{FMT}\33[0m",
     logging.CRITICAL: f"\33[1m\33[31m{FMT}\33[0m",
@@ -227,4 +226,4 @@ handler = logging.StreamHandler()
 handler.setFormatter(CustomFormatter())
 logging.basicConfig(level=logging.DEBUG, handlers=[handler])
 
-courier = logging.getLogger("coloured-courier")
+registro = logging.getLogger("coloured-registro")

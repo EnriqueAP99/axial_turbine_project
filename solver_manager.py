@@ -43,7 +43,7 @@ def solver_data_saver(file: str, process_object: solver_object) -> None:
                     :return: No se devuelve nada. """
 
     prd = process_object.prd
-    product_attr = {'tm': prd.thermo_mode, 'tol': prd.rel_error,
+    product_attr = {'tm': prd.thermo_mode, 'tol': prd.relative_error,
                     'C': prd.C_atoms, 'H': prd.H_atoms, 'N': prd.air_excess}
     process_object.prd = None   # Esto se hace así para evitar un error que surge
 
@@ -64,7 +64,7 @@ def solver_data_reader(file: str) -> solver_object:
         solver_obj: solver_object = pickle.load(obj_pickle)
         prd_attr = pickle.load(obj_pickle)
 
-    solver_obj.prd = gas_model_to_solver(thermo_mode=prd_attr['tm'], rel_error=prd_attr['tol'],
+    solver_obj.prd = gas_model_to_solver(thermo_mode=prd_attr['tm'], relative_error=prd_attr['tol'],
                                          C_atoms=prd_attr['C'], H_atoms=prd_attr['H'], air_excess=prd_attr['N'])
 
     return solver_obj
@@ -174,22 +174,22 @@ def main(fast_mode, action):
 
     if action == 'w':
         settings = config_parameters(TOL=1E-6, n_steps=2, ideal_gas=True, fast_mode=fast_mode,
-                                     loss_model='ainley_and_mathieson')
+                                     loss_model='ainley_and_mathieson', ETA_TOL=1E-3)
 
-        settings.set_geometry(B_A_est=[0, 5], theta_est=[70, 75], B_A_rot=[65, 65], theta_rot=[105, 105],
+        settings.set_geometry(B_A_est=[0, 5], theta_est=[70, 75], B_A_rot=[55, 55], theta_rot=[105, 105],
                               cuerda=0.03, radio_medio=0.30, H=[0.030, 0.035, 0.041, 0.048, 0.052], e=0.015, o=0.015,
                               A_rel=0.75, t_max=0.006, r_r=0.003, r_c=0.002, t_e=0.004, k=0.002, holgura_radial=False)
 
-        gas_model = gas_model_to_solver(thermo_mode="ig", rel_error=1E-6)
+        gas_model = gas_model_to_solver(thermo_mode="ig", relative_error=1E-6)
 
         solver = solver_object(settings, gas_model)
 
         if fast_mode:
-            output = solver.problem_solver(T_in=1800, p_in=1_000_000, n=5_000, m_dot=18.0)
+            output = solver.problem_solver(T_in=1800, p_in=1_000_000, n=6_000, m_dot=18.0)
             T_salida, p_salida, C_salida, alfa_salida = output
             print(' T_out', T_salida, '\n', 'P_out', p_salida, '\n', 'C_out', C_salida, '\n', 'alfa_out', alfa_salida)
         else:
-            solver.problem_solver(T_in=1800, p_in=1_000_000, n=5_000, m_dot=18.0)
+            solver.problem_solver(T_in=1800, p_in=1_000_000, n=6_000, m_dot=18.0)
             solver_data_saver('process_object.pkl', solver)
 
     elif action == 'r':
@@ -199,11 +199,11 @@ def main(fast_mode, action):
     elif action == 'wr':
         # Se usan semillas de la ejecución anterior. Se leen, se guardan y se visualizan los datos.
         solver = solver_data_reader('process_object.pkl')
-        solver.cfg.set_geometry(B_A_est=[0, 5], theta_est=[70, 75], B_A_rot=[65, 65], theta_rot=[105, 105],
+        solver.cfg.set_geometry(B_A_est=[0, 5], theta_est=[70, 75], B_A_rot=[55, 55], theta_rot=[105, 105],
                                 cuerda=0.03, radio_medio=0.30, H=[0.030, 0.035, 0.041, 0.048, 0.052], e=0.015, o=0.015,
                                 A_rel=0.75, t_max=0.006, r_r=0.003, r_c=0.002, t_e=0.004, k=0.002, holgura_radial=False)
 
-        solver.problem_solver(T_in=1800, p_in=1_000_000, n=5_000, m_dot=18.0)
+        solver.problem_solver(T_in=1800, p_in=1_000_000, n=6_000, m_dot=18.0)
         solver_data_saver('process_object.pkl', solver)
         problem_data_viewer(solver)
 

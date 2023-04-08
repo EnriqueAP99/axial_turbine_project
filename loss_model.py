@@ -2,7 +2,7 @@
 En este módulo se caracteriza el modelo de pérdidas que se va a emplear en el módulo "axial_turb_solver.py", además se
 calcula el número de Reynolds.
 """
-from config_class import courier, gas_model_to_solver, config_parameters
+from config_class import registro, gas_model_to_solver, config_parameters
 from math import cos, fabs, atan, tan, radians, degrees, pi, acos
 from scipy.interpolate import InterpolatedUnivariateSpline
 import numpy as np
@@ -160,15 +160,15 @@ class AM_loss_model:  # Ver paper: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf
         r_corregidos = [i for i in self.cfg.geom['Rm'][::2]]
         str_rm_logger = "El radio medio ha sido corregido acorde al diámetro de referencia del modelo AM: "
         for _ in r_corregidos:
-            str_rm_logger += " ...  %.3f m"
-        courier.info(str_rm_logger, *r_corregidos)
+            str_rm_logger += "  ...  %.3f m"
+        registro.info(str_rm_logger, *r_corregidos)
 
         for num, cuerda in enumerate(self.cfg.geom['b']):
             solidez = cuerda / self.cfg.geom['s'][num]
             if 1/solidez < 0.3 or 1/solidez > 1:
-                courier.warning('La solidez del %s del escalonamiento %s excede el rango de valores para los que existe'
-                                ' función. El valor es %.2f y los límites son [1.0, 2.5].',
-                                'estátor' if bool((num+1) % 2) else 'rótor', (num//2) + 1, solidez)
+                registro.warning('La solidez del %s del escalonamiento %s excede el rango de valores para los que '
+                                 'existe función. El valor es %.2f y los límites son [1.0, 2.5].',
+                                 'estátor' if bool((num+1) % 2) else 'rótor', (num//2) + 1, solidez)
 
         throat_distance = self.cfg.geom['o']
         pitch = self.cfg.geom['s']
@@ -176,8 +176,8 @@ class AM_loss_model:  # Ver paper: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf
         for i in range(self.cfg.n_steps*2):
             x_value = degrees(acos(throat_distance[i] / pitch[i]))
             if x_value < 35 or x_value > 80:
-                courier.warning('El valor de acos(o/s) excede los límites de la correlación. Valor: %.1f; Límites: %s',
-                                x_value, [35, 80])
+                registro.warning('El valor de acos(o/s) excede los límites de la correlación. Valor: %.1f; Límites: %s',
+                                 x_value, [35, 80])
             tau_2_ast_value = self.tau_2_ast[1](x_value)
             flow_angle = tau_2_ast_value + 4 * (pitch[i] / mean_radius_curvature[i])
             self.outlet_angle_before_mod.append(radians(flow_angle))
@@ -213,8 +213,8 @@ class AM_loss_model:  # Ver paper: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf
         alpha_2_sc075 = tau_2 / a2_a2sc075
         if self.limit_mssg[0]:
             if -alfap_1 / alpha_2_sc075 < -1.1 or -alfap_1 / alpha_2_sc075 > 1:
-                courier.warning('La relación B.A. - Ángulo de salida (s/c=0.75) sobrepasa los límites válidos. '
-                                'El valor es %.2f y los límites son [-1.1, 1].', -alfap_1 / alpha_2_sc075)
+                registro.warning('La relación B.A. - Ángulo de salida (s/c=0.75) sobrepasa los límites válidos. '
+                                 'El valor es %.2f y los límites son [-1.1, 1].', -alfap_1 / alpha_2_sc075)
                 self.limit_mssg[0] = False
 
         is_sc075 = interp_series_a2(alpha_2_sc075, alfap_1 / alpha_2_sc075, self.is_b1a2_sc_075)
@@ -224,8 +224,8 @@ class AM_loss_model:  # Ver paper: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf
 
         if self.limit_mssg[1]:
             if i_is > 1.7 or i_is < -4.1:
-                courier.warning('La relación entre la incidencia y la incidencia de desprendimiento sobrepasa los '
-                                'límites de validez del ajuste. El valor es %.3f y los límites son [-4.1, 1.7]', i_is)
+                registro.warning('La relación entre la incidencia y la incidencia de desprendimiento sobrepasa los '
+                                 'límites de validez del ajuste. El valor es %.3f y los límites son [-4.1, 1.7]', i_is)
                 self.limit_mssg[1] = False
 
         yp_f = self.yp_f_i_f[1](i_is)
@@ -236,13 +236,13 @@ class AM_loss_model:  # Ver paper: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf
 
         if t_max_b < 0.15:
             if self.limit_mssg[2]:
-                courier.warning('La relación espesor-cuerda es demasiado baja, se ha corregido el valor.')
+                registro.warning('La relación espesor-cuerda es demasiado baja, se ha corregido el valor.')
                 self.limit_mssg[2] = False
             t_max_b = 0.15
 
         elif t_max_b > 0.25:
             if self.limit_mssg[2]:
-                courier.warning('La relación espesor-cuerda es demasiado alta, se ha corregido el valor.')
+                registro.warning('La relación espesor-cuerda es demasiado alta, se ha corregido el valor.')
                 self.limit_mssg[2] = False
             t_max_b = 0.25
 
