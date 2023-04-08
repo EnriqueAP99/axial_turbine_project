@@ -60,8 +60,8 @@ def Reynolds_correction(corrector_tol: float, loss_model: str,
 
             eta_TT_obj = 1 - (((1-eta_TT) / (200_000**(-1/5))) * (Re**(-1/5)))
             if step_corrector_memory is not None:
-                xi_e1 = step_corrector_memory[0]*(1 - (2 * corrector_tol))
-                xi_e2 = step_corrector_memory[0]*(1 + (2 * corrector_tol))
+                xi_e1 = step_corrector_memory[0]*(1 - corrector_tol)
+                xi_e2 = step_corrector_memory[0]*(1 + corrector_tol)
                 rho_seed_1 = rho_seed_2 = rho_seed_c = step_corrector_memory[1]
             else:
                 xi_e0 = xi_est * (Re**(-1/5)) / (200_000**(-1/5))
@@ -209,6 +209,7 @@ class solver_object:
                 list_i = ps_list[i-1] if i > 0 and not self.cfg.fast_mode else ps_list
                 args = list_i[0], list_i[1], list_i[6], list_i[3], list_i[4], list_i[5], m_dot, n, list_i[2]
                 self.step_counter = 0
+                self.Re_corrector_counter = 0
                 if self.cfg.fast_mode:
                     ps_list = self.step_block(*args)
                 else:
