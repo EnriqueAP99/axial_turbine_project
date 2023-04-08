@@ -2,7 +2,7 @@
 En este módulo se define una clase que caracteriza un objeto que contiene la configuración y los parámetros geométricos
 que se emplearán en el cálculo (config_parameters). Se emplea un módulo aparte para esta clase para evitar importaciones
 circulares, ya que se va a almacenar información que será necesaria en varios módulos. Además, también se crea una
-clase que facilita el intercambio del módulo "gas_modeling.py" por otro.
+clase que facilita el intercambio del módulo "gas_modeling.py" por otro similar.
 """
 
 import logging  # https://docs.python.org/es/3/howto/logging.html

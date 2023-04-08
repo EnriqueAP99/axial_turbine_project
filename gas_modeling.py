@@ -1,6 +1,6 @@
 """
 Se emplea la librería PyroMat para modelar los productos como mezcla de gases ideales no perfectos y determinar
-sus propiedades.
+sus propiedades a partir de las que se proporcionen.
 """
 
 import pyromat as pm

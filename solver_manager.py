@@ -153,10 +153,10 @@ def data_to_df(process_object: solver_object, req_vars=None) -> [pd.DataFrame | 
     return df_a, df_b, df_c
 
 
-def problem_data_viewer(solver_object: solver_object, req_vars=None) -> None:
+def problem_data_viewer(solver: solver_object, req_vars=None) -> None:
     """ Se visualiza el dataframe generado. """
 
-    df_a, df_b, df_c = data_to_df(solver_object, req_vars)
+    df_a, df_b, df_c = data_to_df(solver, req_vars)
 
     with pd.option_context('display.max_rows', None, 'display.max_columns', None, 'display.max_colwidth', None,
                            'display.width', 1000, 'display.precision', 4):

@@ -167,8 +167,8 @@ class AM_loss_model:  # Ver paper: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf
             solidez = cuerda / self.cfg.geom['s'][num]
             if 1/solidez < 0.3 or 1/solidez > 1:
                 courier.warning('La solidez del %s del escalonamiento %s excede el rango de valores para los que existe'
-                               ' función. El valor es %.2f y los límites son [1.0, 2.5].',
-                               'estátor' if bool((num+1) % 2) else 'rótor', (num//2) + 1, solidez)
+                                ' función. El valor es %.2f y los límites son [1.0, 2.5].',
+                                'estátor' if bool((num+1) % 2) else 'rótor', (num//2) + 1, solidez)
 
         throat_distance = self.cfg.geom['o']
         pitch = self.cfg.geom['s']
@@ -214,7 +214,7 @@ class AM_loss_model:  # Ver paper: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf
         if self.limit_mssg[0]:
             if -alfap_1 / alpha_2_sc075 < -1.1 or -alfap_1 / alpha_2_sc075 > 1:
                 courier.warning('La relación B.A. - Ángulo de salida (s/c=0.75) sobrepasa los límites válidos. '
-                               'El valor es %.2f y los límites son [-1.1, 1].', -alfap_1 / alpha_2_sc075)
+                                'El valor es %.2f y los límites son [-1.1, 1].', -alfap_1 / alpha_2_sc075)
                 self.limit_mssg[0] = False
 
         is_sc075 = interp_series_a2(alpha_2_sc075, alfap_1 / alpha_2_sc075, self.is_b1a2_sc_075)
@@ -225,7 +225,7 @@ class AM_loss_model:  # Ver paper: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf
         if self.limit_mssg[1]:
             if i_is > 1.7 or i_is < -4.1:
                 courier.warning('La relación entre la incidencia y la incidencia de desprendimiento sobrepasa los '
-                               'límites de validez del ajuste. El valor es %.3f y los límites son [-4.1, 1.7]', i_is)
+                                'límites de validez del ajuste. El valor es %.3f y los límites son [-4.1, 1.7]', i_is)
                 self.limit_mssg[1] = False
 
         yp_f = self.yp_f_i_f[1](i_is)

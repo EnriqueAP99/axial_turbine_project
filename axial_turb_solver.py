@@ -10,7 +10,7 @@ from math import cos, sin, fabs, sqrt, atan, asin, acos, log, degrees, pi
 
 
 def solver_timer(solver_method):
-    """ Decorador que gestiona la función interna del método problem_solver de la clase solver_object, para
+    """ Decorador que gestiona la función interna del método problem_solver de la clase solver, para
     conocer el tiempo de cálculo.
             :param solver_method: Función que se decora.
                     :return: Se devuelve wrapper_t."""
@@ -37,7 +37,7 @@ def Reynolds_correction(eta_tol: float, loss_model: str):
                             :return: Se devuelve el decorador real. """
 
     def Reynolds_corrector(step_inner_funct):
-        """ Decorador real, gestiona la función interna del método gen_steps de la clase solver_object y posibilita
+        """ Decorador real, gestiona la función interna del método gen_steps de la clase solver y posibilita
          aplicar la corrección por el número de Reynolds que en ocasiones requiere el modelo de pérdidas de Ainley and
          Mathieson.
                     :param step_inner_funct: Función que se decora.
@@ -123,7 +123,7 @@ def Reynolds_correction(eta_tol: float, loss_model: str):
 
         def wrapper_r():
             """ Función que evalúa el modelo de pérdidas que se ha definido y, si es el de Ainley and Mathieson, aplica
-            una corrección en caso de que el número de Reynolds sea inferior a 50.000.
+            una corrección basándose en el número de Reynolds.
                             :return: Se devuelve la lista de variables que se procesan, según el modo que se defina. """
 
             if loss_model == 'ainley_and_mathieson':
