@@ -168,7 +168,7 @@ class solver_object:
         #                 para aprovecharlos en cálculos consecutivos.
 
         if config.loss_model == 'ainley_and_mathieson':
-            for key in ['e', 'o', 't_max', 'r_r', 'r_c', 't_e', 'k', 'holgura_radial']:
+            for key in ['e', 'o', 't_max', 'r_r', 'r_c', 't_e', 'k']:
                 if key not in self.cfg.geom:
                     registro.critical('Para emplear el modelo de pérdidas se debe introducir "%s"', key)
                     sys.exit()
@@ -333,8 +333,7 @@ class solver_object:
             eta_TT = Re_in = Re_out = Re = None
 
             if not iter_mode and not iter_end:
-                s, H = self.cfg.geom['s'][count*2], self.cfg.geom['H'][count*2]
-                Re_in = Reynolds(rho_1, C_1, T_1, s, H, self.cfg.geom['alfap_o_est'][count], self.prd)
+                Re_in = Reynolds(count*2, rho_1, C_1, T_1, self.cfg, self.prd)
             else:
                 self.Re_corrector_counter += 1
 
@@ -565,8 +564,7 @@ class solver_object:
                     if blade == 'est':
                         Re = Re_in
                     else:
-                        s, H = geom['s'][num], geom['H'][num]
-                        Re = Reynolds(rho_b, U_b, T_b, s, H, geom['alfap_o_est'][counter], self.prd)
+                        Re = Reynolds(num, rho_b, U_b, T_b, self.cfg, self.prd)
 
                 if self.cfg.loss_model == 'soderberg_correlation':
                     if blade == 'rot':

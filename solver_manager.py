@@ -174,7 +174,7 @@ def main(fast_mode, action):
 
     if action == 'procesar_y_guardar':
         settings = config_parameters(TOL=1E-6, n_steps=2, ideal_gas=True, fast_mode=fast_mode,
-                                     loss_model='soderberg_correlation', ETA_TOL=1E-3)
+                                     loss_model='ainley_and_mathieson', ETA_TOL=1E-3)
 
         settings.set_geometry(B_A_est=[0, 5], theta_est=[70, 75], B_A_rot=[55, 55], theta_rot=[105, 105],
                               cuerda=0.03, radio_medio=0.30, H=[0.030, 0.035, 0.041, 0.048, 0.052], e=0.015, o=0.015,
@@ -210,4 +210,4 @@ def main(fast_mode, action):
 
 
 if __name__ == '__main__':
-    main(fast_mode=False, action='cargar_reprocesar_y_guardar')
+    main(fast_mode=False, action='procesar_y_guardar')

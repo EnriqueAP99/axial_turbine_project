@@ -11,22 +11,27 @@ import numpy as np
 # https://www.youtube.com/watch?v=tTG5Re5G7B8&ab_channel=Petr%C3%B3leoyprogramaci%C3%B3nSMAE
 
 
-def Reynolds(rho_2: float, C_2: float, T_2: float, s: float, H: float, alpha_2: float,
-             productos: gas_model_to_solver):
+def Reynolds(num: int, rho_2: float, C_2: float, T_2: float, config: config_parameters, productos: gas_model_to_solver):
     """ Se calcula el número de Reynolds usando el diámetro hidráulico y las propiedades del fluido a la salida del
     estátor.
+            :param num: Número identificador de la corona que se evalúa.
             :param rho_2: Densidad a la salida del estátor (kg/m^3).
             :param C_2: Velocidad a la salida del estátor (m/s).
             :param T_2: Temperatura a la salida del estátor (K).
-            :param s: Parámetro de paso geométrico del estátor (m).
-            :param H: Altura de los álabes del estátor (m).
-            :param alpha_2: Ángulo del fluido con la dirección axial a la salida del estátor (rads).
+            :param config: Objeto con información necesaria para la ejecución.
             :param productos: objeto que modela los productos como clase mixpm del módulo gas_modeling.
                     :return: Se devuelve el número de Reynolds."""
 
-    D_h = 2 * s * H * cos(alpha_2) / (s * cos(alpha_2) + H)
+    if config.loss_model == 'soderberg_correlation':
+        alfa_key = 'alfap_i_est' if num % 2 == 0 else 'alfap_o_rot'
+        s, H, alfa = config.geom['s'][num], config.geom['H'][num], config.geom[alfa_key][num//2]
+        D_h = 2 * s * H * cos(alfa) / (s * cos(alfa) + H)
+        c_len = D_h
+    else:
+        c_len = config.geom['b'][num]
+
     mu = productos.get_din_visc(T_2)
-    Re = int(rho_2 * C_2 * D_h / mu)
+    Re = int(rho_2 * C_2 * c_len / mu)
     return Re
 
 
