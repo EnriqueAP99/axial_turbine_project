@@ -306,8 +306,8 @@ class ainley_and_mathieson_loss_model:  # Ver paper: https://apps.dtic.mil/sti/p
 
         self.crown_num, geom, tol = num, self.cfg.geom, self.cfg.TOL
 
-        lista_local = [geom[i][num] for i in ['areas', 's', 'k', 't_max', 'H', 'r_r', 'r_c', 'b', 't_e']]
-        A_1, s, K_i, t_max, H, r_r, r_c, b, t_e = lista_local
+        lista_local = [geom[i][num] for i in ['areas', 's', 'k', 'H', 'r_r', 'r_c', 'b', 't_e']]
+        A_1, s, K_i, H, r_r, r_c, b, t_e = lista_local
         clave_BA = 'alfap_i_est' if num % 2 == 0 else 'alfap_i_rot'
         A_1, A_2 = A_1 * cos(self.cfg.geom[clave_BA][num//2]), geom['areas'][num+1]*cos(radians(tau_2))
 

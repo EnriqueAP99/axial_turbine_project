@@ -168,8 +168,17 @@ class solver_object:
         #                 para aprovecharlos en cálculos consecutivos.
 
         if config.loss_model == 'ainley_and_mathieson':
+            for key in ['e', 'o', 't_max', 'r_r', 'r_c', 't_e', 'k', 'holgura_radial']:
+                if key not in self.cfg.geom:
+                    registro.critical('Para emplear el modelo de pérdidas se debe introducir "%s"', key)
+                    sys.exit()
             self.AM_object = ainley_and_mathieson_loss_model(config)
+
         elif config.loss_model == 'soderberg_correlation':
+            for key in ['t_max', 'A_rel']:
+                if key not in self.cfg.geom:
+                    registro.critical('Para emplear el modelo de pérdidas se debe introducir "%s"', key)
+                    sys.exit()
             self.SODER_object = soderberg_loss_model(config)
 
     def problem_solver(self, T_in: float, p_in: float, n: float,
