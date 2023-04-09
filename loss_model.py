@@ -52,7 +52,7 @@ def interpola_series_en_x(param, x, series):
 
 # Usar criterio de Zweifel para establecer un s/b para ejemplo que se aplique
 # Ver paper: https://core.ac.uk/download/pdf/147259438.pdf
-class soderberg_loss_model:
+class soderberg_loss_model:  # Válido solo para punto de diseño y proximidades.
     def __init__(self, cfg: config_parameters):
         self.cfg = cfg
         self.xi = list()
