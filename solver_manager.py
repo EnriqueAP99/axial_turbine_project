@@ -172,9 +172,9 @@ def problem_data_viewer(solver: solver_object, req_vars=None) -> None:
 
 def main(fast_mode, action):
 
-    if action == 'w':
+    if action == 'procesar_y_guardar':
         settings = config_parameters(TOL=1E-6, n_steps=2, ideal_gas=True, fast_mode=fast_mode,
-                                     loss_model='ainley_and_mathieson', ETA_TOL=1E-3)
+                                     loss_model='soderberg_correlation', ETA_TOL=1E-3)
 
         settings.set_geometry(B_A_est=[0, 5], theta_est=[70, 75], B_A_rot=[55, 55], theta_rot=[105, 105],
                               cuerda=0.03, radio_medio=0.30, H=[0.030, 0.035, 0.041, 0.048, 0.052], e=0.015, o=0.015,
@@ -192,12 +192,13 @@ def main(fast_mode, action):
             solver.problem_solver(T_in=1800, p_in=1_000_000, n=6_000, m_dot=18.0)
             solver_data_saver('process_object.pkl', solver)
 
-    elif action == 'r':
+    elif action == 'cargar_y_visualizar':
         solver = solver_data_reader('process_object.pkl')
         problem_data_viewer(solver)
 
-    elif action == 'wr':
+    elif action == 'cargar_reprocesar_y_guardar':
         # Se usan semillas de la ejecución anterior. Se leen, se guardan y se visualizan los datos.
+        # Esta ejecución es más rápida que la ejecución normal, ya que se aprovechan las semillas del objeto cargado.
         solver = solver_data_reader('process_object.pkl')
         solver.cfg.set_geometry(B_A_est=[0, 5], theta_est=[70, 75], B_A_rot=[55, 55], theta_rot=[105, 105],
                                 cuerda=0.03, radio_medio=0.30, H=[0.030, 0.035, 0.041, 0.048, 0.052], e=0.015, o=0.015,
@@ -209,4 +210,4 @@ def main(fast_mode, action):
 
 
 if __name__ == '__main__':
-    main(fast_mode=False, action='wr')
+    main(fast_mode=False, action='cargar_reprocesar_y_guardar')

@@ -157,6 +157,7 @@ class solver_object:
         self.rho_seed_list = None   # Para aligerar los cálculos para variaciones pequeñas de las variables de entrada
         self.prd = productos  # Modela el comportamiento termodinámico de los productos de la combustión
         self.AM_object = None
+        self.SODER_object = None
         self.inputs_props = None  # Se emplea como valor de referencia en las primeras semillas.
         self.step_iter_mode = False
         self.step_iter_end = False
@@ -167,7 +168,9 @@ class solver_object:
         #                 para aprovecharlos en cálculos consecutivos.
 
         if config.loss_model == 'ainley_and_mathieson':
-            self.AM_object = AM_loss_model(config)
+            self.AM_object = ainley_and_mathieson_loss_model(config)
+        elif config.loss_model == 'soderberg_correlation':
+            self.SODER_object = soderberg_loss_model(config)
 
     def problem_solver(self, T_in: float, p_in: float, n: float,
                        C_inx=None, m_dot=None) -> None | tuple[float, float, float, float]:
@@ -211,7 +214,7 @@ class solver_object:
 
             s_in = self.prd.get_prop(known_props={'T': T_in, 'p': p_in}, req_prop='s')
             h_in = self.prd.get_prop(known_props={'T': T_in, 'p': p_in}, req_prop='h')
-            h_0in = h_in + ((10 ** (-3)) * (C_inx ** 2) / 2)
+            h_0in = h_in + (0.001 * (C_inx**2) / 2)
 
             ps_list = [T_in, p_in, rho_in, s_in, h_in, h_0in, C_inx]
             for i in range(self.cfg.n_steps):
@@ -232,7 +235,7 @@ class solver_object:
             if not self.cfg.fast_mode:  # Los subindices A y B indican, resp., los pts. inicio y fin de la turbina.
                 p_B, s_B, h_B, h_0B = [ps_list[-1][1]] + ps_list[-1][3:6]
                 h_in = self.prd.get_prop(known_props={'T': T_in, 'p': p_in}, req_prop='h')
-                h_0A = h_in + ((10 ** (-3)) * (C_inx ** 2) / 2)
+                h_0A = h_0in
                 DELTA_h = h_B - h_in
                 w_total = h_0A - h_0B
                 P_total = w_total * m_dot
@@ -342,12 +345,11 @@ class solver_object:
 
             h_02 = h_01
 
+            args = ['est', A_tpl[1], alfa_1, h_02, m_dot, s_1, rho_seed[0]]
             if not iter_mode and not iter_end:
-                args = ['est', A_tpl[1], alfa_1, h_02, m_dot, s_1, rho_seed[0]]
                 outputs = self.blade_outlet_calculator(*args, Re_in=Re_in)
                 p_2, h_2, T_2, C_2, rho_2, h_2s, T_2s, C_2x, M_2, alfa_2, xi_est, Re_in = outputs
             else:
-                args = ['est', A_tpl[1], alfa_1, h_02, m_dot, s_1, rho_seed[0]]
                 outputs = self.blade_outlet_calculator(*args, xi=xi_est)
                 p_2, h_2, T_2, C_2, rho_2, h_2s, T_2s, C_2x, M_2, alfa_2 = outputs
 
@@ -374,11 +376,11 @@ class solver_object:
             omega_3u = omega_3 * sin(beta_3)
             omega_3x = omega_3 * cos(beta_3)
             C_3u = omega_3u - U
-            C_3 = sqrt(C_3u ** 2 + C_3x ** 2)
+            C_3 = sqrt((C_3u**2) + (C_3x**2))
             alfa_3 = asin(C_3u / C_3)
 
             s_3 = self.prd.get_prop(known_props={'T': T_3, 'p': p_3}, req_prop='s')
-            h_03 = h_3 + (10 ** (-3)) * ((C_3 ** 2) / 2)
+            h_03 = h_3 + (0.001 * (C_3**2) / 2)
             local_list_1 = [T_3, p_3, rho_3, s_3, h_3, h_03, C_3, alfa_3]
 
             if h_02 - h_03 < 0:
@@ -408,26 +410,26 @@ class solver_object:
                 self.corrector_seed.append([xi_est, [rho_2, rho_3].copy()])
 
             if not self.cfg.fast_mode and (iter_end or not iter_mode):
-                Y_est = xi_est * ((10 ** (-3)) * (C_2 ** 2) / 2)
-                Y_rot = xi_rot * ((10 ** (-3)) * (omega_3 ** 2) / 2)
+                Y_est = xi_est * (0.001 * (C_2**2) / 2)
+                Y_rot = xi_rot * (0.001 * (omega_3**2) / 2)
                 w_esc = h_02 - h_03
                 p_03, T_03 = self.Zero_pt_calculator(p_x=p_3, s_x=s_3, h_0x=h_03)
                 T_03ss = self.prd.get_prop(known_props={'s': s_1, 'p': p_03}, req_prop={'T': T_03})
                 h_03ss = self.prd.get_prop(known_props={'T': T_03ss, 'p': p_03}, req_prop='h')
                 Y_esc = h_03 - h_03ss
                 eta_TT = w_esc / (w_esc + Y_esc)
-                C_1u = sqrt(C_1 ** 2 - C_1x ** 2)
+                C_1u = sqrt((C_1**2) - (C_1x**2))
                 a_1 = self.prd.get_sound_speed(T=T_1, p=p_1)
                 M_1 = C_1 / a_1
                 a_3 = self.prd.get_sound_speed(T=T_3, p=p_3)
                 M_3 = C_3 / a_3
                 Pot_esc = w_esc * m_dot
                 GR = (h_2 - h_3) / w_esc
-                PSI = w_esc / U ** 2
+                PSI = w_esc / (U**2)
                 PHI_2 = C_2x / U
                 PHI_3 = C_3x / U
-                C_2s = sqrt((h_02 - h_2s) * 2 / (10 ** (-3)))
-                omega_3s = sqrt((h_r3 - h_3s) * 2 / (10 ** (-3)))
+                C_2s = sqrt((h_02 - h_2s) * 2000)
+                omega_3s = sqrt((h_r3 - h_3s) * 2000)
                 speed_loss_coeff_E = C_2 / C_2s
                 speed_loss_coeff_R = omega_3 / omega_3s
                 DELTA_h_esc = h_3 - h_1
@@ -441,7 +443,7 @@ class solver_object:
                 Y_esc = h_03 - h_03ss
                 w_ss_esc = w_esc + Y_esc
                 w_s_esc = w_esc + h_03 - h_03s
-                eta_TE = w_esc / (w_esc + Y_esc + ((10 ** (-3)) * (C_3 ** 2) / 2))
+                eta_TE = w_esc / (w_esc + Y_esc + (0.001 * (C_3**2) / 2))
                 # Aunque resulta más relevante la relación isentrópica, es posible calcular el rendimiento politrópico
                 # Se emplean para ello los valores de remanso
                 p_01, T_01 = self.Zero_pt_calculator(p_x=p_1, s_x=s_1, h_0x=h_01)
@@ -475,7 +477,7 @@ class solver_object:
         return ll_1
 
     def blade_outlet_calculator(self, blade: str, area_b: float, tau_a: float, h_tb: float, m_dot: float,
-                                s_a: float, rho_outer_seed: float, xi=0.0, Re_in=0.0):
+                                s_a: float, rho_outer_seed: float, xi=None, Re_in=None):
         """ Se hace un cálculo iterativo para conocer las propiedades a la salida del estátor y del rótor (según el
         caso, estátor / rótor, se proporciona el valor de la entalpía total / rotalpía y del ángulo que forma la
         velocidad absoluta / relativa del fluido con la dirección del eje de la turbina axial, respectivamente).
@@ -501,7 +503,7 @@ class solver_object:
             self.AM_object.limit_mssg = [True, True, True]
 
         rho_b = rho_bp = rho_outer_seed
-        M_b = h_b = U_b = h_bs = C_bx = tau_b = xi_preiter = Y_total = Re = None
+        M_b = h_b = U_b = h_bs = C_bx = tau_b = Y_total = Re = None
         rel_diff, tol, geom = 1.0, self.cfg.TOL, self.cfg.geom
 
         T_b, T_bs, p_b = self.inputs_props[0]*0.95, self.inputs_props[0]*0.9, self.inputs_props[1]*0.95
@@ -509,11 +511,13 @@ class solver_object:
         counter = self.step_counter
         num = counter*2 + (0 if blade == 'est' else 1)
 
+        alfap_1 = geom[f'alfap_i_{blade}'][counter]
+        alfap_2 = geom[f'alfap_o_{blade}'][counter]
+
         if self.cfg.loss_model == 'soderberg_correlation':
-            s, H, b = geom['s'][num], geom['H'][num], geom['b'][num]
-            args = [blade, geom['alfap_i_est'][counter], geom['alfap_i_rot'][counter], H, b, geom['A_rel'][num]]
-            xi_preiter = Soderberg_correlation(*args)
-            tau_b = geom['alfap_o_est'][counter] if blade == 'est' else geom['alfap_o_rot'][counter]
+            if blade == 'est':
+                xi = self.SODER_object.soder_Re_mod(num, tau_a, Re_in)
+            tau_b = alfap_2
 
         elif self.cfg.loss_model == 'ainley_and_mathieson':
             # tau_2 debe ser corregida si Mb < 0.5, ahora se asigna el valor calculado inicialmente en cualquier caso.
@@ -535,7 +539,7 @@ class solver_object:
                     tau_b = tau_b_n
 
                 U_b = C_bx / cos(tau_b)  # U_b: vel. absoluta o relativa ... tau: alfa o beta ... según el caso
-                h_b = h_tb-(0.001*(U_b*U_b)/2)
+                h_b = h_tb-(0.001*(U_b**2)/2)
                 # Se aplica conservación de la entalpía total/rotalpía ... según el caso
                 # (no se puede determinar otra variable con h2s y s1 con PyroMat)
 
@@ -556,7 +560,8 @@ class solver_object:
                         Re = Reynolds(rho_b, U_b, T_b, s, H, geom['alfap_o_est'][counter], self.prd)
 
                 if self.cfg.loss_model == 'soderberg_correlation':
-                    xi = soder_Re_mod(xi_preiter, Re)  # Una variable aparte para no repetir la corrección.
+                    if blade == 'rot':
+                        xi = self.SODER_object.soder_Re_mod(num, tau_a, Re)
 
                 elif self.cfg.loss_model == 'ainley_and_mathieson':
                     tau_b_n = self.AM_object.tau2_corrector(num, M_b)
@@ -564,22 +569,19 @@ class solver_object:
                     if (not self.step_iter_mode and not self.step_iter_end) or blade == 'rot':
                         args = [num, degrees(tau_a), degrees(tau_b), self.step_iter_mode or self.step_iter_end]
                         Y_total = self.AM_object.Ainley_and_Mathieson_Loss_Model(*args)
-                        xi = Y_total / (1 + (0.5*gamma_b*(M_b*M_b)))
+                        xi = Y_total / (1 + (0.5*gamma_b*(M_b**2)))
                     else:
-                        Y_total = xi * (1 + (0.5*gamma_b*(M_b*M_b)))
+                        Y_total = xi * (1 + (0.5*gamma_b*(M_b**2)))
                         args = [num, degrees(tau_a), degrees(tau_b), True, Y_total]
                         self.AM_object.Ainley_and_Mathieson_Loss_Model(*args)
 
-            h_b = (0.001 * xi * (U_b * U_b) / 2) + h_bs
+            h_b = (0.001 * xi * (U_b**2) / 2) + h_bs
             rho_b = self.prd.get_prop({'p': p_b, 'h': h_b}, {'d': rho_b})
 
             rel_diff = (rho_bp - rho_b) / rho_b
             rho_bp = rho_b
 
             registro.debug('Densidad (kg/m^3): %.12f  ...  Error relativo: %.12f', rho_b, rel_diff)
-
-        alfap_1 = degrees(geom['alfap_i_est'][num//2] if num % 2 == 0 else geom['alfap_i_rot'][num//2])
-        alfap_2 = degrees(geom['alfap_o_est'][num//2] if num % 2 == 0 else geom['alfap_o_rot'][num//2])
 
         if M_b > 0.5:
             registro.warning('Mach %sa la salida superior a 0.5 ... Valor: %.2f',
@@ -593,15 +595,16 @@ class solver_object:
                            'en ambas coronas del escalonamiento %s es: %.3f\n  ...   ',
                            1 + (num//2), Y_total / self.AM_object.Y_t_preiter[num])
         registro.debug('Incidencia: %.2f°  ...  tau_in: %.2f°  ...  Ángulo del B.A.: %.2f°',
-                       degrees(tau_a) - alfap_1, degrees(tau_a), alfap_1)
+                       degrees(tau_a) - degrees(alfap_1), degrees(tau_a), degrees(alfap_1))
         registro.debug('Desviación: %.2f°  ...  tau_out: %.2f°  ...  Ángulo del B.S.: %.2f°',
-                       degrees(tau_b) - alfap_2, degrees(tau_b), alfap_2)
-        if not self.step_iter_mode and not self.step_iter_end:
-            Yp = self.AM_object.Yp_preiter[num]
-        else:
-            Yp = self.AM_object.Yp_iter_mode
-        registro.debug('Pérdidas:  ...  Y_total: %.4f  ...  Yp: %.4f   ',
-                       Y_total, Yp)
+                       degrees(tau_b) - degrees(alfap_2), degrees(tau_b), degrees(alfap_2))
+        if self.cfg.loss_model == 'ainley_and_mathieson':
+            if not self.step_iter_mode and not self.step_iter_end:
+                Yp = self.AM_object.Yp_preiter[num]
+            else:
+                Yp = self.AM_object.Yp_iter_mode
+            registro.debug('Pérdidas:  ...  Y_total: %.4f  ...  Yp: %.4f   ',
+                           Y_total, Yp)
 
         return_vars = [p_b, h_b, T_b, U_b, rho_b, h_bs, T_bs, C_bx, M_b, tau_b]
 
@@ -657,10 +660,9 @@ def main():
     e_param = [0.0893, 0.01135]
     tip_clearance = [0.0, 0.0008]
 
-    settings.set_geometry(B_A_est=0, theta_est=70, B_A_rot=36, theta_rot=100, areas=areas,
-                          cuerda=chord, radio_medio=Rm, e=e_param, o=blade_opening, s=pitch,
-                          H=heights, t_max=t_max, r_r=0.002, r_c=0.001, t_e=t_e,
-                          k=tip_clearance, holgura_radial=False)
+    settings.set_geometry(B_A_est=0, theta_est=70, B_A_rot=36, theta_rot=100, areas=areas, cuerda=chord,
+                          radio_medio=Rm, e=e_param, o=blade_opening, s=pitch, A_rel=1.1, H=heights,
+                          t_max=t_max, r_r=0.002, r_c=0.001, t_e=t_e, k=tip_clearance, holgura_radial=False)
 
     gas_model = gas_model_to_solver(thermo_mode="ig", relative_error=1E-6)
     solver = solver_object(settings, gas_model)

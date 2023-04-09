@@ -3,7 +3,7 @@ En este módulo se caracteriza el modelo de pérdidas que se va a emplear en el 
 calcula el número de Reynolds.
 """
 from config_class import registro, gas_model_to_solver, config_parameters
-from math import cos, fabs, atan, tan, radians, degrees, pi, acos
+from math import cos, atan, tan, radians, degrees, pi, acos
 from scipy.interpolate import InterpolatedUnivariateSpline
 import numpy as np
 # https://medium.com/@hdezfloresmiguelangel/introducci%C3%B3n-a-la-interpolaci%C3%B3n-unidimensional-con-python-1127abe510a1
@@ -30,32 +30,64 @@ def Reynolds(rho_2: float, C_2: float, T_2: float, s: float, H: float, alpha_2: 
     return Re
 
 
+def x_sp(x_list: list):
+    return np.linspace(x_list[0], x_list[-1])
+
+
+def f_sp(x_list: list, y_list: list, order: int):
+    return InterpolatedUnivariateSpline(x_list, y_list, k=order)
+
+
+def interpola_series_en_x(param, x, series):
+    serie_parameter = [parameter for _, _, parameter in series]
+    serie_y = [float(funcion(x)) for _, funcion, _ in series]
+    f_param = InterpolatedUnivariateSpline(serie_parameter, serie_y, k=2)
+    return f_param(param)
+
+
 # Usar criterio de Zweifel para establecer un s/b para ejemplo que se aplique
 # Ver paper: https://core.ac.uk/download/pdf/147259438.pdf
-def Soderberg_correlation(blade: str, alfap_1: float, alfap_2: float, H: float, b: float, A_rel: float):
-    """ Función que aplica la correlación de Soderberg.
-    .
-            :param blade: Cadena de caracteres para diferenciar estátor ('est') y rótor ('rot').
-            :param alfap_1: Ángulo que forma el borde de ataque del álabe en cuestión con la dirección axial (rads).
-            :param alfap_2: Ángulo que forma el borde de salida del álabe en cuestión con la dirección axial (rads).
-            :param H: Altura de los álabes de la corona que corresponda (m).
-            :param b: Cuerda de los álabes de la corona que corresponda (m).
-            :param A_rel:
-                    :return: Se devuelve únicamente el valor del coeficiente adimensional de pérdidas, ya que se
-                            establece que la incidencia y la desviación del flujo son nulos."""
+class soderberg_loss_model:
+    def __init__(self, cfg: config_parameters):
+        self.cfg = cfg
+        self.xi = list()
+        incidence_015 = [-46, -32, -25, -20, 0, 20, 40, 70]
+        ratio_015 = [1.30, 1.05, 1.022, 1.013, 1.0, 1.008, 1.028, 1.10]
+        serie_015 = [x_sp(incidence_015), f_sp(incidence_015, ratio_015, 3), 0.15]
+        ratio_025 = [1.075, 1.05, 1.018, 1.008, 1.0, 1.008, 1.024, 1.07]
+        incidence_025 = [-50, -40, -26, -20, 0, 20, 40, 70]
+        serie_025 = [x_sp(incidence_015), f_sp(incidence_025, ratio_025, 2), 0.25]
+        ratio_030 = [1.025, 1.007, 1.00, 1.008, 1.021, 1.05]
+        incidence_030 = [-50, -20, 0, 20, 40, 70]
+        serie_030 = [x_sp(incidence_015), f_sp(incidence_030, ratio_030, 2), 0.3]
+        self.series = [serie_015, serie_025, serie_030]
 
-    theta = alfap_1 + alfap_2
-    epsilon = theta     # t_max_adim = 0.2
-    xi = (((1.04 + 0.06*(0.01*epsilon)**2)*((0.993+0.021*b/H) if blade == 'est' else (0.975+0.075*b/H)))-1)*A_rel
-    return xi
+        def Soderberg_correlation(num):
+            """ Función que aplica la correlación de Soderberg. """
+
+            geom, blade = self.cfg.geom, 'est' if num % 2 == 0 else 'rot'
+            alfap_1, alfap_2 = geom[f'alfap_i_{blade}'][num//2], geom[f'alfap_o_{blade}'][num//2]
+            chord, H, A_rel, t_max = geom['b'][num], geom['H'][num+1], geom['A_rel'], geom['t_max'][num]
+            epsilon = degrees(alfap_1 + alfap_2)
+            t_max_adim = t_max/chord if 0.15 < t_max/chord < 0.30 else 0.15 if t_max/chord < 0.15 else 0.30
+            xi_tmaxadim02 = (0.04 + (0.06*((0.01*epsilon)**2)))
+            xi = xi_tmaxadim02 + ((0.0007/0.05)*(0.2-t_max_adim))  # Interpolación de xi para valor de t_max_adim
+            value = (0.993+(0.021*chord/H)) if blade == 'est' else (0.975+(0.075*chord/H))
+            return (((1 + xi) * value)-1)*A_rel[num]
+
+        for i in range(self.cfg.n_steps*2):
+            self.xi.append(Soderberg_correlation(i))
+
+    def soder_Re_mod(self, num: int, tau_1: float, Re: int):
+        geom, blade = self.cfg.geom, 'est' if num % 2 == 0 else 'rot'
+        t_max_adim = geom['t_max'][num] / geom['b'][num]
+        alfap_1 = geom[f'alfap_i_{blade}'][num//2]
+        ratio = interpola_series_en_x(param=t_max_adim, x=tau_1-alfap_1, series=self.series)
+        new_xi = ((1E5 / Re) ** 0.25) * self.xi[num]*ratio
+        return new_xi
 
 
-def soder_Re_mod(xi: float, Re: int):
-    new_xi = ((1E5 / Re) ** 0.25) * xi
-    return new_xi
-
-
-class AM_loss_model:  # Ver paper: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf
+class ainley_and_mathieson_loss_model:  # Ver paper: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf
     """ Clase que contiene instancias necesarias para aplicar la correlación de Ainley and Mathieson, haciendo uso de
     interpolación por splines generados por la librería Scipy. Notar que una vez creado el objeto no se estará
     interpolando con cada llamada al módulo actual, sino que se llamará a una instancia del objeto que se inicializó
@@ -72,12 +104,6 @@ class AM_loss_model:  # Ver paper: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf
         self.Y_t_preiter = list()
         self.Y_t_stator_iter_mode = float()
         self.limit_mssg = [False, False, False]
-
-        def x_sp(x_list):
-            return np.linspace(x_list[0], x_list[-1])
-
-        def f_sp(x_list, y_list, order: int):
-            return InterpolatedUnivariateSpline(x_list, y_list, k=order)
 
         x, y = [0, 0.02, 0.04, 0.061, 0.082, 0.10, 0.12], [0.92, 1.00, 1.10, 1.23, 1.38, 1.52, 1.69]
         self.ji_Te_te_s = [x_sp(x), f_sp(x, y, 3)]
@@ -96,11 +122,13 @@ class AM_loss_model:  # Ver paper: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf
         self.is_b1a2_sc_075 = [[x_sp(X), f_sp(X, Y, 2)] for X, Y in is_list]
         for i, v in enumerate([70, 65, 60, 55, 50, 40, 30]):
             self.is_b1a2_sc_075[i] += [v]
+        self.is_b1a2_sc_075 = self.is_b1a2_sc_075[::-1]
         s_c, d_i_s_a2m40 = [0.4, 0.5, 0.6, 0.7, 0.77, 0.9, 1], [8.0, 6.8, 4.5, 1.7, -0.6, -8.3, -15]
         d_i_s_a2m50, d_i_s_a2m60 = [8.0,  6.8, 4.5, 1.7, -0.6, -6.6, -11.4], [8.0,  6.8, 4.5, 1.7, -0.6, -4.9, -6.6]
         self.d_i_s_s_c = [[x_sp(s_c), f_sp(s_c, i, 3)] for i in [d_i_s_a2m60, d_i_s_a2m50, d_i_s_a2m40]]
         for i, v in enumerate([60, 50, 40]):
             self.d_i_s_s_c[i] += [v]
+        self.d_i_s_s_c = self.d_i_s_s_c[::-1]
         s_c = [0.3, 0.5, 0.7, 0.9, 1.1]
         s_c_m80 = [0.4, 0.5, 0.7, 0.84]
         s_c_m75 = [0.45, 0.5, 0.7, 0.95]
@@ -117,6 +145,7 @@ class AM_loss_model:  # Ver paper: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf
         self.yp_s_c_b1kn.insert(0, [x_sp(s_c_m80), f_sp(s_c_m80, yp_a2m80, 3)])
         for i, v in enumerate([80, 75, 70, 65, 60, 50, 40]):
             self.yp_s_c_b1kn[i] += [v]
+        self.yp_s_c_b1kn = self.yp_s_c_b1kn[::-1]
         s_c = [0.3, 0.5, 0.7, 0.8, 1.0]
         s_c_m55 = [0.4, 0.5, 0.7, 0.8, 1.0]
         yp_a2m70 = [0.162, 0.134, 0.149, 0.162, 0.191]
@@ -130,6 +159,7 @@ class AM_loss_model:  # Ver paper: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf
         self.yp_s_c_b1kb2k.insert(3, [x_sp(s_c_m55), f_sp(s_c_m55, yp_a2m55, 2)])
         for i, v in enumerate([70, 65, 60, 55, 50, 40]):
             self.yp_s_c_b1kb2k[i] += [v]
+        self.yp_s_c_b1kb2k = self.yp_s_c_b1kb2k[::-1]
         i_f, yp_f = [-4.1, -3.0, -2.0, -1.0, 0.05, 1.0, 1.7], [6.4, 4.3, 2.75, 1.6, 1.0, 2.1, 6.1]
         self.yp_f_i_f = [x_sp(i_f), f_sp(i_f, yp_f, 2)]
         x, lambdav = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5], [0.0055, 0.0063, 0.0087, 0.0130, 0.0192, 0.0276]
@@ -187,23 +217,6 @@ class AM_loss_model:  # Ver paper: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf
                 :param tau_1: alfap_1 más la incidencia del flujo (degrees).
                 :param tau_2: alfap_2 más la deflexión del flujo (degrees).
                         :return: Se devuelve el valor de Yp calculado. """
-        def interp_series_a2(ang, x, series):
-            """ Método que permite evaluar valores no discretos de ángulos de salida del fluido en la aplicación de la
-            correlación de "Ainley and Mathieson". Se hace uso de la interpolación con splines que facilita la librería
-            scipy.
-                    :param ang: Ángulo a evaluar (degrees).
-                    :param x: Coordenada de abscisas para la que se evalúan las funciones dadas para diferentes ángulos.
-                    :param series: Lista que contiene listas de 3 elementos: la serie de abscisas, una función spline
-                                  y el ángulo que le corresponde.
-                            :return: Devuelve el resultado de evaluar, para el valor no discreto del ángulo requerido,
-                                     el valor de la función generada por splines a partir de los valores de las
-                                     funciones originales evaluadas en 'x' frente a los ángulos que corresponden a cada
-                                     función original. """
-
-            serie_a2 = [a2 for _, _, a2 in series]
-            serie_y = [float(funcion(x)) for _, funcion, _ in series]
-            f_a2 = InterpolatedUnivariateSpline(list(reversed(serie_a2)), list(reversed(serie_y)), k=2)
-            return f_a2(ang)
 
         geom, num = self.cfg.geom, self.crown_num
         alfap_1 = degrees(geom['alfap_i_est'][num//2] if num % 2 == 0 else geom['alfap_i_rot'][num//2])
@@ -212,13 +225,13 @@ class AM_loss_model:  # Ver paper: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf
         a2_a2sc075 = self.alfa2rel_s_c[1](s / b)
         alpha_2_sc075 = tau_2 / a2_a2sc075
         if self.limit_mssg[0]:
-            if -alfap_1 / alpha_2_sc075 < -1.1 or -alfap_1 / alpha_2_sc075 > 1:
+            if alfap_1 / alpha_2_sc075 < -1.1 or alfap_1 / alpha_2_sc075 > 1:
                 registro.warning('La relación B.A. - Ángulo de salida (s/c=0.75) sobrepasa los límites válidos. '
-                                 'El valor es %.2f y los límites son [-1.1, 1].', -alfap_1 / alpha_2_sc075)
+                                 'El valor es %.2f y los límites son [-1.1, 1].', alfap_1 / alpha_2_sc075)
                 self.limit_mssg[0] = False
 
-        is_sc075 = interp_series_a2(alpha_2_sc075, alfap_1 / alpha_2_sc075, self.is_b1a2_sc_075)
-        delta_is = interp_series_a2(tau_2, s / b, self.d_i_s_s_c)
+        is_sc075 = interpola_series_en_x(param=alpha_2_sc075, x=alfap_1/alpha_2_sc075, series=self.is_b1a2_sc_075)
+        delta_is = interpola_series_en_x(param=tau_2, x=s/b, series=self.d_i_s_s_c)
         i_s = delta_is + is_sc075
         i_is = (tau_1 - alfap_1) / i_s
 
@@ -229,8 +242,8 @@ class AM_loss_model:  # Ver paper: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf
                 self.limit_mssg[1] = False
 
         yp_f = self.yp_f_i_f[1](i_is)
-        Yp_i0_b1kn = interp_series_a2(tau_2, s / b, self.yp_s_c_b1kn)
-        Yp_i0_b1kb2k = interp_series_a2(tau_2, s / b, self.yp_s_c_b1kb2k)
+        Yp_i0_b1kn = interpola_series_en_x(param=tau_2, x=s/b, series=self.yp_s_c_b1kn)
+        Yp_i0_b1kb2k = interpola_series_en_x(param=tau_2, x=s/b, series=self.yp_s_c_b1kb2k)
 
         t_max_b = t_max / b
 
@@ -250,7 +263,7 @@ class AM_loss_model:  # Ver paper: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf
                                                                                            (alfap_1 / tau_2))
         Yp = Yp_i0*yp_f
 
-        return fabs(Yp)
+        return Yp
 
     def tau2_corrector(self, num: int, M_out: float):
         tau_in_key = 'alfap_i_est' if num % 2 == 0 else 'alfap_i_rot'

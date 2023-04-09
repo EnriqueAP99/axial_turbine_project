@@ -2,11 +2,11 @@
 En este módulo se define una clase que caracteriza un objeto que contiene la configuración y los parámetros geométricos
 que se emplearán en el cálculo (config_parameters). Se emplea un módulo aparte para esta clase para evitar importaciones
 circulares, ya que se va a almacenar información que será necesaria en varios módulos. Además, también se crea una
-clase que facilita el intercambio del módulo "gas_modeling.py" por otro similar.
+clase que facilita el intercambio del módulo "gas_model.py" por otro similar.
 """
 
 import logging  # https://docs.python.org/es/3/howto/logging.html
-from gas_modeling import mixpm
+from gas_model import mixpm
 import sys
 from math import pi, radians, cos, tan
 from dataclasses import dataclass
@@ -154,7 +154,7 @@ class config_parameters:
 class gas_model_to_solver:
     """Esta clase se crea para permitir emplear otro módulo alternativo que describa el comportamiento termodinámico
     del gas sin tener que modificar el módulo 'axial_turb_solver.py. Es decir, solo sería necesario modificar esta clase
-    de manera adecuada para adaptar un módulo alternativo a "gas_modeling.py"."""
+    de manera adecuada para adaptar un módulo alternativo a "gas_model.py"."""
 
     thermo_mode: str = "ig"  # Cadena que identifica si se establece modelo multifase o ideal para el vapor de agua.
     relative_error: float = 1E-7  # Máximo error relativo que se permite en los cálculos.
