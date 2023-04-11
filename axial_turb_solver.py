@@ -117,7 +117,7 @@ def Reynolds_correction(corrector_tol: float, loss_model: str,
                     sifc = step_inner_funct(True, False, xi_ec, rho_seed_c)
                     fc, rho_seed_c = sifc[0] - eta_TT_obj, sifc[1]
                 rel_error_eta_TT = fc/eta_TT_obj
-                registro.info('Corrección en proceso  ...  eta_TT: %.5f  ...  Error: %.5f',
+                registro.info('Corrección en proceso  ...  eta_TT: %.4f  ...  Error: %.4f',
                               sifc[0], rel_error_eta_TT)
                 if fc*f2 < 0:
                     xi_e1, rho_seed_1 = xi_ec, rho_seed_c
@@ -305,7 +305,7 @@ class solver_object:
         @Reynolds_correction(self.cfg.ETA_TOL, self.cfg.loss_model, corrector_memory)
         def inner_funct(iter_mode=False, iter_end=False, xi_est=None, rho_seed=None):
             """ Esta función interna se crea para poder comunicar al decorador instancias de la clase.
-                    :param rho_seed: Densidad que se emplea como valor semilla en bucle_while_x2 (kg/m^3).
+                    :param rho_seed: Densidad que se emplea como valor semilla en blade_outlet_calculator (kg/m^3).
                     :param xi_est: Valor opcional que permite al decorador aplicar recursividad para efectuar la
                                   corrección por dependencia de Reynolds.
                     :param iter_mode: Permite diferenciar si se está aplicando recursividad para la corrección por
@@ -402,8 +402,11 @@ class solver_object:
                 if Re < 50_000:
                     registro.warning('El número de Reynolds es demasiado bajo.')
 
-            if (len(self.rho_seed_list) < self.cfg.n_steps) and not iter_mode and not iter_end:
-                self.rho_seed_list.append([rho_2, rho_3].copy())
+            if not iter_mode and not iter_end:
+                if len(self.rho_seed_list) < self.cfg.n_steps:
+                    self.rho_seed_list.append([rho_2, rho_3].copy())
+                else:
+                    self.rho_seed_list = [rho_2, rho_3].copy()
 
             # Se determina en estas líneas el rendimiento total a total para que sea posible aplicar la corrección:
             if self.cfg.loss_model == 'ainley_and_mathieson' and (self.cfg.fast_mode or iter_mode):
@@ -414,8 +417,11 @@ class solver_object:
                 Y_esc = h_03 - h_03ss
                 eta_TT = w_esc / (w_esc + Y_esc)
 
-            if iter_end and len(self.corrector_seed) < self.cfg.n_steps:
-                self.corrector_seed.append([xi_est, [rho_2, rho_3].copy()])
+            if iter_end:
+                if len(self.corrector_seed) < self.cfg.n_steps:
+                    self.corrector_seed.append([xi_est, [rho_2, rho_3].copy()])
+                else:
+                    self.corrector_seed[count] = [xi_est, [rho_2, rho_3].copy()]
 
             if not self.cfg.fast_mode and (iter_end or not iter_mode):
                 Y_est = xi_est * (0.001 * (C_2**2) / 2)
