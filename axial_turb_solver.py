@@ -2,11 +2,12 @@
 En este módulo se crea una clase que, con sus métodos y con herramientas de otros módulos, permite determinar
 las condiciones de funcionamiento de la turbina axial que se defina.
 """
-from time import time
-from loss_model import *
-from config_class import gas_model_to_solver
+import copy
 import sys
-from math import cos, sin, fabs, sqrt, atan, asin, acos, log, degrees, pi
+from math import sin, fabs, sqrt, asin, log
+from time import time
+
+from loss_model import *
 
 
 def solver_timer(solver_method):
@@ -305,7 +306,8 @@ class solver_object:
         @Reynolds_correction(self.cfg.ETA_TOL, self.cfg.loss_model, corrector_memory)
         def inner_funct(iter_mode=False, iter_end=False, xi_est=None, rho_seed=None):
             """ Esta función interna se crea para poder comunicar al decorador instancias de la clase.
-                    :param rho_seed: Densidad que se emplea como valor semilla en blade_outlet_calculator (kg/m^3).
+                                :param rho_seed: Densidad que se emplea como valor semilla en blade_outlet_calculator
+                                                 (kg/m^3).
                     :param xi_est: Valor opcional que permite al decorador aplicar recursividad para efectuar la
                                   corrección por dependencia de Reynolds.
                     :param iter_mode: Permite diferenciar si se está aplicando recursividad para la corrección por
@@ -419,9 +421,9 @@ class solver_object:
 
             if iter_end:
                 if len(self.corrector_seed) < self.cfg.n_steps:
-                    self.corrector_seed.append([xi_est, [rho_2, rho_3].copy()])
+                    self.corrector_seed.append(copy.deepcopy([xi_est, [rho_2, rho_3]]))
                 else:
-                    self.corrector_seed[count] = [xi_est, [rho_2, rho_3].copy()]
+                    self.corrector_seed[count] = copy.deepcopy([xi_est, [rho_2, rho_3]])
 
             if not self.cfg.fast_mode and (iter_end or not iter_mode):
                 Y_est = xi_est * (0.001 * (C_2**2) / 2)
@@ -658,7 +660,7 @@ class solver_object:
 
 def main():
     fast_mode = False
-    settings = config_parameters(TOL=1E-6, ETA_TOL=1E-3, n_steps=1, ideal_gas=True, fast_mode=True,
+    settings = config_parameters(TOL=1E-6, ETA_TOL=1E-4, n_steps=1, ideal_gas=True, fast_mode=True,
                                  loss_model='ainley_and_mathieson')
 
     # Geometría procedente de: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf
