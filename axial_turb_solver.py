@@ -406,7 +406,7 @@ class solver_object:
                 if len(self.rho_seed_list) < self.cfg.n_steps:
                     self.rho_seed_list.append([rho_2, rho_3].copy())
                 else:
-                    self.rho_seed_list = [rho_2, rho_3].copy()
+                    self.rho_seed_list[count] = [rho_2, rho_3].copy()
 
             # Se determina en estas líneas el rendimiento total a total para que sea posible aplicar la corrección:
             if self.cfg.loss_model == 'ainley_and_mathieson' and (self.cfg.fast_mode or iter_mode):
