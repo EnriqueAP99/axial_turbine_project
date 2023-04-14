@@ -25,9 +25,9 @@ class config_parameters:
     geom: dict = None  # Diccionario para almacenar parámetros geométricos de la turbina
 
     def __post_init__(self):
-        if self.loss_model not in ['soderberg_correlation', 'ainley_and_mathieson']:
-            logging.critical('Los identificadores de los modelos de pérdidas disponibles son "soderberg_correlation" y '
-                             '"ainley_and_mathieson".')
+        if self.loss_model not in ['Aungier', 'Ainley_and_Mathieson']:
+            logging.critical('Los identificadores de los modelos de pérdidas disponibles son "Aungier" y '
+                             '"Ainley_and_Mathieson".')
             sys.exit()
 
     def set_geometry(self, B_A_est: int | float | list, B_A_rot: int | float | list, cuerda: int | float | list,
@@ -58,11 +58,12 @@ class config_parameters:
                                establezca. Se permite definir las secciones de manera explícita o de manera implícita,
                                fijando el radio medio y las alturas. Si no se define un paso, se establecerá
                                automáticamente el paso óptimo según el criterio de Zweifel.
-                               Las claves son: Rm (radio medio), H (alturas), areas,
-                               A_rel (relacion área álabes - área total), t_max (espesor máximo de un álabe),
-                               r_r (radio raiz), r_c (radio cabeza), t_e (espesor del borde de salida),
-                               K (holgura en el extremo del álabe), s (paso, distancia entre
-                               álabes de la misma corona), o (distancia de la garganta, "Blade opening"),
+                               Las claves son: Rm (radio medio), H (alturas), areas, b_z (cuerda axial),
+                               t_max (espesor máximo de un álabe), r_r (radio raiz), r_c (radio cabeza),
+                               t_e (espesor del borde de salida), K (holgura en el extremo del álabe),
+                               s (paso, distancia entre álabes de la misma corona),
+                               o (distancia de la garganta, "Blade opening"),
+                               delta (espacio entre la punta del álabe y la pared final),
                                e (radio medio de curvatura entre la garganta y el borde de estela),
                                holgura_radial (True o False, según si existe espacio libre en la punta del álabe)."""
 
@@ -79,7 +80,10 @@ class config_parameters:
                 registro.critical('Se precisa definir de alguna manera la deflexión de cada álabe.')
                 sys.exit()
 
-        list_items2, local_dict2 = ['A_rel', 't_max', 'r_r', 'r_c', 't_e', 'k', ], {}
+        list_items2, local_dict2 = ['t_max', 'r_r', 'r_c', 't_e', ], {}
+        for key in ['roughness_ptv', 'lashing_wires', 'wire_diameter', 'b_z', 'delta', 'k', ]:
+            if key in kwargs:
+                list_items2.append(key)
         if 'o' in kwargs and 'e' in kwargs:
             list_items2.append('o')
             list_items2.append('e')

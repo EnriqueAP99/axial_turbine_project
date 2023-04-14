@@ -3,7 +3,7 @@ En este módulo se caracteriza el modelo de pérdidas que se va a emplear en el 
 calcula el número de Reynolds.
 """
 from config_class import registro, gas_model_to_solver, config_parameters
-from math import cos, atan, tan, radians, degrees, pi, acos
+from math import cos, atan, tan, radians, degrees, pi, acos, fabs, sqrt, log10, sin, asin
 from scipy.interpolate import InterpolatedUnivariateSpline
 import numpy as np
 # https://medium.com/@hdezfloresmiguelangel/introducci%C3%B3n-a-la-interpolaci%C3%B3n-unidimensional-con-python-1127abe510a1
@@ -50,49 +50,7 @@ def interpola_series_en_x(param, x, series):
     return f_param(param)
 
 
-# Usar criterio de Zweifel para establecer un s/b para ejemplo que se aplique
-# Ver paper: https://core.ac.uk/download/pdf/147259438.pdf
-class soderberg_loss_model:  # Válido solo para punto de diseño y proximidades.
-    def __init__(self, cfg: config_parameters):
-        self.cfg = cfg
-        self.xi = list()
-        incidence_015 = [-46, -32, -25, -20, 0, 20, 40, 70]
-        ratio_015 = [1.30, 1.05, 1.022, 1.013, 1.0, 1.008, 1.028, 1.10]
-        serie_015 = [x_sp(incidence_015), f_sp(incidence_015, ratio_015, 3), 0.15]
-        ratio_025 = [1.075, 1.05, 1.018, 1.008, 1.0, 1.008, 1.024, 1.07]
-        incidence_025 = [-50, -40, -26, -20, 0, 20, 40, 70]
-        serie_025 = [x_sp(incidence_015), f_sp(incidence_025, ratio_025, 2), 0.25]
-        ratio_030 = [1.025, 1.007, 1.00, 1.008, 1.021, 1.05]
-        incidence_030 = [-50, -20, 0, 20, 40, 70]
-        serie_030 = [x_sp(incidence_015), f_sp(incidence_030, ratio_030, 2), 0.3]
-        self.series = [serie_015, serie_025, serie_030]
-
-        def Soderberg_correlation(num):
-            """ Función que aplica la correlación de Soderberg. """
-
-            geom, blade = self.cfg.geom, 'est' if num % 2 == 0 else 'rot'
-            alfap_1, alfap_2 = geom[f'alfap_i_{blade}'][num//2], geom[f'alfap_o_{blade}'][num//2]
-            chord, H, A_rel, t_max = geom['b'][num], geom['H'][num+1], geom['A_rel'], geom['t_max'][num]
-            epsilon = degrees(alfap_1 + alfap_2)
-            t_max_adim = t_max/chord if 0.15 < t_max/chord < 0.30 else 0.15 if t_max/chord < 0.15 else 0.30
-            xi_tmaxadim02 = (0.04 + (0.06*((0.01*epsilon)**2)))
-            xi = xi_tmaxadim02 + ((0.0007/0.05)*(0.2-t_max_adim))  # Interpolación de xi para valor de t_max_adim
-            value = (0.993+(0.021*chord/H)) if blade == 'est' else (0.975+(0.075*chord/H))
-            return (((1 + xi) * value)-1)*A_rel[num]
-
-        for i in range(self.cfg.n_steps*2):
-            self.xi.append(Soderberg_correlation(i))
-
-    def soder_Re_mod(self, num: int, tau_1: float, Re: int):
-        geom, blade = self.cfg.geom, 'est' if num % 2 == 0 else 'rot'
-        t_max_adim = geom['t_max'][num] / geom['b'][num]
-        alfap_1 = geom[f'alfap_i_{blade}'][num//2]
-        ratio = interpola_series_en_x(param=t_max_adim, x=tau_1-alfap_1, series=self.series)
-        new_xi = ((1E5 / Re) ** 0.25) * self.xi[num]*ratio
-        return new_xi
-
-
-class ainley_and_mathieson_loss_model:  # Ver paper: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf
+class Ainley_and_Mathieson_Loss_Model:  # Ver paper: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf
     """ Clase que contiene instancias necesarias para aplicar la correlación de Ainley and Mathieson, haciendo uso de
     interpolación por splines generados por la librería Scipy. Notar que una vez creado el objeto no se estará
     interpolando con cada llamada al módulo actual, sino que se llamará a una instancia del objeto que se inicializó
@@ -191,12 +149,18 @@ class ainley_and_mathieson_loss_model:  # Ver paper: https://apps.dtic.mil/sti/p
                 ref_radius.append(diameter/2)
             return tuple(ref_radius)
 
-        self.cfg.edit_geom('Rm', AM_mean_radius())  # Se reescribe la tupla anterior por el resultado actual.
-        r_corregidos = [i for i in self.cfg.geom['Rm'][::2]]
-        str_rm_logger = "El radio medio ha sido corregido acorde al diámetro de referencia del modelo AM: "
-        for _ in r_corregidos:
-            str_rm_logger += "  ...  %.3f m"
-        registro.info(str_rm_logger, *r_corregidos)
+        need_to_adapt = False
+        for i, rm1 in enumerate(self.cfg.geom['Rm'][::2]):
+            rm2 = self.cfg.geom['Rm'][1::2][i]
+            if not rm2*(1-self.cfg.TOL) < rm1 < rm2*(1+self.cfg.TOL):  # Evaluar si los valores son iguales o no
+                need_to_adapt = True
+        if need_to_adapt:
+            self.cfg.edit_geom('Rm', AM_mean_radius())  # Se reescribe la tupla anterior por la tupla adaptada.
+            r_corregidos = [i for i in self.cfg.geom['Rm'][::2]]
+            str_rm_logger = "El radio medio ha sido corregido acorde al diámetro de referencia del modelo AM: "
+            for _ in r_corregidos:
+                str_rm_logger += "  ...  %.3f m"
+            registro.info(str_rm_logger, *r_corregidos)
 
         for num, cuerda in enumerate(self.cfg.geom['b']):
             solidez = cuerda / self.cfg.geom['s'][num]
@@ -217,12 +181,7 @@ class ainley_and_mathieson_loss_model:  # Ver paper: https://apps.dtic.mil/sti/p
             flow_angle = tau_2_ast_value + 4 * (pitch[i] / mean_radius_curvature[i])
             self.outlet_angle_before_mod.append(radians(flow_angle))
 
-    def AM_loss_model_operations(self, tau_1: float, tau_2: float) -> float:
-        """ Se determina el valor de Yp según la correlación de AM.
-                :param tau_1: alfap_1 más la incidencia del flujo (degrees).
-                :param tau_2: alfap_2 más la deflexión del flujo (degrees).
-                        :return: Se devuelve el valor de Yp calculado. """
-
+    def calculating_incidence_stall_incidence_fraction(self, tau_1: float, tau_2: float):
         geom, num = self.cfg.geom, self.crown_num
         alfap_1 = degrees(geom['alfap_i_est'][num//2] if num % 2 == 0 else geom['alfap_i_rot'][num//2])
         s, b, t_max = geom['s'][num], geom['b'][num], geom['t_max'][num]
@@ -245,6 +204,20 @@ class ainley_and_mathieson_loss_model:  # Ver paper: https://apps.dtic.mil/sti/p
                 registro.warning('La relación entre la incidencia y la incidencia de desprendimiento sobrepasa los '
                                  'límites de validez del ajuste. El valor es %.3f y los límites son [-4.1, 1.7]', i_is)
                 self.limit_mssg[1] = False
+
+        return i_is
+
+    def AM_loss_model_operations(self, tau_1: float, tau_2: float) -> float:
+        """ Se determina el valor de Yp según la correlación de AM.
+                :param tau_1: alfap_1 más la incidencia del flujo (degrees).
+                :param tau_2: alfap_2 más la deflexión del flujo (degrees).
+                        :return: Se devuelve el valor de Yp calculado. """
+
+        geom, num = self.cfg.geom, self.crown_num
+        alfap_1 = degrees(geom['alfap_i_est'][num//2] if num % 2 == 0 else geom['alfap_i_rot'][num//2])
+        s, b, t_max = geom['s'][num], geom['b'][num], geom['t_max'][num]
+
+        i_is = self.calculating_incidence_stall_incidence_fraction(tau_1, tau_2)
 
         yp_f = self.yp_f_i_f[1](i_is)
         Yp_i0_b1kn = interpola_series_en_x(param=tau_2, x=s/b, series=self.yp_s_c_b1kn)
@@ -355,5 +328,120 @@ class ainley_and_mathieson_loss_model:  # Ver paper: https://apps.dtic.mil/sti/p
             else:
                 Y_total = self.Y_t_preiter[num] * self.Y_t_stator_iter_mode / self.Y_t_preiter[num - 1]
                 self.Yp_iter_mode = self.Yp_preiter[num] * self.Y_t_preiter[num] / Y_total
-                # Comprobar si el problema es con Y_total
                 return Y_total
+
+
+class Aungier_Loss_Model(Ainley_and_Mathieson_Loss_Model):
+    def __init__(self, cfg: config_parameters):
+        super().__init__(cfg)
+
+        s_e = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
+        k_m_1 = [1.0, 1.0, 1.2, 1.45, 1.8, 2.3, 3.0, 3.8, 5.0]
+        k_m_09 = [1.0, 1.0, 1.1, 1.23, 1.38, 1.6, 1.85, 2.15, 2.5]
+        k_m_08 = [1.0, 1.0, 1.03, 1.08, 1.14, 1.21, 1.29, 1.39, 1.5]
+        s_e_07 = [0.0, 0.2, 0.8]
+        k_m_07 = [1.0, 1.0, 1.17]
+
+        serie_k_m_1 = [x_sp(s_e), f_sp(s_e, k_m_1, 3), 1.0]
+        serie_k_m_09 = [x_sp(s_e), f_sp(s_e, k_m_09, 3), 0.9]
+        serie_k_m_08 = [x_sp(s_e), f_sp(s_e, k_m_08, 3), 0.8]
+        serie_k_m_07 = [x_sp(s_e_07), f_sp(s_e_07, k_m_07, 2), 0.7]
+
+        self.km_series = [serie_k_m_07, serie_k_m_08, serie_k_m_09, serie_k_m_1]
+
+        alfap_2_e, alfap_2_r = cfg.geom['alfap_o_est'], cfg.geom['alfap_o_rot']
+        self.ap_2 = [degrees(alfap_2_e[i//2]) if i % 2 == 0 else degrees(alfap_2_r[i//2]) for i in range(cfg.n_steps*2)]
+        alfap_1_e, alfap_1_r = cfg.geom['alfap_i_est'], cfg.geom['alfap_i_rot']
+        self.ap_1 = [degrees(alfap_1_e[i//2]) if i % 2 == 0 else degrees(alfap_1_r[i//2]) for i in range(cfg.n_steps*2)]
+
+    def Aungier_operations(self, num, Min, Mout, Re_c, tau_1, V_2x, U_2, V_1x, p_2, pr0_2, d2, d1):
+        # El mach indicado debe ser el mach a la salida (Mb)
+
+        t_max, t_e, b_z = self.cfg.geom['t_max'][num], self.cfg.geom['t_e'][num], self.cfg.geom['b_z'][num]
+        h_j, o_j = self.cfg.geom['H'][num], self.cfg.geom['o'][num]
+        s_j, e_j, b_j = self.cfg.geom['s'][num], self.cfg.geom['e'][num], self.cfg.geom['b'][num]
+
+        beta_g = degrees(asin(o_j/s_j))
+        Y_TE = (t_e/((s_j*sin(radians(beta_g)))-t_e))**2
+
+        F_AR = 0.8 + (0.2*(d2*V_2x/(d1*V_1x)))
+        F_TE = 1 + (Y_TE * (pr0_2 - p_2) / pr0_2)
+        o_s = F_TE*F_AR*o_j/s_j
+        beta_g = degrees(asin(o_s))
+        delta_0 = (degrees(asin(o_s*(1+((1-o_s)*((beta_g/90)**2)))))) - beta_g
+
+        if Mout <= 0.5:
+            pass
+        else:
+            X_delta = (2*Mout) - 1
+            delta_0 = delta_0*(1-(10*(X_delta**3)) + (15*(X_delta**4)) - (6*(X_delta**5)))
+
+        taud_1, taud_2 = degrees(tau_1), 90 - (beta_g + delta_0)
+        tau_2 = radians(taud_2)
+
+        i_is = self.calculating_incidence_stall_incidence_fraction(taud_1, taud_2)
+        k_inc = self.yp_f_i_f[1](i_is)
+
+        k_m = 1 if s_j / e_j < 0.105 or Mout < 0.6 else interpola_series_en_x(Mout, s_j / e_j, self.km_series)
+
+        Minmod = (Min + 0.566 - fabs(0.566 - Min))/2
+        Moutmod = (Mout + 1 - fabs(Mout - 1))/2
+        X_param = 2*Minmod / (Moutmod + Minmod + fabs(Moutmod - Minmod))
+        k_1 = 1 - (0.625*(Moutmod - 0.2 + fabs(Moutmod - 0.2)))
+        k_p = 1 - ((X_param**2)*(1-k_1))
+
+        roughness_heigh = self.cfg.geom['roughness_ptv'][num]
+        Re_r = int((100 * b_j / roughness_heigh).__round__(0))
+
+        if Re_c is not None:
+            if Re_c[num % 2] < Re_r:
+                if Re_c[num % 2] < 100_000:
+                    k_Re = sqrt(100_000/Re_c[num % 2])
+                elif Re_c[num % 2] > 500_000:
+                    k_Re = ((log10(500_000))/((log10(Re_c[num % 2]))**2.58))
+                else:
+                    k_Re = 1
+            else:
+                if Re_r < 500_000:
+                    k_Re = 1+((-1+(((log10(50_000))/log10(Re_r))**2.58))*(1-(500_000/Re_c[num % 2])))
+                else:
+                    k_Re = ((log10(500_000))/((log10(Re_r))**2.58))
+        else:
+            k_Re = 1
+
+        Yp1 = interpola_series_en_x(taud_2, s_j/b_j, self.yp_s_c_b1kn)
+        Yp2 = interpola_series_en_x(taud_2, s_j/b_j, self.yp_s_c_b1kb2k)
+        ksi = self.ap_1[num]/taud_2
+
+        Y_TE_002s = (0.02*s_j/((s_j*sin(radians(beta_g)))-(0.02*s_j)))**2
+        delta_Y_TE = Y_TE_002s
+
+        Yp = 0.67 * k_inc * k_m * k_p * k_Re * (((Yp1 + ((ksi**2)*(Yp2-Yp1)))*((5*t_max/b_j)**ksi))-delta_Y_TE)
+
+        CL = 2*(tan(tau_1) + tan(tau_2))*s_j/b_j
+
+        apm = (pi/2) - atan((1/((tan((pi/2) - tau_1 - (1/tan((pi/2) - tau_2))))*2)))
+        Z = ((CL*b_j/s_j)**2) * ((cos(tau_2))**2) / ((sin(apm))**3)
+
+        F_AR = b_j/h_j if h_j/b_j >= 2 else (0.5*((2*b_j/h_j)**0.7))
+        Y_s_pre = 0.0334 * F_AR * Z * (cos(tau_2)) / cos(radians(self.ap_1[num]))
+
+        k_s = 1 - ((1-k_p)*((b_z/h_j)**2)/(1+((b_j/h_j)**2)))  # bm ¿medio?
+
+        Ys = k_Re*k_s*sqrt((Y_s_pre**2)/(1+(7.5*(Y_s_pre**2))))
+
+        delta_j = self.cfg.geom['delta'][num]
+        Y_CL = 0.47*Z*(b_j/h_j)*((delta_j/b_j)**0.78)
+        Y_lw = 0.0
+
+        if num % 2 == 1:     # Aplica para rótor
+            if 'lashing_wires' in self.cfg.geom and 'wire_diameter' in self.cfg.geom:
+                D_lw = self.cfg.geom['wire_diameter']
+                N_lw = self.cfg.geom['lashing_wires']
+                Re_lw = Re_c*D_lw/b_j
+                CD_lw = 1 if Re_lw <= 500_000 else 0.35
+                Y_lw = N_lw*CD_lw*D_lw*(V_2x**2)/(h_j*(U_2**2))
+
+        Y = Yp + Ys + Y_CL + Y_TE + Y_lw
+
+        return Y, tau_2
