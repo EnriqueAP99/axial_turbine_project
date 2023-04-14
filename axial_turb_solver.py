@@ -145,6 +145,7 @@ def step_decorator(corrector_tol: float, loss_model: str,
                 else:
                     Re, rho_seed = step_corrector_memory[0], step_corrector_memory[1]  # Modificar / repasar lecturas
                 ll_1 = step_inner_funct(False, True, None, rho_seed, Re)
+                # Acelerar la primera lectura con hipótesis sobre tau2
 
             return ll_1
         return wrapper_r
@@ -628,6 +629,8 @@ class solver_object:
                         V_1x=C_ax, p_2=p_b, pr0_2=pr0_b, d2=rho_b, d1=rho_a, U_2=U_b
                     )
                     xi = Y_total / (1 + (0.5*gamma_b*(M_b**2)))
+                    if self.step_iter_mode:
+                        tau_b = tau_b_n
 
             h_b = (0.001 * xi * (U_b**2) / 2) + h_bs
             rho_b = self.prd.get_prop({'p': p_b, 'h': h_b}, {'d': rho_b})
@@ -706,7 +709,7 @@ class solver_object:
 def main():
     fast_mode = True
     settings = config_parameters(TOL=1E-7, ETA_TOL=1E-4, n_steps=1, ideal_gas=True, fast_mode=True,
-                                 loss_model='Ainley_and_Mathieson')
+                                 loss_model='Aungier')
 
     # Geometría procedente de: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf
     Rm = 0.1429
