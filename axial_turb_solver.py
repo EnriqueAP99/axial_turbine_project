@@ -143,7 +143,7 @@ def step_decorator(corrector_tol: float, loss_model: str,
                 if step_corrector_memory is None:
                     Re, rho_seed = step_inner_funct(True, False)
                 else:
-                    Re, rho_seed = step_corrector_memory[0], step_corrector_memory[1]  # Modificar / repasar lecturas
+                    Re, rho_seed = step_corrector_memory[0], step_corrector_memory[1]
                 ll_1 = step_inner_funct(False, True, None, rho_seed, Re)
                 # Acelerar la primera lectura con hipótesis sobre tau2
 
@@ -365,15 +365,12 @@ class solver_object:
             M_1 = C_1/a_1
 
             args = ['est', A_tpl[1], alfa_1, h_02, m_dot, s_1, rho_seed[0], M_1, rho_1, C_1, C_1x, T_1]
-            if (not iter_mode or self.cfg.loss_model == 'Aungier') and not iter_end:
+            if (not iter_mode and not iter_end) or self.cfg.loss_model == 'Aungier':
                 outputs = self.blade_outlet_calculator(*args)
                 p_2, h_2, T_2, C_2, rho_2, h_2s, T_2s, C_2x, M_2, alfa_2, xi_est, Re_12 = outputs
-            elif self.cfg.loss_model == 'Ainley_and_Mathieson':
+            else:
                 outputs = self.blade_outlet_calculator(*args, xi=xi_est)
                 p_2, h_2, T_2, C_2, rho_2, h_2s, T_2s, C_2x, M_2, alfa_2 = outputs
-            else:
-                outputs = self.blade_outlet_calculator(*args)
-                p_2, h_2, T_2, C_2, rho_2, h_2s, T_2s, C_2x, M_2, alfa_2, xi_est = outputs
 
             s_2 = self.prd.get_prop(known_props={'p': p_2, 'T': T_2}, req_prop='s')
 
@@ -396,7 +393,7 @@ class solver_object:
                 rho_a=rho_2, C_a=C_2, C_ax=C_2x, T_a=T_2, Re_out=Re_out
             )
 
-            if (not iter_mode or self.cfg.loss_model == 'Aungier') and not iter_end:
+            if (not iter_mode and not iter_end) or self.cfg.loss_model == 'Aungier':
                 p_3, h_3, T_3, omega_3, rho_3, h_3s, T_3s, C_3x, M_3r, beta_3, xi_rot, Re_23 = outputs
             else:
                 p_3, h_3, T_3, omega_3, rho_3, h_3s, T_3s, C_3x, M_3r, beta_3, xi_rot = outputs
@@ -443,12 +440,14 @@ class solver_object:
                     if self.cfg.loss_model == 'Ainley_and_Mathieson':
                         self.corrector_seed.append(copy.deepcopy([xi_est, [rho_2, rho_3]]))
                     else:
-                        self.corrector_seed.append(copy.deepcopy([[Re_12, Re_23], [rho_2, rho_3]]))
+                        if self.step_iter_mode and not self.step_iter_end:
+                            self.corrector_seed.append(copy.deepcopy([[Re_12, Re_23], [rho_2, rho_3]]))
                 else:
                     if self.cfg.loss_model == 'Ainley_and_Mathieson':
                         self.corrector_seed[count] = copy.deepcopy([xi_est, [rho_2, rho_3]])
                     else:
-                        self.corrector_seed[count] = copy.deepcopy([[Re_12, Re_23], [rho_2, rho_3]])
+                        if self.step_iter_mode and not self.step_iter_end:
+                            self.corrector_seed[count] = copy.deepcopy([[Re_12, Re_23], [rho_2, rho_3]])
 
             if not self.cfg.fast_mode and (iter_end or not iter_mode):
                 Y_est = xi_est * (0.001 * (C_2**2) / 2)
@@ -582,7 +581,7 @@ class solver_object:
             C_bx = m_dot / (area_b * rho_b)  # C_bx: velocidad axial a la salida
             tau_b_n = None
 
-            while tau_b_n is None or fabs((tau_b_n - tau_b)/tau_b) > 10*tol:
+            while tau_b_n is None or fabs((tau_b_n - tau_b)/tau_b) > tol:
 
                 if tau_b_n is None:
                     tau_b_n = tau_b
@@ -667,14 +666,12 @@ class solver_object:
         return_vars = [p_b, h_b, T_b, U_b, rho_b, h_bs, T_bs, C_bx, M_b, tau_b]
 
         if blade == 'est':
-            if (not self.step_iter_mode or self.cfg.loss_model == 'Aungier') and not self.step_iter_end:
+            if (not self.step_iter_mode and not self.step_iter_end) or self.cfg.loss_model == 'Aungier':
                 return *return_vars, xi, Re
-            elif self.cfg.loss_model == 'Aungier':
-                return *return_vars, xi
             else:
                 return return_vars
         else:
-            if (not self.step_iter_mode or self.cfg.loss_model == 'Aungier') and not self.step_iter_end:
+            if (not self.step_iter_mode and not self.step_iter_end) or self.cfg.loss_model == 'Aungier':
                 return *return_vars, xi, Re
             else:
                 return *return_vars, xi

@@ -174,11 +174,12 @@ def main(fast_mode, action):
 
     if action == 'procesar_y_guardar':
         settings = config_parameters(TOL=1E-6, n_steps=2, ideal_gas=True, fast_mode=fast_mode,
-                                     loss_model='ainley_and_mathieson', ETA_TOL=1E-4)
+                                     loss_model='Aungier', ETA_TOL=1E-4)
 
-        settings.set_geometry(B_A_est=[0, 5], theta_est=[70, 75], B_A_rot=[55, 55], theta_rot=[105, 105],
+        settings.set_geometry(B_A_est=[0, 5], theta_est=[70, 75], B_A_rot=[55, 55], theta_rot=[105, 105], b_z=0.027,
                               cuerda=0.03, radio_medio=0.30, H=[0.030, 0.035, 0.041, 0.048, 0.052], e=0.015, o=0.015,
-                              A_rel=0.75, t_max=0.006, r_r=0.003, r_c=0.002, t_e=0.004, k=0.002, holgura_radial=False)
+                              A_rel=0.75, t_max=0.006, r_r=0.003, r_c=0.002, t_e=0.004, k=0.001, delta=0.001,
+                              roughness_ptv=0.00001, holgura_radial=False)
 
         gas_model = gas_model_to_solver(thermo_mode="ig", relative_error=1E-6)
 
@@ -200,11 +201,12 @@ def main(fast_mode, action):
         # Se usan semillas de la ejecución anterior. Se leen, se guardan y se visualizan los datos.
         # Esta ejecución es más rápida que la ejecución normal, ya que se aprovechan las semillas del objeto cargado.
         solver = solver_data_reader('process_object.pkl')
-        solver.cfg.set_geometry(B_A_est=[0, 5], theta_est=[70, 75], B_A_rot=[55, 55], theta_rot=[105, 105],
-                                cuerda=0.03, radio_medio=0.30, H=[0.030, 0.035, 0.041, 0.048, 0.052], e=0.015, o=0.02,
-                                A_rel=0.75, t_max=0.006, r_r=0.003, r_c=0.002, t_e=0.004, k=0.002, holgura_radial=False)
+        solver.cfg.set_geometry(B_A_est=[0, 5], theta_est=[70, 75], B_A_rot=[55, 55], theta_rot=[105, 105], b_z=0.027,
+                                cuerda=0.03, radio_medio=0.30, H=[0.030, 0.035, 0.041, 0.048, 0.052], e=0.015, o=0.015,
+                                A_rel=0.75, t_max=0.006, r_r=0.003, r_c=0.002, t_e=0.004, k=0.001, delta=0.001,
+                                roughness_ptv=0.00001, holgura_radial=False)
 
-        solver.problem_solver(T_in=1800, p_in=1_000_000, n=6_000, m_dot=18.46)
+        solver.problem_solver(T_in=1800, p_in=1_000_000, n=6_000, m_dot=18.0)
         solver_data_saver('process_object.pkl', solver)
         problem_data_viewer(solver)
 
