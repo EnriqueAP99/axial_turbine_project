@@ -131,6 +131,26 @@ class Ainley_and_Mathieson_Loss_Model:  # Ver paper: https://apps.dtic.mil/sti/p
         cos_m1, tau_2_ast = [35.5, 79], [30, 80]
         self.tau_2_ast = [x_sp(cos_m1), f_sp(cos_m1, tau_2_ast, 1)]
 
+        for num, cuerda in enumerate(self.cfg.geom['b']):
+            solidez = cuerda / self.cfg.geom['s'][num]
+            if 1/solidez < 0.3 or 1/solidez > 1:
+                registro.warning('La solidez del %s del escalonamiento %s excede el rango de valores para los que '
+                                 'existe función. El valor es %.2f y los límites son [1.0, 2.5].',
+                                 'estátor' if bool((num+1) % 2) else 'rótor', (num//2) + 1, solidez)
+
+        throat_distance = self.cfg.geom['o']
+        pitch = self.cfg.geom['s']
+        mean_radius_curvature = self.cfg.geom['e']
+        for i in range(self.cfg.n_steps*2):
+            x_value = degrees(acos(throat_distance[i] / pitch[i]))
+            if x_value < 35 or x_value > 80:
+                registro.warning('El valor de acos(o/s) excede los límites de la correlación. Valor: %.1f; Límites: %s',
+                                 x_value, [35, 80])
+            tau_2_ast_value = self.tau_2_ast[1](x_value)
+            flow_angle = tau_2_ast_value + 4 * (pitch[i] / mean_radius_curvature[i])
+            self.outlet_angle_before_mod.append(radians(flow_angle))
+
+    def AM_diameter_def(self):
         def AM_mean_radius() -> tuple:
             """ Se establece el radio de referencia de cada escalonamiento (en el contexto del modelo AM). """
 
@@ -161,25 +181,7 @@ class Ainley_and_Mathieson_Loss_Model:  # Ver paper: https://apps.dtic.mil/sti/p
             for _ in r_corregidos:
                 str_rm_logger += "  ...  %.3f m"
             registro.info(str_rm_logger, *r_corregidos)
-
-        for num, cuerda in enumerate(self.cfg.geom['b']):
-            solidez = cuerda / self.cfg.geom['s'][num]
-            if 1/solidez < 0.3 or 1/solidez > 1:
-                registro.warning('La solidez del %s del escalonamiento %s excede el rango de valores para los que '
-                                 'existe función. El valor es %.2f y los límites son [1.0, 2.5].',
-                                 'estátor' if bool((num+1) % 2) else 'rótor', (num//2) + 1, solidez)
-
-        throat_distance = self.cfg.geom['o']
-        pitch = self.cfg.geom['s']
-        mean_radius_curvature = self.cfg.geom['e']
-        for i in range(self.cfg.n_steps*2):
-            x_value = degrees(acos(throat_distance[i] / pitch[i]))
-            if x_value < 35 or x_value > 80:
-                registro.warning('El valor de acos(o/s) excede los límites de la correlación. Valor: %.1f; Límites: %s',
-                                 x_value, [35, 80])
-            tau_2_ast_value = self.tau_2_ast[1](x_value)
-            flow_angle = tau_2_ast_value + 4 * (pitch[i] / mean_radius_curvature[i])
-            self.outlet_angle_before_mod.append(radians(flow_angle))
+        return
 
     def calculating_incidence_stall_incidence_fraction(self, tau_1: float, tau_2: float):
         geom, num = self.cfg.geom, self.crown_num
@@ -293,7 +295,7 @@ class Ainley_and_Mathieson_Loss_Model:  # Ver paper: https://apps.dtic.mil/sti/p
 
             Yp = self.AM_loss_model_operations(tau_1, tau_2)
 
-            if len(self.Yp_preiter) < self.crown_num + 1:
+            if len(self.Yp_preiter) < (self.crown_num + 1):
                 self.Yp_preiter.append(Yp)
             else:
                 self.Yp_preiter[num] = Yp
@@ -382,7 +384,7 @@ class Aungier_Loss_Model(Ainley_and_Mathieson_Loss_Model):
         i_is = self.calculating_incidence_stall_incidence_fraction(taud_1, taud_2)
         k_inc = self.yp_f_i_f[1](i_is)
 
-        k_m = 1 if s_j / e_j < 0.105 or Mout < 0.6 else interpola_series_en_x(Mout, s_j / e_j, self.km_series)
+        k_m = 1 if (s_j / e_j) < 0.105 or Mout < 0.6 else interpola_series_en_x(Mout, s_j / e_j, self.km_series)
 
         Minmod = (Min + 0.566 - fabs(0.566 - Min))/2
         Moutmod = (Mout + 1 - fabs(Mout - 1))/2
@@ -417,6 +419,7 @@ class Aungier_Loss_Model(Ainley_and_Mathieson_Loss_Model):
         delta_Y_TE = Y_TE_002s
 
         Yp = 0.67 * k_inc * k_m * k_p * k_Re * (((Yp1 + ((ksi**2)*(Yp2-Yp1)))*((5*t_max/b_j)**ksi))-delta_Y_TE)
+        self.Yp_iter_mode = Yp
 
         CL = 2*(tan(tau_1) + tan(tau_2))*s_j/b_j
 

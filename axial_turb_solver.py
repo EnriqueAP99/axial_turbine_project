@@ -180,6 +180,7 @@ class solver_object:
                     registro.critical('Para emplear el modelo de pérdidas se debe introducir "%s"', key)
                     sys.exit()
             self.AM_object = Ainley_and_Mathieson_Loss_Model(config)
+            self.AM_object.AM_diameter_def()
 
         if config.loss_model == 'Aungier':
             for key in ['e', 'o', 't_max', 'r_r', 'r_c', 't_e', 'k', 'roughness_ptv', 'b_z', 'delta']:
@@ -660,8 +661,10 @@ class solver_object:
                 Yp = self.AM_object.Yp_preiter[num]
             else:
                 Yp = self.AM_object.Yp_iter_mode
-            registro.debug('Pérdidas:  ...  Y_total: %.4f  ...  Yp: %.4f   ',
-                           Y_total, Yp)
+        else:
+            Yp = self.AUNGIER_object.Yp_iter_mode
+        registro.debug('Pérdidas:  ...  Y_total: %.4f  ...  Yp: %.4f   ',
+                       Y_total, Yp)
 
         return_vars = [p_b, h_b, T_b, U_b, rho_b, h_bs, T_bs, C_bx, M_b, tau_b]
 
@@ -738,7 +741,7 @@ def main():
               '\n', 'C_out =', C_salida, '\n', 'alfa_out =', alfa_salida)
 
     else:
-        solver.problem_solver(T_in=1100, p_in=875_790, n=27_000, C_inx=170)
+        solver.problem_solver(T_in=1500, p_in=875_790, n=27_000, C_inx=170)
 
 
 if __name__ == '__main__':

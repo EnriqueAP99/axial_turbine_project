@@ -4,6 +4,7 @@ Se almacenan y procesan los datos haciendo uso de las librerías Pickle y Pandas
 
 import pickle
 from axial_turb_solver import *
+import pyromat as pm
 import pandas as pd
 
 # https://conocepython.blogspot.com/2019/05/ (este es interesante)
@@ -170,15 +171,47 @@ def problem_data_viewer(solver: solver_object, req_vars=None) -> None:
     return
 
 
-def main(fast_mode, action):
+def mass_flow_sweeping(solver: solver_object, T_in, p_in, n_rpm, m_dot_range: list[float, float],
+                       m_dot_jump: float = None, req_vars: list = None):
+    m_dot, k = None, 0
+    lista_df_a, lista_df_b, lista_df_c = [], [], []
+    if m_dot_jump is None:
+        m_dot_jump = 10*solver.cfg.TOL
+    resolution = 1+int((m_dot_range[1] - m_dot_range[0])//m_dot_jump)
+
+    while k <= resolution:
+
+        m_dot = m_dot_range[0] + (k*m_dot_jump)
+        try:
+            solver.problem_solver(T_in=T_in, p_in=p_in, n=n_rpm, m_dot=m_dot)
+            new_data = True
+        except pm.utility.PMParamError:
+            new_data = False
+            registro.warning('Se ha finalizado el cálculo, en m=%.3f kg/s, por la excepción pm.utility.PMParamError.',
+                             m_dot)
+        if new_data:
+            df_a, df_b, df_c = data_to_df(solver, req_vars)
+            lista_df_a.append(copy.deepcopy(df_a))
+            lista_df_b.append(copy.deepcopy(df_b))
+            lista_df_c.append(copy.deepcopy(df_c))
+        k += 1
+
+    df_a_packg = pd.concat([*lista_df_a], keys=[f'{k}' for k in range(resolution)], names=['Aux_Index', 'Spec_Index'])
+    df_b_packg = pd.concat([*lista_df_b], keys=[f'{k}' for k in range(resolution)], names=['Aux_Index', 'Spec_Index'])
+    df_c_packg = pd.concat([*lista_df_c], keys=[f'{k}' for k in range(resolution)], names=['Aux_Index', 'Spec_Index'])
+
+    return df_a_packg, df_b_packg, df_c_packg
+
+
+def main_1(fast_mode, action):
 
     if action == 'procesar_y_guardar':
         settings = config_parameters(TOL=1E-6, n_steps=2, ideal_gas=True, fast_mode=fast_mode,
-                                     loss_model='Aungier', ETA_TOL=1E-4)
+                                     loss_model='Ainley_and_Mathieson', ETA_TOL=1E-4)
 
         settings.set_geometry(B_A_est=[0, 5], theta_est=[70, 75], B_A_rot=[55, 55], theta_rot=[105, 105], b_z=0.027,
                               cuerda=0.03, radio_medio=0.30, H=[0.030, 0.035, 0.041, 0.048, 0.052], e=0.015, o=0.015,
-                              A_rel=0.75, t_max=0.006, r_r=0.003, r_c=0.002, t_e=0.004, k=0.001, delta=0.001,
+                              t_max=0.006, r_r=0.003, r_c=0.002, t_e=0.004, k=0.001, delta=0.001,
                               roughness_ptv=0.00001, holgura_radial=False)
 
         gas_model = gas_model_to_solver(thermo_mode="ig", relative_error=1E-6)
@@ -203,7 +236,7 @@ def main(fast_mode, action):
         solver = solver_data_reader('process_object.pkl')
         solver.cfg.set_geometry(B_A_est=[0, 5], theta_est=[70, 75], B_A_rot=[55, 55], theta_rot=[105, 105], b_z=0.027,
                                 cuerda=0.03, radio_medio=0.30, H=[0.030, 0.035, 0.041, 0.048, 0.052], e=0.015, o=0.015,
-                                A_rel=0.75, t_max=0.006, r_r=0.003, r_c=0.002, t_e=0.004, k=0.001, delta=0.001,
+                                t_max=0.006, r_r=0.003, r_c=0.002, t_e=0.004, k=0.001, delta=0.001,
                                 roughness_ptv=0.00001, holgura_radial=False)
 
         solver.problem_solver(T_in=1800, p_in=1_000_000, n=6_000, m_dot=18.0)
@@ -211,5 +244,39 @@ def main(fast_mode, action):
         problem_data_viewer(solver)
 
 
+def main_2():
+    settings = config_parameters(TOL=1E-8, n_steps=1, ideal_gas=True, fast_mode=False,
+                                 loss_model='Aungier', ETA_TOL=1E-4)
+
+    Rm = 0.1429
+    heights = [0.0445 for _ in range(3)]
+    areas = [0.0399 for _ in range(3)]
+    chord = [0.0338, 0.0241]
+    t_max = [0.2*chord[0], 0.15*chord[1]]
+    pitch = [0.0249, 0.0196]
+    t_e = [0.01*s for s in pitch]
+    blade_opening = [0.01090, 0.01354]
+    e_param = [0.0893, 0.01135]
+    tip_clearance = [0.0004, 0.0008]
+    # 'wire_diameter' 'lashing_wires'
+    chord_proj_z = [0.9*b for b in chord]
+    blade_roughness_peak_to_valley = [0.00001 for _ in chord]
+
+    settings.set_geometry(B_A_est=0, theta_est=70, B_A_rot=55, theta_rot=105, areas=areas, cuerda=chord,
+                          radio_medio=Rm, e=e_param, o=blade_opening, s=pitch, H=heights, b_z=chord_proj_z,
+                          t_max=t_max, r_r=0.002, r_c=0.001, t_e=t_e, k=tip_clearance, delta=tip_clearance,
+                          roughness_ptv=blade_roughness_peak_to_valley, holgura_radial=False)
+
+    gas_model = gas_model_to_solver(thermo_mode="ig", relative_error=1E-8)
+    solver = solver_object(settings, gas_model)
+
+    df_a, df_b, df_c = mass_flow_sweeping(solver, T_in=1100, p_in=800_000, n_rpm=12_000,
+                                          m_dot_range=[1, 12], m_dot_jump=0.1)
+
+    df_a.to_csv('df_a.csv')
+    df_b.to_csv('df_b.csv')
+    df_c.to_csv('df_c.csv')
+
+
 if __name__ == '__main__':
-    main(fast_mode=False, action='cargar_reprocesar_y_guardar')
+    main_2()
