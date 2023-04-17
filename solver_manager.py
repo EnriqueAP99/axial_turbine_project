@@ -6,6 +6,7 @@ import pickle
 from axial_turb_solver import *
 import pyromat as pm
 import pandas as pd
+import matplotlib.pyplot as plt
 
 # https://conocepython.blogspot.com/2019/05/ (este es interesante)
 # https://www.youtube.com/watch?v=eWrTSBIQess (tutorial de Pickle útil)
@@ -46,7 +47,7 @@ def solver_data_saver(file: str, process_object: solver_object) -> None:
     prd = process_object.prd
     product_attr = {'tm': prd.thermo_mode, 'tol': prd.relative_error,
                     'C': prd.C_atoms, 'H': prd.H_atoms, 'N': prd.air_excess}
-    process_object.prd = None   # Esto se hace así para evitar un error que surge
+    process_object.prd = None  # Esto se hace así para evitar un error que surge
 
     with open(file, 'wb') as solver_pickle:
         pickle.dump(process_object, solver_pickle)
@@ -176,12 +177,12 @@ def mass_flow_sweeping(solver: solver_object, T_in, p_in, n_rpm, m_dot_range: li
     m_dot, k = None, 0
     lista_df_a, lista_df_b, lista_df_c = [], [], []
     if m_dot_jump is None:
-        m_dot_jump = 10*solver.cfg.TOL
-    resolution = 1+int((m_dot_range[1] - m_dot_range[0])//m_dot_jump)
+        m_dot_jump = 10 * solver.cfg.TOL
+    resolution = 1 + int((m_dot_range[1] - m_dot_range[0]) // m_dot_jump)
 
     while k <= resolution:
 
-        m_dot = m_dot_range[0] + (k*m_dot_jump)
+        m_dot = m_dot_range[0] + (k * m_dot_jump)
         try:
             solver.problem_solver(T_in=T_in, p_in=p_in, n=n_rpm, m_dot=m_dot)
             new_data = True
@@ -204,7 +205,6 @@ def mass_flow_sweeping(solver: solver_object, T_in, p_in, n_rpm, m_dot_range: li
 
 
 def main_1(fast_mode, action):
-
     if action == 'procesar_y_guardar':
         settings = config_parameters(TOL=1E-6, n_steps=2, ideal_gas=True, fast_mode=fast_mode,
                                      loss_model='Ainley_and_Mathieson', ETA_TOL=1E-4)
@@ -252,14 +252,14 @@ def main_2():
     heights = [0.0445 for _ in range(3)]
     areas = [0.0399 for _ in range(3)]
     chord = [0.0338, 0.0241]
-    t_max = [0.2*chord[0], 0.15*chord[1]]
+    t_max = [0.2 * chord[0], 0.15 * chord[1]]
     pitch = [0.0249, 0.0196]
-    t_e = [0.01*s for s in pitch]
+    t_e = [0.01 * s for s in pitch]
     blade_opening = [0.01090, 0.01354]
     e_param = [0.0893, 0.01135]
     tip_clearance = [0.0004, 0.0008]
     # 'wire_diameter' 'lashing_wires'
-    chord_proj_z = [0.9*b for b in chord]
+    chord_proj_z = [0.9 * b for b in chord]
     blade_roughness_peak_to_valley = [0.00001 for _ in chord]
 
     settings.set_geometry(B_A_est=0, theta_est=70, B_A_rot=55, theta_rot=105, areas=areas, cuerda=chord,
@@ -271,12 +271,47 @@ def main_2():
     solver = solver_object(settings, gas_model)
 
     df_a, df_b, df_c = mass_flow_sweeping(solver, T_in=1100, p_in=800_000, n_rpm=12_000,
-                                          m_dot_range=[1, 12], m_dot_jump=0.1)
+                                          m_dot_range=[0.2, 12], m_dot_jump=0.1)
 
     df_a.to_csv('df_a.csv')
     df_b.to_csv('df_b.csv')
     df_c.to_csv('df_c.csv')
 
 
+def main_3():
+    df_c = pd.read_csv('df_c.csv', index_col='m_dot (kg/s)')
+    eta_s = df_c['eta_maq (-)']
+    Potencia = df_c['P_total (kW)']
+    plt.plot(eta_s)
+    plt.minorticks_on()
+    plt.grid(which='both')
+    plt.title('Rendimiento isentrópico - Flujo másico')
+    plt.xlabel(r'$\dot{m}$ (kg/s)')
+    plt.ylabel(r'$\eta_{s}$ (-)')
+    plt.show()
+    plt.plot(Potencia)
+    plt.title('Potencia - Flujo másico')
+    plt.xlabel(r'$\dot{m}$ (kg/s)')
+    plt.ylabel(r'$P$ (kW)')
+    plt.minorticks_on()
+    plt.grid(which='both')
+    plt.show()
+
+    df_a = pd.read_csv('df_a.csv', index_col='Aux_Index')
+    df_a_pt_3 = df_a[df_a['Spec_Index'] == 'Step_1_pt_3']
+    p_out_m_dot = pd.DataFrame((df_a_pt_3['p (Pa)']/1000).values.tolist(), columns=['p'], index=df_c.index)
+    print(p_out_m_dot)
+    p_out = p_out_m_dot['p']
+    plt.plot(p_out)
+    plt.title('Presión a la salida - Flujo másico')
+    plt.xlabel(r'$\dot{m}$ (kg/s)')
+    plt.ylabel(r'$p_{out}$ (kPa)')
+    plt.minorticks_on()
+    plt.grid(which='both')
+    plt.show()
+
+    return
+
+
 if __name__ == '__main__':
-    main_2()
+    main_3()
