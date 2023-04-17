@@ -282,6 +282,7 @@ def main_3():
     df_c = pd.read_csv('df_c.csv', index_col='m_dot (kg/s)')
     eta_s = df_c['eta_maq (-)']
     Potencia = df_c['P_total (kW)']
+
     plt.plot(eta_s)
     plt.minorticks_on()
     plt.grid(which='both')
@@ -289,6 +290,7 @@ def main_3():
     plt.xlabel(r'$\dot{m}$ (kg/s)')
     plt.ylabel(r'$\eta_{s}$ (-)')
     plt.show()
+
     plt.plot(Potencia)
     plt.title('Potencia - Flujo másico')
     plt.xlabel(r'$\dot{m}$ (kg/s)')
