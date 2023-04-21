@@ -207,7 +207,7 @@ def mass_flow_sweeping(solver: solver_object, T_in, p_in, n_rpm, m_dot_range: li
 def main_1(fast_mode, action):
     if action == 'procesar_y_guardar':
         settings = config_parameters(TOL=1E-6, n_steps=2, ideal_gas=True, fast_mode=fast_mode,
-                                     loss_model='Ainley_and_Mathieson', ETA_TOL=1E-4)
+                                     loss_model='Ainley_and_Mathieson', DEC_TOL=1E-4)
 
         settings.set_geometry(B_A_est=[0, 5], theta_est=[70, 75], B_A_rot=[55, 55], theta_rot=[105, 105], b_z=0.027,
                               cuerda=0.03, radio_medio=0.30, H=[0.030, 0.035, 0.041, 0.048, 0.052], e=0.015, o=0.015,
@@ -246,7 +246,7 @@ def main_1(fast_mode, action):
 
 def main_2():
     settings = config_parameters(TOL=1E-8, n_steps=1, ideal_gas=True, fast_mode=False,
-                                 loss_model='Aungier', ETA_TOL=1E-4)
+                                 loss_model='Aungier', DEC_TOL=1E-4)
 
     Rm = 0.1429
     heights = [0.0445 for _ in range(3)]
@@ -282,6 +282,7 @@ def main_3():
     df_c = pd.read_csv('df_c.csv', index_col='m_dot (kg/s)')
     eta_s = df_c['eta_maq (-)']
     Potencia = df_c['P_total (kW)']
+    Potencia_ss = df_c['w_ss_total (kJ/kg)'] * df_c.index
 
     plt.plot(eta_s)
     plt.minorticks_on()
@@ -292,6 +293,7 @@ def main_3():
     plt.show()
 
     plt.plot(Potencia)
+    plt.plot(Potencia_ss)
     plt.title('Potencia - Flujo másico')
     plt.xlabel(r'$\dot{m}$ (kg/s)')
     plt.ylabel(r'$P$ (kW)')
@@ -302,7 +304,6 @@ def main_3():
     df_a = pd.read_csv('df_a.csv', index_col='Aux_Index')
     df_a_pt_3 = df_a[df_a['Spec_Index'] == 'Step_1_pt_3']
     p_out_m_dot = pd.DataFrame((df_a_pt_3['p (Pa)']/1000).values.tolist(), columns=['p'], index=df_c.index)
-    print(p_out_m_dot)
     p_out = p_out_m_dot['p']
     plt.plot(p_out)
     plt.title('Presión a la salida - Flujo másico')

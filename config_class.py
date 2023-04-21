@@ -21,7 +21,7 @@ class config_parameters:
     fast_mode: bool  # Limitar cálculos y determinar temperatura, presión y velocidad a la salida
     loss_model: str  # Cadena identificador del modelo de pérdidas establecido
     ideal_gas: bool  # True cuando se establece hipótesis de gas ideal
-    ETA_TOL: float = 1E-3  # Máximo error relativo que se tolera en la corrección de reynolds
+    DEC_TOL: float = 1E-3  # Máximo error relativo que se tolera en la corrección de reynolds
     geom: dict = None  # Diccionario para almacenar parámetros geométricos de la turbina
 
     def __post_init__(self):

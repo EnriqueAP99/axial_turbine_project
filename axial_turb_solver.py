@@ -30,24 +30,21 @@ def solver_timer(solver_method):
     return wrapper_t
 
 
-def step_decorator(corrector_tol: float, loss_model: str,
-                   step_corrector_memory: None | list[float, list[float, float]] | list[list[float, float],
-                                                                                        list[float, float]]):
+def step_decorator(corrector_tol: float, loss_model: str, step_corrector_memory):
     """ Decorador del decorador real, permite referenciar los parámetros necesarios para manipular la salida de la
     función decorada.
-                :param corrector_tol: Error relativo máximo que se permite en el rendimiento corregido.
+                :param corrector_tol: Error relativo máximo que se permite en los cálculos del decorador.
                 :param loss_model: Cadena de caracteres identificadora del modelo de pérdidas establecido.
                 :param step_corrector_memory: Lista con las variables xi_ec y rho_seed_c de la ejecución previa.
                             :return: Se devuelve el decorador real. """
 
     def Reynolds_corrector(step_inner_funct):
         """ Decorador real, gestiona la función interna del método gen_steps de la clase solver y posibilita
-         aplicar la corrección por el número de Reynolds que en ocasiones requiere el modelo de pérdidas de Ainley and
-         Mathieson.
+         aplicar la corrección por el número de Reynolds.
                     :param step_inner_funct: Función que se decora.
                                 :return: Se devuelve el wrapper_r. """
 
-        def corrector(eta_TT: float, Re: int, xi_est: float, rho_seed: float) -> list:
+        def AM_corrector(eta_TT: float, Re: int, xi_est: float, rho_seed: float) -> list:
             """ Función que aplica la corrección de Reynolds cuando es llamada por wrapper_r. La solución se determina
                 aplicando el teorema de Bolzano y Régula Falsi. Se va a usar como semilla de la siguiente iteración los
                 valores que resultan de la anterior.
@@ -76,15 +73,15 @@ def step_decorator(corrector_tol: float, loss_model: str,
 
                 if (f1 is None and f2 is None) or step_corrector_memory is not None:
                     sif1 = step_inner_funct(True, False, xi_e1, rho_seed_1)
-                    f1, rho_seed_1 = sif1[0] - eta_TT_obj, sif1[1]
+                    f1, rho_seed_1 = sif1[1] - eta_TT_obj, sif1[3]
                     sif2 = step_inner_funct(True, False, xi_e2, rho_seed_2)
-                    f2, rho_seed_2 = sif2[0] - eta_TT_obj, sif2[1]
+                    f2, rho_seed_2 = sif2[1] - eta_TT_obj, sif2[3]
                 elif ff > 0:
                     sif1 = step_inner_funct(True, False, xi_e1, rho_seed_1)
-                    f1, rho_seed_1 = sif1[0] - eta_TT_obj, sif1[1]
+                    f1, rho_seed_1 = sif1[1] - eta_TT_obj, sif1[3]
                 else:
                     sif2 = step_inner_funct(True, False, xi_e2, rho_seed_2)
-                    f2, rho_seed_2 = sif2[0] - eta_TT_obj, sif2[1]
+                    f2, rho_seed_2 = sif2[1] - eta_TT_obj, sif2[3]
 
                 ff = (f2 - f1)/(xi_e2 - xi_e1)
                 bolz_c = f1*f2
@@ -109,26 +106,38 @@ def step_decorator(corrector_tol: float, loss_model: str,
                 if xi_ec is None:
                     xi_ec = float(xi_e2 - f2*(xi_e2-xi_e1)/(f2-f1))
                     sifc = step_inner_funct(True, False, xi_ec, rho_seed_c)
-                    fc, rho_seed_c = sifc[0] - eta_TT_obj, sifc[1]
+                    fc, rho_seed_c = sifc[1] - eta_TT_obj, sifc[3]
                 else:
                     sif1 = step_inner_funct(True, False, xi_e1, rho_seed_1)
-                    f1, rho_seed_1 = sif1[0] - eta_TT_obj, sif1[1]
+                    f1, rho_seed_1 = sif1[1] - eta_TT_obj, sif1[3]
                     sif2 = step_inner_funct(True, False, xi_e2, rho_seed_2)
-                    f2, rho_seed_2 = sif2[0] - eta_TT_obj, sif2[1]
+                    f2, rho_seed_2 = sif2[1] - eta_TT_obj, sif2[3]
                     xi_ec = xi_e2 - (f2*(xi_e2-xi_e1)/(f2-f1))
                     sifc = step_inner_funct(True, False, xi_ec, rho_seed_c)
-                    fc, rho_seed_c = sifc[0] - eta_TT_obj, sifc[1]
+                    fc, rho_seed_c = sifc[1] - eta_TT_obj, sifc[3]
                 rel_error_eta_TT = fc/eta_TT_obj
                 registro.info('Corrección en proceso  ...  eta_TT: %.4f  ...  Error: %.4f',
-                              sifc[0], rel_error_eta_TT)
+                              sifc[1], rel_error_eta_TT)
                 if fc*f2 < 0:
                     xi_e1, rho_seed_1 = xi_ec, rho_seed_c
                 elif fc*f1 < 0:
                     xi_e2, rho_seed_2 = xi_ec, rho_seed_c
 
-            _, _, ll_1 = step_inner_funct(True, True, xi_ec, rho_seed_c)
+            _, _, _, _, ll_1 = step_inner_funct(True, True, xi_ec, rho_seed_c)
             registro.info('Corrección finalizada.')
 
+            return ll_1
+
+        def AU_corrector():
+            if step_corrector_memory is None:
+                Re, rho_seed, _ = step_inner_funct()
+            else:
+                Re, rho_seed = step_corrector_memory[0], step_corrector_memory[1]
+            Re_n = None
+            while Re_n is None or (Re_n-Re) / Re > corrector_tol:
+                Re_n = Re
+                Re, rho_seed, _ = step_inner_funct(True, False, None, rho_seed, Re_n)
+            _, _, ll_1 = step_inner_funct(True, True, None, rho_seed, Re_n)
             return ll_1
 
         def wrapper_r():
@@ -138,14 +147,9 @@ def step_decorator(corrector_tol: float, loss_model: str,
 
             if loss_model == 'Ainley_and_Mathieson':
                 Re, eta_TT, xi_est, rho_seed, _ = step_inner_funct()
-                ll_1 = corrector(eta_TT, Re, xi_est, rho_seed)
+                ll_1 = AM_corrector(eta_TT, Re, xi_est, rho_seed)
             else:
-                if step_corrector_memory is None:
-                    Re, rho_seed = step_inner_funct(True, False)
-                else:
-                    Re, rho_seed = step_corrector_memory[0], step_corrector_memory[1]
-                ll_1 = step_inner_funct(False, True, None, rho_seed, Re)
-                # Acelerar la primera lectura con hipótesis sobre tau2
+                ll_1 = AU_corrector()
 
             return ll_1
         return wrapper_r
@@ -165,7 +169,7 @@ class solver_object:
         self.prd = productos  # Modela el comportamiento termodinámico de los productos de la combustión
         self.AM_object = None
         self.AUNGIER_object = None
-        self.inputs_props = None  # Se emplea como valor de referencia en las primeras semillas.
+        self.ref_props = None  # Se emplea como valor de referencia en las primeras semillas.
         self.step_iter_mode = False
         self.step_iter_end = False
         self.Re_corrector_counter = 0  # Contador del número de llamadas efectuadas durante la corrección por Re.
@@ -204,8 +208,6 @@ class solver_object:
 
         # En esta lista se almacenan variables que se requieren según el modo de funconamiento.
         ps_list: list[float] = []
-
-        self.inputs_props = (T_in, p_in)
 
         @solver_timer
         def inner_solver() -> None:
@@ -310,7 +312,7 @@ class solver_object:
             else:
                 corrector_memory = None
 
-        @step_decorator(self.cfg.ETA_TOL, self.cfg.loss_model, corrector_memory)
+        @step_decorator(self.cfg.DEC_TOL, self.cfg.loss_model, corrector_memory)
         def inner_funct(iter_mode=False, iter_end=False, xi_est=None, rho_seed=None, Re_out=None):
             """ Esta función interna se crea para poder comunicar al decorador instancias de la clase.
                                 :param rho_seed: Densidad que se emplea como valor semilla en blade_outlet_calculator
@@ -330,10 +332,10 @@ class solver_object:
             self.step_iter_end = iter_end
 
             if rho_seed is None:
-                if self.rho_seed_list is not None and len(self.rho_seed_list) == self.cfg.n_steps:
+                if self.rho_seed_list is not None and len(self.rho_seed_list) >= count+1:
                     rho_seed = self.rho_seed_list[count]
                 else:
-                    rho_seed = [rho_1*0.8, rho_1*0.9]
+                    rho_seed = [rho_1*0.80, rho_1*0.75]
                     if count == 0:
                         self.rho_seed_list = []
 
@@ -364,6 +366,7 @@ class solver_object:
             h_02 = h_01
             a_1 = self.prd.get_sound_speed(T=T_1, p=p_1)
             M_1 = C_1/a_1
+            self.ref_props = (T_1, p_1*0.95)
 
             args = ['est', A_tpl[1], alfa_1, h_02, m_dot, s_1, rho_seed[0], M_1, rho_1, C_1, C_1x, T_1]
             if (not iter_mode and not iter_end) or self.cfg.loss_model == 'Aungier':
@@ -387,6 +390,7 @@ class solver_object:
 
             registro.info(' Se va a calcular la salida del rótor del escalonamiento número %d.     ', count+1)
             h_r3 = h_r2 = h_2 + ((10 ** (-3)) * (omega_2 ** 2) / 2)
+            self.ref_props = (T_2, p_2*0.95)
 
             outputs = self.blade_outlet_calculator(
                 blade='rot', area_b=A_tpl[2], tau_a=beta_2, h_tb=h_r3,
@@ -421,7 +425,7 @@ class solver_object:
                     if Re < 50_000:
                         registro.warning('El número de Reynolds es demasiado bajo.')
 
-            if not iter_mode and (self.cfg.loss_model == 'Aungier' or not iter_end):
+            if not iter_mode and not iter_end:
                 if len(self.rho_seed_list) < self.cfg.n_steps:
                     self.rho_seed_list.append([rho_2, rho_3].copy())
                 else:
@@ -441,14 +445,12 @@ class solver_object:
                     if self.cfg.loss_model == 'Ainley_and_Mathieson':
                         self.corrector_seed.append(copy.deepcopy([xi_est, [rho_2, rho_3]]))
                     else:
-                        if self.step_iter_mode and not self.step_iter_end:
-                            self.corrector_seed.append(copy.deepcopy([[Re_12, Re_23], [rho_2, rho_3]]))
+                        self.corrector_seed.append(copy.deepcopy([Re_23, [rho_2, rho_3]]))
                 else:
                     if self.cfg.loss_model == 'Ainley_and_Mathieson':
                         self.corrector_seed[count] = copy.deepcopy([xi_est, [rho_2, rho_3]])
                     else:
-                        if self.step_iter_mode and not self.step_iter_end:
-                            self.corrector_seed[count] = copy.deepcopy([[Re_12, Re_23], [rho_2, rho_3]])
+                        self.corrector_seed[count] = copy.deepcopy([Re_23, [rho_2, rho_3]])
 
             if not self.cfg.fast_mode and (iter_end or not iter_mode):
                 Y_est = xi_est * (0.001 * (C_2**2) / 2)
@@ -498,25 +500,16 @@ class solver_object:
                                  DELTA_h_esc, eta_TT, eta_TE, Y_esc, w_s_esc, w_ss_esc, C_2s, T_02s, h_02s, omega_3s,
                                  T_3ss, T_03s, T_03ss, h_3ss, h_03s, h_03ss, U]
 
-                # eta_TT se debe enviar siempre que iter_mode para evaluar la condición del decorador
-                if not iter_mode and not iter_end and self.cfg.loss_model == 'Ainley_and_Mathieson':
+                if self.cfg.loss_model == 'Ainley_and_Mathieson':
                     return Re, eta_TT, xi_est, [rho_2, rho_3].copy(), local_list_1.copy()
-                elif self.cfg.loss_model == 'Ainley_and_Mathieson':
-                    return eta_TT, [rho_2, rho_3].copy(), local_list_1.copy()
-                elif iter_mode:
-                    return [Re_12, Re_23].copy(), [rho_2, rho_3].copy()
                 else:
-                    return local_list_1.copy()
+                    return Re_23, [rho_2, rho_3].copy(), local_list_1.copy()
 
             else:
-                if not iter_mode and not iter_end and self.cfg.loss_model == 'Ainley_and_Mathieson':
+                if self.cfg.loss_model == 'Ainley_and_Mathieson':
                     return Re, eta_TT, xi_est, [rho_2, rho_3].copy(), local_list_1
-                elif self.cfg.loss_model == 'Ainley_and_Mathieson':
-                    return eta_TT, [rho_2, rho_3].copy(), local_list_1
-                elif iter_mode:
-                    return [Re_12, Re_23].copy(), [rho_2, rho_3].copy()
                 else:
-                    return local_list_1.copy()
+                    return Re_23, [rho_2, rho_3].copy(), local_list_1.copy()
 
         ll_1 = inner_funct()
         return ll_1
@@ -558,7 +551,7 @@ class solver_object:
         M_b = h_b = U_b = h_bs = C_bx = Y_total = Re = pr0_b = Tr0_b = None
         rel_diff, tol, geom = 1.0, self.cfg.TOL, self.cfg.geom
 
-        T_b, T_bs, p_b = self.inputs_props[0]*0.9, self.inputs_props[0]*0.9, self.inputs_props[1]*0.95
+        T_b, T_bs, p_b = self.ref_props[0]*0.9, self.ref_props[0], self.ref_props[1]
 
         counter = self.step_counter
         num = counter*2 + (0 if blade == 'est' else 1)
@@ -603,11 +596,12 @@ class solver_object:
 
                 M_b = U_b/a_b   # Mout del flujo absoluto o relativo según si estátor o rótor (respectivamente)
 
-                if (self.cfg.loss_model == 'Aungier' or not self.step_iter_mode) and not self.step_iter_end:
-                    if blade == 'est' and self.cfg.loss_model == 'Ainley_and_Mathieson':
-                        Re = Re_in
-                    else:
-                        Re = Reynolds(num, rho_b, U_b, T_b, self.cfg, self.prd)
+                if self.cfg.loss_model == 'Ainley_and_Mathieson':
+                    if not self.step_iter_mode and not self.step_iter_end:
+                        if blade == 'est':
+                            Re = Re_in
+                        else:
+                            Re = Reynolds(num, rho_b, U_b, T_b, self.cfg, self.prd)
 
                 if self.cfg.loss_model == 'Ainley_and_Mathieson':
                     tau_b_n = self.AM_object.tau2_corrector(num, M_b)
@@ -629,7 +623,7 @@ class solver_object:
                         V_1x=C_ax, p_2=p_b, pr0_2=pr0_b, d2=rho_b, d1=rho_a, U_2=U_b
                     )
                     xi = Y_total / (1 + (0.5*gamma_b*(M_b**2)))
-                    if self.step_iter_mode:
+                    if not self.step_iter_mode:
                         tau_b = tau_b_n
 
             h_b = (0.001 * xi * (U_b**2) / 2) + h_bs
@@ -666,6 +660,10 @@ class solver_object:
         registro.debug('Pérdidas:  ...  Y_total: %.4f  ...  Yp: %.4f   ',
                        Y_total, Yp)
 
+        if self.cfg.loss_model == 'Aungier' and not self.step_iter_end:
+            if blade == 'rot':
+                Re = Reynolds(num, rho_b, U_b, T_b, self.cfg, self.prd)
+
         return_vars = [p_b, h_b, T_b, U_b, rho_b, h_bs, T_bs, C_bx, M_b, tau_b]
 
         if blade == 'est':
@@ -689,7 +687,7 @@ class solver_object:
                         :return: Devuelve la presión total (Pa) y la temperatura total (K) en una sección x. """
 
         if p_0x is None and T_0x is None:
-            p_0x, T_0x = p_x * 1.1, self.inputs_props[0]*1.1
+            p_0x, T_0x = p_x * 1.1, self.ref_props[0] * 1.1
         end, tol = False, self.cfg.TOL
 
         while not end:
@@ -707,8 +705,8 @@ class solver_object:
 
 
 def main():
-    fast_mode = True
-    settings = config_parameters(TOL=1E-7, ETA_TOL=1E-4, n_steps=1, ideal_gas=True, fast_mode=True,
+    fast_mode = False
+    settings = config_parameters(TOL=1E-7, DEC_TOL=1E-5, n_steps=1, ideal_gas=True, fast_mode=True,
                                  loss_model='Aungier')
 
     # Geometría procedente de: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf

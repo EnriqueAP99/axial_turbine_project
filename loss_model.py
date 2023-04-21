@@ -396,16 +396,16 @@ class Aungier_Loss_Model(Ainley_and_Mathieson_Loss_Model):
         Re_r = int((100 * b_j / roughness_heigh).__round__(0))
 
         if Re_c is not None:
-            if Re_c[num % 2] < Re_r:
-                if Re_c[num % 2] < 100_000:
-                    k_Re = sqrt(100_000/Re_c[num % 2])
-                elif Re_c[num % 2] > 500_000:
-                    k_Re = ((log10(500_000))/((log10(Re_c[num % 2]))**2.58))
+            if Re_c < Re_r:
+                if Re_c < 100_000:
+                    k_Re = sqrt(100_000/Re_c)
+                elif Re_c > 500_000:
+                    k_Re = ((log10(500_000))/((log10(Re_c))**2.58))
                 else:
                     k_Re = 1
             else:
                 if Re_r < 500_000:
-                    k_Re = 1+((-1+(((log10(50_000))/log10(Re_r))**2.58))*(1-(500_000/Re_c[num % 2])))
+                    k_Re = 1+((-1+(((log10(50_000))/log10(Re_r))**2.58))*(1-(500_000/Re_c)))
                 else:
                     k_Re = ((log10(500_000))/((log10(Re_r))**2.58))
         else:
