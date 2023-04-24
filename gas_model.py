@@ -225,17 +225,22 @@ class mixpm:
         else:
             fc = self.get_props_by_Tpd({k_g: c}, k_a) - v_a
 
+        iter_counter = 0
+
         while fvg > self.rel_error:
+            iter_counter += 1
+            if iter_counter > 500:
+                raise ValueError('Se ha alcanzado el número máximo de iteraciones.')
             if not start:
                 if 'T' in init_guess and k_a == 'h' and self.mode == "ig":
                     f1 = self.get_props_by_Tpd({k_g: v_g1}, k_a) - v_a
                     f2 = self.get_props_by_Tpd({k_g: v_g2}, k_a) - v_a
-                    c = float(v_g2 - f2 * (v_g2 - v_g1) / (f2 - f1))
+                    c = float(v_g2 - (f2 * (v_g2 - v_g1) / (f2 - f1)))
                     fc = self.get_props_by_Tpd({k_g: c}, k_a) - v_a
                 else:
                     f1 = self.get_props_by_Tpd({k_g: v_g1, k_b: v_b}, k_a) - v_a
                     f2 = self.get_props_by_Tpd({k_g: v_g2, k_b: v_b}, k_a) - v_a
-                    c = float(v_g2 - f2 * (v_g2 - v_g1) / (f2 - f1))
+                    c = float(v_g2 - (f2 * (v_g2 - v_g1) / (f2 - f1)))
                     fc = self.get_props_by_Tpd({k_g: c, k_b: v_b}, k_a) - v_a
             else:
                 start = False

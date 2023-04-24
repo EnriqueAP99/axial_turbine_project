@@ -7,6 +7,7 @@ clase que facilita el intercambio del módulo "gas_model.py" por otro similar.
 
 import logging  # https://docs.python.org/es/3/howto/logging.html
 from gas_model import mixpm
+import pyromat as pm
 import sys
 from math import pi, radians, cos, tan
 from dataclasses import dataclass
@@ -23,6 +24,8 @@ class config_parameters:
     ideal_gas: bool  # True cuando se establece hipótesis de gas ideal
     DEC_TOL: float = 1E-3  # Máximo error relativo que se tolera en la corrección de reynolds
     geom: dict = None  # Diccionario para almacenar parámetros geométricos de la turbina
+    iter_limit: int = 600  # Límite de iteraciones que se establece
+    relative_jump: float = 0.1  # Salto relativo durante la búsqueda cuando se conoce la presión a la salida
 
     def __post_init__(self):
         if self.loss_model not in ['Aungier', 'Ainley_and_Mathieson']:
@@ -153,12 +156,19 @@ class config_parameters:
         object.__setattr__(self, 'geom', geom)
         return
 
+    def edit_tol(self, new_tol):
+        object.__setattr__(self, 'TOL', new_tol)
+
+    def edit_relative_jump(self, new_rel_jump):
+        object.__setattr__(self, 'relative_jump', new_rel_jump)
+
 
 @dataclass
 class gas_model_to_solver:
     """Esta clase se crea para permitir emplear otro módulo alternativo que describa el comportamiento termodinámico
-    del gas sin tener que modificar el módulo 'axial_turb_solver.py. Es decir, solo sería necesario modificar esta clase
-    de manera adecuada para adaptar un módulo alternativo a "gas_model.py"."""
+    del gas sin tener que modificar el módulo 'axial_turb_solver.py. La finalidad de hacer esto es mejorar la
+    modularidad, es decir, solo sería necesario modificar esta clase de manera adecuada para implementar un módulo
+    alternativo a "gas_model.py"."""
 
     thermo_mode: str = "ig"  # Cadena que identifica si se establece modelo multifase o ideal para el vapor de agua.
     relative_error: float = 1E-7  # Máximo error relativo que se permite en los cálculos.
@@ -180,10 +190,13 @@ class gas_model_to_solver:
         self.gas_model.rel_error = self.relative_error
 
     def get_prop(self, known_props: dict[str, float], req_prop: dict[str, float] | str):
-        if 'h' in known_props or 's' in known_props:
-            output_value = self.gas_model.get_props_with_hs(known_props, req_prop)
-        else:
-            output_value = self.gas_model.get_props_by_Tpd(known_props, req_prop)
+        try:
+            if 'h' in known_props or 's' in known_props:
+                output_value = self.gas_model.get_props_with_hs(known_props, req_prop)
+            else:
+                output_value = self.gas_model.get_props_by_Tpd(known_props, req_prop)
+        except pm.utility.PMParamError:
+            raise ValueError
         return output_value
 
     def get_din_visc(self, T: float):   # Se emplea solo en el cálculo del número de Reynolds.

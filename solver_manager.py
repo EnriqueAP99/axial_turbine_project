@@ -206,24 +206,38 @@ def mass_flow_sweeping(solver: solver_object, T_in, p_in, n_rpm, m_dot_range: li
 
 def main_1(fast_mode, action):
     if action == 'procesar_y_guardar':
-        settings = config_parameters(TOL=1E-6, n_steps=2, ideal_gas=True, fast_mode=fast_mode,
-                                     loss_model='Ainley_and_Mathieson', DEC_TOL=1E-4)
+        settings = config_parameters(TOL=1E-12, n_steps=1, ideal_gas=True, fast_mode=fast_mode, loss_model='Aungier',
+                                     DEC_TOL=1E-7, relative_jump=0.01, iter_limit=1200)
 
-        settings.set_geometry(B_A_est=[0, 5], theta_est=[70, 75], B_A_rot=[55, 55], theta_rot=[105, 105], b_z=0.027,
-                              cuerda=0.03, radio_medio=0.30, H=[0.030, 0.035, 0.041, 0.048, 0.052], e=0.015, o=0.015,
-                              t_max=0.006, r_r=0.003, r_c=0.002, t_e=0.004, k=0.001, delta=0.001,
-                              roughness_ptv=0.00001, holgura_radial=False)
+        Rm = 0.1429
+        heights = [0.0445 for _ in range(3)]
+        areas = [0.0399 for _ in range(3)]
+        chord = [0.0338, 0.0241]
+        t_max = [0.2 * chord[0], 0.15 * chord[1]]
+        pitch = [0.0249, 0.0196]
+        t_e = [0.01 * s for s in pitch]
+        blade_opening = [0.01090, 0.01354]
+        e_param = [0.0893, 0.01135]
+        tip_clearance = [0.0004, 0.0008]
+        # 'wire_diameter' 'lashing_wires'
+        chord_proj_z = [0.9 * b for b in chord]
+        blade_roughness_peak_to_valley = [0.00001 for _ in chord]
 
-        gas_model = gas_model_to_solver(thermo_mode="ig", relative_error=1E-6)
+        settings.set_geometry(B_A_est=0, theta_est=70, B_A_rot=55, theta_rot=105, areas=areas, cuerda=chord,
+                              radio_medio=Rm, e=e_param, o=blade_opening, s=pitch, H=heights, b_z=chord_proj_z,
+                              t_max=t_max, r_r=0.002, r_c=0.001, t_e=t_e, k=tip_clearance, delta=tip_clearance,
+                              roughness_ptv=blade_roughness_peak_to_valley, holgura_radial=False)
+
+        gas_model = gas_model_to_solver(thermo_mode="ig", relative_error=1E-12)
 
         solver = solver_object(settings, gas_model)
 
         if fast_mode:
-            output = solver.problem_solver(T_in=1800, p_in=1_000_000, n=6_000, m_dot=18.0)
+            output = solver.problem_solver(T_in=1100, p_in=400_000, n=20_000, p_out=200_000, C_inx_ref=60)
             T_salida, p_salida, C_salida, alfa_salida = output
             print(' T_out', T_salida, '\n', 'P_out', p_salida, '\n', 'C_out', C_salida, '\n', 'alfa_out', alfa_salida)
         else:
-            solver.problem_solver(T_in=1800, p_in=1_000_000, n=6_000, m_dot=18.0)
+            solver.problem_solver(T_in=1100, p_in=400_000, n=20_000, p_out=200_000, C_inx_ref=60)
             solver_data_saver('process_object.pkl', solver)
 
     elif action == 'cargar_y_visualizar':
@@ -246,7 +260,7 @@ def main_1(fast_mode, action):
 
 def main_2():
     settings = config_parameters(TOL=1E-8, n_steps=1, ideal_gas=True, fast_mode=False,
-                                 loss_model='Aungier', DEC_TOL=1E-4)
+                                 loss_model='Aungier', DEC_TOL=1E-5)
 
     Rm = 0.1429
     heights = [0.0445 for _ in range(3)]
@@ -317,4 +331,4 @@ def main_3():
 
 
 if __name__ == '__main__':
-    main_3()
+    main_1(False, 'procesar_y_guardar')

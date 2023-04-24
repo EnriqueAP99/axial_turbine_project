@@ -369,6 +369,8 @@ class Aungier_Loss_Model(Ainley_and_Mathieson_Loss_Model):
         F_AR = 0.8 + (0.2*(d2*V_2x/(d1*V_1x)))
         F_TE = 1 + (Y_TE * (pr0_2 - p_2) / pr0_2)
         o_s = F_TE*F_AR*o_j/s_j
+        if fabs(o_s) > 1:
+            o_s = o_s/fabs(o_s)
         beta_g = degrees(asin(o_s))
         delta_0 = (degrees(asin(o_s*(1+((1-o_s)*((beta_g/90)**2)))))) - beta_g
 
@@ -379,6 +381,8 @@ class Aungier_Loss_Model(Ainley_and_Mathieson_Loss_Model):
             delta_0 = delta_0*(1-(10*(X_delta**3)) + (15*(X_delta**4)) - (6*(X_delta**5)))
 
         taud_1, taud_2 = degrees(tau_1), 90 - (beta_g + delta_0)
+        if fabs(taud_2) < self.cfg.TOL:
+            taud_2 = self.cfg.TOL  # Límite para no dividir por cero luego
         tau_2 = radians(taud_2)
 
         i_is = self.calculating_incidence_stall_incidence_fraction(taud_1, taud_2)
