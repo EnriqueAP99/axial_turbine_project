@@ -2,7 +2,7 @@
 En este módulo se caracteriza el modelo de pérdidas que se va a emplear en el módulo "axial_turb_solver.py", además se
 calcula el número de Reynolds.
 """
-from config_class import registro, gas_model_to_solver, config_parameters
+from config_class import *
 from math import cos, atan, tan, radians, degrees, pi, acos, fabs, sqrt, log10, sin, asin
 from scipy.interpolate import InterpolatedUnivariateSpline
 import numpy as np

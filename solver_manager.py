@@ -4,7 +4,6 @@ Se almacenan y procesan los datos haciendo uso de las librerías Pickle y Pandas
 
 import pickle
 from axial_turb_solver import *
-import pyromat as pm
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -186,10 +185,12 @@ def mass_flow_sweeping(solver: solver_object, T_in, p_in, n_rpm, m_dot_range: li
         try:
             solver.problem_solver(T_in=T_in, p_in=p_in, n=n_rpm, m_dot=m_dot)
             new_data = True
-        except pm.utility.PMParamError:
-            new_data = False
-            registro.warning('Se ha finalizado el cálculo, en m=%.3f kg/s, por la excepción pm.utility.PMParamError.',
+        except GasLibraryAdaptedException:  # Excepción esperada
+            registro.warning('Se ha finalizado el cálculo, en m=%.3f kg/s, por una excepción de cálculo limitado.',
                              m_dot)
+            break
+        except NonConvergenceError:  # Excepción inesperada del solver
+            new_data = False
         if new_data:
             df_a, df_b, df_c = data_to_df(solver, req_vars)
             lista_df_a.append(copy.deepcopy(df_a))
@@ -206,8 +207,9 @@ def mass_flow_sweeping(solver: solver_object, T_in, p_in, n_rpm, m_dot_range: li
 
 def main_1(fast_mode, action):
     if action == 'procesar_y_guardar':
-        settings = config_parameters(TOL=1E-12, n_steps=1, ideal_gas=True, fast_mode=fast_mode, loss_model='Aungier',
-                                     DEC_TOL=1E-7, relative_jump=0.01, iter_limit=1200)
+        settings = config_parameters(TOL=1E-12, n_steps=1, ideal_gas=True, fast_mode=fast_mode,
+                                     loss_model='Aungier', STEP_DEC_TOL=1E-11,
+                                     SOLVER_DEC_TOL=1E-10, relative_jump=0.01, iter_limit=1200)
 
         Rm = 0.1429
         heights = [0.0445 for _ in range(3)]
@@ -233,11 +235,11 @@ def main_1(fast_mode, action):
         solver = solver_object(settings, gas_model)
 
         if fast_mode:
-            output = solver.problem_solver(T_in=1100, p_in=400_000, n=20_000, p_out=200_000, C_inx_ref=60)
+            output = solver.problem_solver(T_in=1100, p_in=400_000, n=20_000, p_out=200_000, C_inx_ref=110)
             T_salida, p_salida, C_salida, alfa_salida = output
             print(' T_out', T_salida, '\n', 'P_out', p_salida, '\n', 'C_out', C_salida, '\n', 'alfa_out', alfa_salida)
         else:
-            solver.problem_solver(T_in=1100, p_in=400_000, n=20_000, p_out=200_000, C_inx_ref=60)
+            solver.problem_solver(T_in=1100, p_in=400_000, n=20_000, p_out=200_000, C_inx_ref=110)
             solver_data_saver('process_object.pkl', solver)
 
     elif action == 'cargar_y_visualizar':
@@ -260,7 +262,7 @@ def main_1(fast_mode, action):
 
 def main_2():
     settings = config_parameters(TOL=1E-8, n_steps=1, ideal_gas=True, fast_mode=False,
-                                 loss_model='Aungier', DEC_TOL=1E-5)
+                                 loss_model='Aungier', STEP_DEC_TOL=1E-7, relative_jump=0.01, iter_limit=1200)
 
     Rm = 0.1429
     heights = [0.0445 for _ in range(3)]
@@ -285,7 +287,7 @@ def main_2():
     solver = solver_object(settings, gas_model)
 
     df_a, df_b, df_c = mass_flow_sweeping(solver, T_in=1100, p_in=800_000, n_rpm=12_000,
-                                          m_dot_range=[0.2, 12], m_dot_jump=0.1)
+                                          m_dot_range=[10.5, 12], m_dot_jump=0.1)
 
     df_a.to_csv('df_a.csv')
     df_b.to_csv('df_b.csv')

@@ -17,12 +17,13 @@ from dataclasses import dataclass
 class config_parameters:
     """ Objeto que agrupa los parámetros necesarios para configurar la ejecución del solver. """
 
-    TOL: float  # Máximo error relativo que se tolera en los cálculos iterativos
+    TOL: float  # Máximo error relativo que se tolera en los cálculos iterativos del solver
     n_steps: int  # Número de escalonamientos que se definen
     fast_mode: bool  # Limitar cálculos y determinar temperatura, presión y velocidad a la salida
     loss_model: str  # Cadena identificador del modelo de pérdidas establecido
     ideal_gas: bool  # True cuando se establece hipótesis de gas ideal
-    DEC_TOL: float = 1E-3  # Máximo error relativo que se tolera en la corrección de reynolds
+    STEP_DEC_TOL: float = 1E-7  # Máximo error relativo que se tolera en la corrección de reynolds
+    SOLVER_DEC_TOL: float = 1E-6  # Máxima desviación relativa que se tolera en la presión a la salida
     geom: dict = None  # Diccionario para almacenar parámetros geométricos de la turbina
     iter_limit: int = 600  # Límite de iteraciones que se establece
     relative_jump: float = 0.1  # Salto relativo durante la búsqueda cuando se conoce la presión a la salida
@@ -163,6 +164,20 @@ class config_parameters:
         object.__setattr__(self, 'relative_jump', new_rel_jump)
 
 
+class GasLibraryAdaptedException(Exception):
+    """ Excepción creada para identificar errores provenientes del módulo para modelar el gas."""
+    def __init__(self, msg="Error proveniente de la librería que modela las propiedades."):
+        self.msg = msg
+        super().__init__(self.msg)
+
+
+class NonConvergenceError(Exception):
+    """ Excepción creada para identificar errores de no convergencia."""
+    def __init__(self, msg="Error de no convergencia."):
+        self.msg = msg
+        super().__init__(self.msg)
+
+
 @dataclass
 class gas_model_to_solver:
     """Esta clase se crea para permitir emplear otro módulo alternativo que describa el comportamiento termodinámico
@@ -196,7 +211,7 @@ class gas_model_to_solver:
             else:
                 output_value = self.gas_model.get_props_by_Tpd(known_props, req_prop)
         except pm.utility.PMParamError:
-            raise ValueError
+            raise GasLibraryAdaptedException
         return output_value
 
     def get_din_visc(self, T: float):   # Se emplea solo en el cálculo del número de Reynolds.
