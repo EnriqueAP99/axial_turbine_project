@@ -399,21 +399,18 @@ class Aungier_Loss_Model(Ainley_and_Mathieson_Loss_Model):
         roughness_heigh = self.cfg.geom['roughness_ptv'][num]
         Re_r = int((100 * b_j / roughness_heigh).__round__(0))
 
-        if Re_c is not None:
-            if Re_c < Re_r:
-                if Re_c < 100_000:
-                    k_Re = sqrt(100_000/Re_c)
-                elif Re_c > 500_000:
-                    k_Re = ((log10(500_000))/((log10(Re_c))**2.58))
-                else:
-                    k_Re = 1
+        if Re_c < Re_r:
+            if Re_c < 100_000:
+                k_Re = sqrt(100_000/Re_c)
+            elif Re_c > 500_000:
+                k_Re = ((log10(500_000))/((log10(Re_c))**2.58))
             else:
-                if Re_r < 500_000:
-                    k_Re = 1+((-1+(((log10(50_000))/log10(Re_r))**2.58))*(1-(500_000/Re_c)))
-                else:
-                    k_Re = ((log10(500_000))/((log10(Re_r))**2.58))
+                k_Re = 1
         else:
-            k_Re = 1
+            if Re_r < 500_000:
+                k_Re = 1+((-1+(((log10(50_000))/log10(Re_r))**2.58))*(1-(500_000/Re_c)))
+            else:
+                k_Re = ((log10(500_000))/((log10(Re_r))**2.58))
 
         Yp1 = interpola_series_en_x(taud_2, s_j/b_j, self.yp_s_c_b1kn)
         Yp2 = interpola_series_en_x(taud_2, s_j/b_j, self.yp_s_c_b1kb2k)

@@ -4,6 +4,7 @@ las condiciones de funcionamiento de la turbina axial que se defina.
 """
 
 import copy
+import math
 from math import log
 from time import time
 
@@ -56,7 +57,7 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx: float |
                         ps_list = solver_method(C_inx)
                         p_out_iter = read_ps_list()
                         # En el bloque if else que sigue se omite el rango que no contiene la solución.
-                        if C_inx_b > pre_C_inx_b*(1+1E-5):  # Se proviene del nivel de avance de b
+                        if C_inx_b > pre_C_inx_b:  # Se proviene del nivel de avance de b
                             p_out_iter_a = pre_p_out_iter_b = p_out_iter_b
                             p_out_iter_b = p_out_iter
                             C_inx_a = pre_C_inx_b
@@ -72,7 +73,11 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx: float |
                             f_a = (p_out_iter_a - pre_p_out_iter_a)/(C_inx_a - pre_C_inx_a)
 
                         # Se evalúa si el nuevo rango contiene la solución.
-                        if (p_out_iter_b-p_out)*(p_out_iter_a-p_out) <= 0:
+                        if cfg.accurate_approach:
+                            error = cfg.SOLVER_DEC_TOL
+                        else:
+                            error = 1E-5
+                        if ((p_out_iter_b*(1+error))-p_out)*((p_out_iter_a*(1-error))-p_out) <= 0:
                             bolz = True
 
                     # Se almacenan los valores antiguos para repetir el proceso
@@ -84,26 +89,24 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx: float |
                 # Se capturan posibles excepciones (ver tendencia p_out vs m_dot)
                 except NonConvergenceError:
                     registro.warning('Se ha capturado una excepción.')
-                    delta /= 1.9
+                    delta /= math.e
                     C_inx_a, C_inx_b = pre_C_inx_a, pre_C_inx_b
 
                 except GasLibraryAdaptedException:
                     registro.warning('Se ha capturado una excepción.')
-                    delta /= 1.75
+                    delta /= math.e
                     C_inx_a, C_inx_b = pre_C_inx_a, pre_C_inx_b
 
                 # Comprobación de que localmente creciente/decreciente en ambos extremos:
                 # (f_a > 0 & f_b > 0) or (f_a < 0 & f_b < 0)
                 if f_a is not None and f_a*f_b > 0 and not bolz:
 
-                    signo_a, signo_b = f_a/np.fabs(f_a), f_b/np.fabs(f_b)
-
-                    if p_out_iter_b*(1+(cfg.STEP_DEC_TOL*signo_b))*signo_b < p_out*signo_b:
+                    if p_out_iter_b*(1+cfg.STEP_DEC_TOL) > p_out:
                         # Nivel de avance en 'b'
                         C_inx_b = C_inx_b*(1 + delta)
                         C_inx = C_inx_b
 
-                    elif p_out_iter_a*(1+(cfg.STEP_DEC_TOL*signo_a))*signo_a > p_out*signo_a:
+                    elif p_out_iter_a*(1-cfg.STEP_DEC_TOL) < p_out:
                         # Nivel de retroceso en 'a'
                         C_inx_a = C_inx_a * (1 - delta)
                         C_inx = C_inx_a
@@ -124,7 +127,7 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx: float |
                                       'el salto relativo.')
                     sys.exit()
 
-            rel_error = 1
+            rel_error = 1.0
             p_out_iter = None
 
             while fabs(rel_error) > cfg.SOLVER_DEC_TOL:  # Se emplea régula falsi
@@ -257,7 +260,7 @@ def step_decorator(cfg: config_parameters, step_corrector_memory):
             rel_error_eta_TT = 1.0
             xi_ec = None
 
-            while np.fabs(rel_error_eta_TT) > corrector_tol:
+            while fabs(rel_error_eta_TT) > corrector_tol:
                 if xi_ec is None:
                     xi_ec = xi_e2 - (f2 * (xi_e2 - xi_e1) / (f2 - f1))
                     sifc = get_sif_output(True, False, xi_ec, rho_seed_c)
@@ -297,7 +300,7 @@ def step_decorator(cfg: config_parameters, step_corrector_memory):
                     raise NonConvergenceError
                 Re_n = Re
                 Re, rho_seed, _ = get_sif_output(True, False, None, rho_seed, Re_n)
-                rel_error = np.fabs(Re_n - Re) / Re
+                rel_error = fabs(Re_n - Re) / Re
             _, _, ll_1 = get_sif_output(True, True, None, rho_seed, Re)
             return ll_1
 
@@ -332,6 +335,9 @@ class solver_object:
         self.AUNGIER_object = None
         self.ref_values = None  # Valores de referencia en las primeras semillas dentro de "blade_outlet_calculator".
         self.first_seeds_boc = None
+        # En una nueva evaluación fijando p_out próximo se ahorra tiempo por conocer la solución anterior.
+        self.C_inx_register = None
+        self.AU_Re_register = None  # Para que no oscile tanto durante la estimación del tramo asintótico
         self.step_iter_mode = False
         self.step_iter_end = False
         self.Re_corrector_counter = 0  # Contador del número de llamadas efectuadas durante la corrección por Re.
@@ -374,7 +380,7 @@ class solver_object:
         ps_list: list[float] = []
 
         if self.corrector_seed is not None:
-            self.cfg.edit_relative_jump(self.cfg.SOLVER_DEC_TOL)
+            self.cfg.edit_relative_jump(0.0001)
 
         props_tol = self.prd.get_tol()
         registro.debug('El error relativo establecido en el cálculo de propiedades es: %s', props_tol)
@@ -397,7 +403,10 @@ class solver_object:
                                   '"mass_flow".')
                 sys.exit()
             else:
-                C_inx = C_inx_ref
+                if self.C_inx_register is None:
+                    C_inx = C_inx_ref
+                else:
+                    C_inx = self.C_inx_register
 
         rho_in = self.prd.get_prop(known_props={'T': T_in, 'p': p_in}, req_prop='d')
         if m_dot is not None:
@@ -409,27 +418,28 @@ class solver_object:
         def inner_solver(var_C_inx=None, last_calls=False):
             nonlocal m_dot, C_inx, ps_list, just_once_check
 
-            if not last_calls:
-                if not just_once_check[0]:
-                    registro.info('Para acelerar la aproximación a la solución se modifica la tolerancia.')
-                    self.prd.modify_tol(1E-7)
-                    self.cfg.edit_tol('TOL', 1E-6)
-                    self.cfg.edit_tol('STEP_DEC_TOL', 1E-5)
-                    just_once_check[0] = True
-            else:
-                if not just_once_check[1]:
-                    registro.info('Se reestablecen los valores de precisión deseados.')
-                    self.prd.modify_tol(props_tol)
-                    self.cfg.edit_tol('TOL', tol)
-                    self.cfg.edit_tol('STEP_DEC_TOL', step_dec_tol)
-                    just_once_check[1] = True
+            if not self.cfg.accurate_approach:
+                if not last_calls:
+                    if not just_once_check[0]:
+                        registro.info('Para acelerar la aproximación a la solución se modifica la tolerancia.')
+                        self.prd.modify_tol(1E-7)
+                        self.cfg.edit_tol('TOL', 1E-6)
+                        self.cfg.edit_tol('STEP_DEC_TOL', 1E-5)
+                        just_once_check[0] = True
+                else:
+                    if not just_once_check[1]:
+                        registro.info('Se reestablecen los valores de precisión deseados.')
+                        self.prd.modify_tol(props_tol)
+                        self.cfg.edit_tol('TOL', tol)
+                        self.cfg.edit_tol('STEP_DEC_TOL', step_dec_tol)
+                        just_once_check[1] = True
 
             self.step_iter_mode = self.step_iter_end = False
             self.step_counter = 0
             self.Re_corrector_counter = 0
 
             if var_C_inx is not None:
-                C_inx = var_C_inx
+                C_inx = self.C_inx_register = var_C_inx
                 m_dot = rho_in * self.cfg.geom['areas'][0] * C_inx
 
             s_in = self.prd.get_prop(known_props={'T': T_in, 'p': p_in}, req_prop='s')
@@ -571,7 +581,7 @@ class solver_object:
 
             args = ['est', A_tpl[1], alfa_1, h_02, m_dot, s_1, rho_seed[0], M_1, rho_1, C_1, C_1x, T_1]
             if (not iter_mode and not iter_end) or self.cfg.loss_model == 'Aungier':
-                outputs = self.blade_outlet_calculator(*args)
+                outputs = self.blade_outlet_calculator(*args, Re_out=Re_out)
                 p_2, h_2, T_2, C_2, rho_2, h_2s, T_2s, C_2x, M_2, alfa_2, xi_est, Re_12 = outputs
             else:
                 outputs = self.blade_outlet_calculator(*args, xi=xi_est)
@@ -749,7 +759,7 @@ class solver_object:
             self.AM_object.limit_mssg = [True, True, True]
 
         rho_b = rho_bp = rho_outer_seed
-        M_b = h_b = U_b = h_bs = C_bx = Y_total = Re = pr0_b = Tr0_b = None
+        M_b = h_b = U_b = h_bs = C_bx = Y_total = Re = Re_AU = pr0_b = Tr0_b = None
         rel_diff, tol, geom = 1.0, self.cfg.TOL, self.cfg.geom
 
         if self.first_seeds_boc is None:
@@ -770,9 +780,16 @@ class solver_object:
             # El resto de veces depende xi depende de si se modifica o no el valor de tau_2.
             tau_b = self.AM_object.outlet_angle_before_mod[num]
             Re_in = Reynolds(counter*2, rho_a, C_a, T_a, self.cfg, self.prd)
-
         else:
-            tau_b = alfap_2
+            tau_b = self.AUNGIER_object.outlet_angle_before_mod[num]  # Primera estimación
+            if Re_out is None:
+                registro.debug('Se emplea el valor de Reynolds a la entrada como primera estimación.')
+                if self.AU_Re_register is None:
+                    Re_AU = Reynolds(counter * 2, rho_a, C_a, T_a, self.cfg, self.prd)
+                else:
+                    Re_AU = self.AU_Re_register
+            else:
+                Re_AU = self.AU_Re_register = Re_out
 
         # p: iteración previa .... b: estado que se quiere conocer, a la salida del álabe
         while fabs(rel_diff) > tol:
@@ -829,11 +846,11 @@ class solver_object:
                     s_b = self.prd.get_prop(known_props={'T': T_b, 'p': p_b}, req_prop='s')
                     pr0_b, Tr0_b = self.Zero_pt_calculator(p_b, s_b, h_tb, p_0x=pr0_b, T_0x=Tr0_b)
                     Y_total, tau_b_n = self.AUNGIER_object.Aungier_operations(
-                        num=num, Min=M_a, Mout=M_b, Re_c=Re_out, tau_1=tau_a, V_2x=C_bx,
+                        num=num, Min=M_a, Mout=M_b, Re_c=Re_AU, tau_1=tau_a, V_2x=C_bx,
                         V_1x=C_ax, p_2=p_b, pr0_2=pr0_b, d2=rho_b, d1=rho_a, U_2=U_b
                     )
                     xi = Y_total / (1 + (0.5*gamma_b*(M_b**2)))
-                    if not self.step_iter_mode:
+                    if not self.step_iter_end:
                         tau_b = tau_b_n
 
             h_b = (0.001 * xi * (U_b**2) / 2) + h_bs
@@ -918,7 +935,7 @@ class solver_object:
 def main():
     fast_mode = False
     settings = config_parameters(TOL=1E-11, STEP_DEC_TOL=1E-10, SOLVER_DEC_TOL=1E-9,
-                                 n_steps=1, relative_jump=0.05, loss_model='Aungier',
+                                 n_steps=1, relative_jump=0.005, loss_model='Aungier',
                                  ideal_gas=True, fast_mode=fast_mode, iter_limit=1200)
 
     # Geometría procedente de: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf
@@ -945,13 +962,13 @@ def main():
     solver = solver_object(settings, gas_model)
 
     if fast_mode:
-        output = solver.problem_solver(T_in=1100, p_in=400_000, n=20_000, p_out=250_000, C_inx_ref=140)
+        output = solver.problem_solver(T_in=1100, p_in=400_000, n=20_000, p_out=250_000, C_inx_ref=160)
         T_salida, p_salida, C_salida, alfa_salida = output
         print(' T_out =', T_salida, '\n', 'P_out =', p_salida,
               '\n', 'C_out =', C_salida, '\n', 'alfa_out =', alfa_salida)
 
     else:
-        solver.problem_solver(T_in=1500, p_in=400_000, n=20_000,  p_out=250_000, C_inx_ref=140)
+        solver.problem_solver(T_in=1500, p_in=400_000, n=20_000,  p_out=250_000, C_inx_ref=160)
 
 
 if __name__ == '__main__':

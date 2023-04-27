@@ -171,23 +171,57 @@ def problem_data_viewer(solver: solver_object, req_vars=None) -> None:
     return
 
 
-def mass_flow_sweeping(solver: solver_object, T_in, p_in, n_rpm, m_dot_range: list[float, float],
-                       m_dot_jump: float = None, req_vars: list = None):
-    m_dot, k = None, 0
+def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_sweep: str,
+                 m_dot=None, p_out=None, C_inx_ref=None, jump: float = None, req_vars: list = None):
+
+    k = 0
+    desired_range = {}
     lista_df_a, lista_df_b, lista_df_c = [], [], []
-    if m_dot_jump is None:
-        m_dot_jump = 10 * solver.cfg.TOL
-    resolution = 1 + int((m_dot_range[1] - m_dot_range[0]) // m_dot_jump)
+
+    if var_to_sweep == 'T_in':
+        desired_range[var_to_sweep] = T_in
+        desired_range['units'] = 'K'
+    elif var_to_sweep == 'p_in':
+        desired_range[var_to_sweep] = p_in
+        desired_range['units'] = 'Pa'
+    elif var_to_sweep == 'n_rpm':
+        desired_range[var_to_sweep] = n_rpm
+        desired_range['units'] = 'rpm'
+    elif var_to_sweep == 'p_out':
+        desired_range[var_to_sweep] = p_out
+        desired_range['units'] = 'Pa'
+    elif var_to_sweep == 'm_dot':
+        desired_range[var_to_sweep] = m_dot
+        desired_range['units'] = 'kg'
+
+    def set_value(value):
+        nonlocal T_in, p_in, n_rpm, p_out, m_dot
+        if var_to_sweep == 'T_in':
+            T_in = value
+        elif var_to_sweep == 'p_in':
+            p_in = value
+        elif var_to_sweep == 'n_rpm':
+            n_rpm = value
+        elif var_to_sweep == 'p_out':
+            p_out = value
+        elif var_to_sweep == 'm_dot':
+            m_dot = value
+
+    if jump is None:
+        jump = 10 * solver.cfg.SOLVER_DEC_TOL * desired_range[var_to_sweep][1]
+    resolution = 1 + int((desired_range[var_to_sweep][1] - desired_range[var_to_sweep][0]) // jump)
 
     while k <= resolution:
 
-        m_dot = m_dot_range[0] + (k * m_dot_jump)
+        value_k = desired_range[var_to_sweep][0] + (k * jump)
+        set_value(value_k)
+
         try:
-            solver.problem_solver(T_in=T_in, p_in=p_in, n=n_rpm, m_dot=m_dot)
+            solver.problem_solver(T_in=T_in, p_in=p_in, n=n_rpm, m_dot=m_dot, p_out=p_out, C_inx_ref=C_inx_ref)
             new_data = True
         except GasLibraryAdaptedException:  # Excepción esperada
-            registro.warning('Se ha finalizado el cálculo, en m=%.3f kg/s, por una excepción de cálculo limitado.',
-                             m_dot)
+            registro.warning('Se ha finalizado el cálculo, en %s=%.3f %s, por una excepción durante el cálculo.',
+                             var_to_sweep, value_k, desired_range['units'])
             break
         except NonConvergenceError:  # Excepción inesperada del solver
             new_data = False
@@ -207,9 +241,9 @@ def mass_flow_sweeping(solver: solver_object, T_in, p_in, n_rpm, m_dot_range: li
 
 def main_1(fast_mode, action):
     if action == 'procesar_y_guardar':
-        settings = config_parameters(TOL=1E-12, n_steps=1, ideal_gas=True, fast_mode=fast_mode,
-                                     loss_model='Aungier', STEP_DEC_TOL=1E-11,
-                                     SOLVER_DEC_TOL=1E-10, relative_jump=0.01, iter_limit=1200)
+        settings = config_parameters(TOL=1E-11, STEP_DEC_TOL=1E-10, SOLVER_DEC_TOL=1E-9,
+                                     n_steps=1, relative_jump=0.005, loss_model='Aungier',
+                                     ideal_gas=True, fast_mode=fast_mode, iter_limit=800)
 
         Rm = 0.1429
         heights = [0.0445 for _ in range(3)]
@@ -235,11 +269,11 @@ def main_1(fast_mode, action):
         solver = solver_object(settings, gas_model)
 
         if fast_mode:
-            output = solver.problem_solver(T_in=1100, p_in=400_000, n=20_000, p_out=200_000, C_inx_ref=110)
+            output = solver.problem_solver(T_in=1100, p_in=600_000, n=20_000, p_out=120_000, C_inx_ref=110)
             T_salida, p_salida, C_salida, alfa_salida = output
             print(' T_out', T_salida, '\n', 'P_out', p_salida, '\n', 'C_out', C_salida, '\n', 'alfa_out', alfa_salida)
         else:
-            solver.problem_solver(T_in=1100, p_in=400_000, n=20_000, p_out=200_000, C_inx_ref=110)
+            solver.problem_solver(T_in=1100, p_in=600_000, n=20_000, p_out=120_000, C_inx_ref=110)
             solver_data_saver('process_object.pkl', solver)
 
     elif action == 'cargar_y_visualizar':
@@ -261,8 +295,9 @@ def main_1(fast_mode, action):
 
 
 def main_2():
-    settings = config_parameters(TOL=1E-8, n_steps=1, ideal_gas=True, fast_mode=False,
-                                 loss_model='Aungier', STEP_DEC_TOL=1E-7, relative_jump=0.01, iter_limit=1200)
+    settings = config_parameters(TOL=1.5*1E-12, STEP_DEC_TOL=1E-11, SOLVER_DEC_TOL=1.5*1E-11, accurate_approach=True,
+                                 n_steps=1, relative_jump=0.001, loss_model='Aungier', ideal_gas=True,
+                                 fast_mode=False, iter_limit=1000)
 
     Rm = 0.1429
     heights = [0.0445 for _ in range(3)]
@@ -283,11 +318,11 @@ def main_2():
                           t_max=t_max, r_r=0.002, r_c=0.001, t_e=t_e, k=tip_clearance, delta=tip_clearance,
                           roughness_ptv=blade_roughness_peak_to_valley, holgura_radial=False)
 
-    gas_model = gas_model_to_solver(thermo_mode="ig", relative_error=1E-8)
+    gas_model = gas_model_to_solver(thermo_mode="ig", relative_error=1E-12)
     solver = solver_object(settings, gas_model)
 
-    df_a, df_b, df_c = mass_flow_sweeping(solver, T_in=1100, p_in=800_000, n_rpm=12_000,
-                                          m_dot_range=[10.5, 12], m_dot_jump=0.1)
+    df_a, df_b, df_c = var_sweeping(solver, T_in=1100, p_in=400_000, n_rpm=17_000, var_to_sweep='p_out',
+                                    C_inx_ref=140, p_out=[180_000, 400_000])
 
     df_a.to_csv('df_a.csv')
     df_b.to_csv('df_b.csv')
@@ -333,4 +368,4 @@ def main_3():
 
 
 if __name__ == '__main__':
-    main_1(False, 'procesar_y_guardar')
+    main_2()
