@@ -3,6 +3,7 @@ En este módulo se caracteriza el modelo de pérdidas que se va a emplear en el 
 calcula el número de Reynolds.
 """
 from config_class import *
+from math import cos, atan, tan, radians, degrees, pi, acos, fabs, sqrt, log10, sin, asin
 from scipy.interpolate import InterpolatedUnivariateSpline
 import numpy as np
 # https://medium.com/@hdezfloresmiguelangel/introducci%C3%B3n-a-la-interpolaci%C3%B3n-unidimensional-con-python-1127abe510a1
@@ -10,7 +11,7 @@ import numpy as np
 # https://www.youtube.com/watch?v=tTG5Re5G7B8&ab_channel=Petr%C3%B3leoyprogramaci%C3%B3nSMAE
 
 
-def Reynolds(num: int, rho_2, C_2, T_2, config: config_parameters, productos: gas_model_to_solver):
+def Reynolds(num: int, rho_2: float, C_2: float, T_2: float, config: config_parameters, productos: gas_model_to_solver):
     """ Se calcula el número de Reynolds usando el diámetro hidráulico y las propiedades del fluido a la salida del
     estátor.
             :param num: Número identificador de la corona que se evalúa.
@@ -24,13 +25,13 @@ def Reynolds(num: int, rho_2, C_2, T_2, config: config_parameters, productos: ga
     if config.loss_model == 'soderberg_correlation':
         alfa_key = 'alfap_i_est' if num % 2 == 0 else 'alfap_o_rot'
         s, H, alfa = config.geom['s'][num], config.geom['H'][num], config.geom[alfa_key][num//2]
-        D_h = 2 * s * H * np.cos(alfa) / (s * np.cos(alfa) + H)
+        D_h = 2 * s * H * cos(alfa) / (s * cos(alfa) + H)
         c_len = D_h
     else:
         c_len = config.geom['b'][num]
 
     mu = productos.get_din_visc(T_2)
-    Re = int((float(rho_2 * C_2 * c_len / mu)).__round__(0))
+    Re = int(rho_2 * C_2 * c_len / mu)
     return Re
 
 
@@ -44,7 +45,7 @@ def f_sp(x_list: list, y_list: list, order: int):
 
 def interpola_series_en_x(param, x, series):
     serie_parameter = [parameter for _, _, parameter in series]
-    serie_y = [funcion(x) for _, funcion, _ in series]
+    serie_y = [float(funcion(x)) for _, funcion, _ in series]
     f_param = InterpolatedUnivariateSpline(serie_parameter, serie_y, k=2)
     return f_param(param)
 
@@ -141,13 +142,13 @@ class Ainley_and_Mathieson_Loss_Model:  # Ver paper: https://apps.dtic.mil/sti/p
         pitch = self.cfg.geom['s']
         mean_radius_curvature = self.cfg.geom['e']
         for i in range(self.cfg.n_steps*2):
-            x_value = np.degrees(np.arccos(throat_distance[i] / pitch[i]))
+            x_value = degrees(acos(throat_distance[i] / pitch[i]))
             if x_value < 35 or x_value > 80:
                 registro.warning('El valor de acos(o/s) excede los límites de la correlación. Valor: %.1f; Límites: %s',
                                  x_value, [35, 80])
             tau_2_ast_value = self.tau_2_ast[1](x_value)
             flow_angle = tau_2_ast_value + 4 * (pitch[i] / mean_radius_curvature[i])
-            self.outlet_angle_before_mod.append(np.radians(flow_angle))
+            self.outlet_angle_before_mod.append(radians(flow_angle))
 
     def AM_diameter_def(self):
         def AM_mean_radius() -> tuple:
@@ -182,9 +183,9 @@ class Ainley_and_Mathieson_Loss_Model:  # Ver paper: https://apps.dtic.mil/sti/p
             registro.info(str_rm_logger, *r_corregidos)
         return
 
-    def calculating_incidence_stall_incidence_fraction(self, tau_1, tau_2):
+    def calculating_incidence_stall_incidence_fraction(self, tau_1: float, tau_2: float):
         geom, num = self.cfg.geom, self.crown_num
-        alfap_1 = np.degrees(geom['alfap_i_est'][num//2] if num % 2 == 0 else geom['alfap_i_rot'][num//2])
+        alfap_1 = degrees(geom['alfap_i_est'][num//2] if num % 2 == 0 else geom['alfap_i_rot'][num//2])
         s, b, t_max = geom['s'][num], geom['b'][num], geom['t_max'][num]
 
         a2_a2sc075 = self.alfa2rel_s_c[1](s / b)
@@ -215,7 +216,7 @@ class Ainley_and_Mathieson_Loss_Model:  # Ver paper: https://apps.dtic.mil/sti/p
                         :return: Se devuelve el valor de Yp calculado. """
 
         geom, num = self.cfg.geom, self.crown_num
-        alfap_1 = np.degrees(geom['alfap_i_est'][num//2] if num % 2 == 0 else geom['alfap_i_rot'][num//2])
+        alfap_1 = degrees(geom['alfap_i_est'][num//2] if num % 2 == 0 else geom['alfap_i_rot'][num//2])
         s, b, t_max = geom['s'][num], geom['b'][num], geom['t_max'][num]
 
         i_is = self.calculating_incidence_stall_incidence_fraction(tau_1, tau_2)
@@ -253,16 +254,16 @@ class Ainley_and_Mathieson_Loss_Model:  # Ver paper: https://apps.dtic.mil/sti/p
 
         def tau_mach_low():
             xk_h = self.cfg.geom['X']*k_parameter/height
-            c_c = np.cos(self.cfg.geom[tau_in_key][num//2])/np.cos(self.outlet_angle_before_mod[num])
-            t_t2 = np.tan(-self.outlet_angle_before_mod[num])
-            t_ba = np.tan(self.cfg.geom[tau_in_key][num//2])
-            return -np.arctan(((1-(xk_h*c_c))*t_t2)+(xk_h*c_c*t_ba))  # tau_out (0.0 < M < 0.5) (rads)
+            c_c = cos(self.cfg.geom[tau_in_key][num//2])/cos(self.outlet_angle_before_mod[num])
+            t_t2 = tan(-self.outlet_angle_before_mod[num])
+            t_ba = tan(self.cfg.geom[tau_in_key][num//2])
+            return -atan(((1-(xk_h*c_c))*t_t2)+(xk_h*c_c*t_ba))  # tau_out (0.0 < M < 0.5) (rads)
 
         def tau_mach_unit():
             An0, An2 = self.cfg.geom['areas'][num], self.cfg.geom['areas'][num+1]
-            Ak = np.pi * (height + 2*self.cfg.geom['Rm'][num]) * k_parameter
+            Ak = pi * (height + 2*self.cfg.geom['Rm'][num]) * k_parameter
             throat_area = (((throat_distance/pitch) * ((5*An2)+An0) / 6)*(1-(k_parameter/height))) + Ak
-            return np.arccos(throat_area / An2)  # tau_out (M = 1.0)  (rads)
+            return acos(throat_area / An2)  # tau_out (M = 1.0)  (rads)
 
         if M_out < 0.5:
             return tau_mach_low()
@@ -288,7 +289,7 @@ class Ainley_and_Mathieson_Loss_Model:  # Ver paper: https://apps.dtic.mil/sti/p
         lista_local = [geom[i][num] for i in ['areas', 's', 'k', 'H', 'r_r', 'r_c', 'b', 't_e']]
         A_1, s, K_i, H, r_r, r_c, b, t_e = lista_local
         clave_BA = 'alfap_i_est' if num % 2 == 0 else 'alfap_i_rot'
-        A_1, A_2 = A_1 * np.cos(self.cfg.geom[clave_BA][num//2]), geom['areas'][num+1]*np.cos(np.radians(tau_2))
+        A_1, A_2 = A_1 * cos(self.cfg.geom[clave_BA][num//2]), geom['areas'][num+1]*cos(radians(tau_2))
 
         if not step_iter_mode:
 
@@ -299,13 +300,13 @@ class Ainley_and_Mathieson_Loss_Model:  # Ver paper: https://apps.dtic.mil/sti/p
             else:
                 self.Yp_preiter[num] = Yp
 
-            tau_2, tau_1 = np.radians(tau_2), np.radians(tau_1)
+            tau_2, tau_1 = radians(tau_2), radians(tau_1)
 
-            x = ((A_2*np.cos(tau_2)/(A_1*np.cos(tau_1)))**2)/(1+(r_r/r_c))
+            x = ((A_2*cos(tau_2)/(A_1*cos(tau_1)))**2)/(1+(r_r/r_c))
             lambda_ = self.sec_losses[1](x)
-            tau_m = np.arctan((np.tan(tau_1)+np.tan(tau_2))/2)
-            C_L = 2*(s/b)*(np.tan(tau_1) - np.tan(tau_2))*np.cos(tau_m)
-            Z = ((C_L*b/s)**2)*((np.cos(tau_2)**2)/(np.cos(tau_m)**3))
+            tau_m = atan((tan(tau_1)+tan(tau_2))/2)
+            C_L = 2*(s/b)*(tan(tau_1) - tan(tau_2))*cos(tau_m)
+            Z = ((C_L*b/s)**2)*((cos(tau_2)**2)/(cos(tau_m)**3))
             Ys = lambda_*Z
             Yk = 0.0
             if not K_i > tol:
@@ -351,12 +352,9 @@ class Aungier_Loss_Model(Ainley_and_Mathieson_Loss_Model):
         self.km_series = [serie_k_m_07, serie_k_m_08, serie_k_m_09, serie_k_m_1]
 
         alfap_2_e, alfap_2_r = cfg.geom['alfap_o_est'], cfg.geom['alfap_o_rot']
-        self.ap_2 = [np.degrees(alfap_2_e[i//2]) if i % 2 == 0 else np.degrees(alfap_2_r[i//2])
-                     for i in range(cfg.n_steps*2)]
-
+        self.ap_2 = [degrees(alfap_2_e[i//2]) if i % 2 == 0 else degrees(alfap_2_r[i//2]) for i in range(cfg.n_steps*2)]
         alfap_1_e, alfap_1_r = cfg.geom['alfap_i_est'], cfg.geom['alfap_i_rot']
-        self.ap_1 = [np.degrees(alfap_1_e[i//2]) if i % 2 == 0 else np.degrees(alfap_1_r[i//2])
-                     for i in range(cfg.n_steps*2)]
+        self.ap_1 = [degrees(alfap_1_e[i//2]) if i % 2 == 0 else degrees(alfap_1_r[i//2]) for i in range(cfg.n_steps*2)]
 
     def Aungier_operations(self, num, Min, Mout, Re_c, tau_1, V_2x, U_2, V_1x, p_2, pr0_2, d2, d1):
         # El mach indicado debe ser el mach a la salida (Mb)
@@ -365,16 +363,16 @@ class Aungier_Loss_Model(Ainley_and_Mathieson_Loss_Model):
         h_j, o_j = self.cfg.geom['H'][num], self.cfg.geom['o'][num]
         s_j, e_j, b_j = self.cfg.geom['s'][num], self.cfg.geom['e'][num], self.cfg.geom['b'][num]
 
-        beta_g = np.degrees(np.arcsin(o_j/s_j))
-        Y_TE = (t_e/((s_j*np.sin(np.radians(beta_g)))-t_e))**2
+        beta_g = degrees(asin(o_j/s_j))
+        Y_TE = (t_e/((s_j*sin(radians(beta_g)))-t_e))**2
 
         F_AR = 0.8 + (0.2*(d2*V_2x/(d1*V_1x)))
         F_TE = 1 + (Y_TE * (pr0_2 - p_2) / pr0_2)
         o_s = F_TE*F_AR*o_j/s_j
-        if np.fabs(o_s) > 1:
-            o_s = o_s/np.fabs(o_s)
-        beta_g = np.degrees(np.arcsin(o_s))
-        delta_0 = (np.degrees(np.arcsin(o_s*(1+((1-o_s)*((beta_g/90)**2)))))) - beta_g
+        if fabs(o_s) > 1:
+            o_s = o_s/fabs(o_s)
+        beta_g = degrees(asin(o_s))
+        delta_0 = (degrees(asin(o_s*(1+((1-o_s)*((beta_g/90)**2)))))) - beta_g
 
         if Mout <= 0.5:
             pass
@@ -382,38 +380,38 @@ class Aungier_Loss_Model(Ainley_and_Mathieson_Loss_Model):
             X_delta = (2*Mout) - 1
             delta_0 = delta_0*(1-(10*(X_delta**3)) + (15*(X_delta**4)) - (6*(X_delta**5)))
 
-        taud_1, taud_2 = np.degrees(tau_1), 90 - (beta_g + delta_0)
-        if np.fabs(taud_2) < self.cfg.TOL:
+        taud_1, taud_2 = degrees(tau_1), 90 - (beta_g + delta_0)
+        if fabs(taud_2) < self.cfg.TOL:
             taud_2 = self.cfg.TOL  # Límite para no dividir por cero luego
-        tau_2 = np.radians(taud_2)
+        tau_2 = radians(taud_2)
 
         i_is = self.calculating_incidence_stall_incidence_fraction(taud_1, taud_2)
         k_inc = self.yp_f_i_f[1](i_is)
 
         k_m = 1 if (s_j / e_j) < 0.105 or Mout < 0.6 else interpola_series_en_x(Mout, s_j / e_j, self.km_series)
 
-        Minmod = (Min + 0.566 - np.fabs(0.566 - Min))/2
-        Moutmod = (Mout + 1 - np.fabs(Mout - 1))/2
-        X_param = 2*Minmod / (Moutmod + Minmod + np.fabs(Moutmod - Minmod))
-        k_1 = 1 - (0.625*(Moutmod - 0.2 + np.fabs(Moutmod - 0.2)))
+        Minmod = (Min + 0.566 - fabs(0.566 - Min))/2
+        Moutmod = (Mout + 1 - fabs(Mout - 1))/2
+        X_param = 2*Minmod / (Moutmod + Minmod + fabs(Moutmod - Minmod))
+        k_1 = 1 - (0.625*(Moutmod - 0.2 + fabs(Moutmod - 0.2)))
         k_p = 1 - ((X_param**2)*(1-k_1))
 
         roughness_heigh = self.cfg.geom['roughness_ptv'][num]
-        Re_r = int((float(100 * b_j / roughness_heigh)).__round__(0))
+        Re_r = int((100 * b_j / roughness_heigh).__round__(0))
 
         if Re_c is not None:
             if Re_c < Re_r:
                 if Re_c < 100_000:
-                    k_Re = np.sqrt(100_000/Re_c)
+                    k_Re = sqrt(100_000/Re_c)
                 elif Re_c > 500_000:
-                    k_Re = ((np.log10(500_000))/((np.log10(Re_c))**2.58))
+                    k_Re = ((log10(500_000))/((log10(Re_c))**2.58))
                 else:
                     k_Re = 1
             else:
                 if Re_r < 500_000:
-                    k_Re = 1+((-1+(((np.log10(50_000))/np.log10(Re_r))**2.58))*(1-(500_000/Re_c)))
+                    k_Re = 1+((-1+(((log10(50_000))/log10(Re_r))**2.58))*(1-(500_000/Re_c)))
                 else:
-                    k_Re = ((np.log10(500_000))/((np.log10(Re_r))**2.58))
+                    k_Re = ((log10(500_000))/((log10(Re_r))**2.58))
         else:
             k_Re = 1
 
@@ -421,23 +419,23 @@ class Aungier_Loss_Model(Ainley_and_Mathieson_Loss_Model):
         Yp2 = interpola_series_en_x(taud_2, s_j/b_j, self.yp_s_c_b1kb2k)
         ksi = self.ap_1[num]/taud_2
 
-        Y_TE_002s = (0.02*s_j/((s_j*np.sin(np.radians(beta_g)))-(0.02*s_j)))**2
+        Y_TE_002s = (0.02*s_j/((s_j*sin(radians(beta_g)))-(0.02*s_j)))**2
         delta_Y_TE = Y_TE_002s
 
         Yp = 0.67 * k_inc * k_m * k_p * k_Re * (((Yp1 + ((ksi**2)*(Yp2-Yp1)))*((5*t_max/b_j)**ksi))-delta_Y_TE)
         self.Yp_iter_mode = Yp
 
-        CL = 2*(np.tan(tau_1) + np.tan(tau_2))*s_j/b_j
+        CL = 2*(tan(tau_1) + tan(tau_2))*s_j/b_j
 
-        apm = (np.pi/2) - np.arctan((1/((np.tan((np.pi/2) - tau_1 - (1/np.tan((np.pi/2) - tau_2))))*2)))
-        Z = ((CL*b_j/s_j)**2) * ((np.cos(tau_2))**2) / ((np.sin(apm))**3)
+        apm = (pi/2) - atan((1/((tan((pi/2) - tau_1 - (1/tan((pi/2) - tau_2))))*2)))
+        Z = ((CL*b_j/s_j)**2) * ((cos(tau_2))**2) / ((sin(apm))**3)
 
         F_AR = b_j/h_j if h_j/b_j >= 2 else (0.5*((2*b_j/h_j)**0.7))
-        Y_s_pre = 0.0334 * F_AR * Z * (np.cos(tau_2)) / np.cos(np.radians(self.ap_1[num]))
+        Y_s_pre = 0.0334 * F_AR * Z * (cos(tau_2)) / cos(radians(self.ap_1[num]))
 
         k_s = 1 - ((1-k_p)*((b_z/h_j)**2)/(1+((b_j/h_j)**2)))  # bm ¿medio?
 
-        Ys = k_Re*k_s*np.sqrt((Y_s_pre**2)/(1+(7.5*(Y_s_pre**2))))
+        Ys = k_Re*k_s*sqrt((Y_s_pre**2)/(1+(7.5*(Y_s_pre**2))))
 
         delta_j = self.cfg.geom['delta'][num]
         Y_CL = 0.47*Z*(b_j/h_j)*((delta_j/b_j)**0.78)

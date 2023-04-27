@@ -4,12 +4,12 @@ que se emplearán en el cálculo (config_parameters). Se emplea un módulo apart
 circulares, ya que se va a almacenar información que será necesaria en varios módulos. Además, también se crea una
 clase que facilita el intercambio del módulo "gas_model.py" por otro similar.
 """
-import copy
+
 import logging  # https://docs.python.org/es/3/howto/logging.html
 from gas_model import mixpm
 import pyromat as pm
-import numpy as np
 import sys
+from math import pi, radians, cos, tan
 from dataclasses import dataclass
 
 
@@ -22,10 +22,10 @@ class config_parameters:
     fast_mode: bool  # Limitar cálculos y determinar temperatura, presión y velocidad a la salida
     loss_model: str  # Cadena identificador del modelo de pérdidas establecido
     ideal_gas: bool  # True cuando se establece hipótesis de gas ideal
-    STEP_DEC_TOL: float = 1E-8  # Máximo error relativo que se tolera en la corrección de reynolds
-    SOLVER_DEC_TOL: float = 1E-7  # Máxima desviación relativa que se tolera en la presión a la salida
+    STEP_DEC_TOL: float = 1E-7  # Máximo error relativo que se tolera en la corrección de reynolds
+    SOLVER_DEC_TOL: float = 1E-6  # Máxima desviación relativa que se tolera en la presión a la salida
     geom: dict = None  # Diccionario para almacenar parámetros geométricos de la turbina
-    iter_limit: int = 800  # Límite de iteraciones que se establece
+    iter_limit: int = 600  # Límite de iteraciones que se establece
     relative_jump: float = 0.1  # Salto relativo durante la búsqueda cuando se conoce la presión a la salida
 
     def __post_init__(self):
@@ -84,64 +84,64 @@ class config_parameters:
                 registro.critical('Se precisa definir de alguna manera la deflexión de cada álabe.')
                 sys.exit()
 
-        list_items2, local_dict2 = [], {}
-        for key in ['t_max', 'r_r', 'r_c', 't_e', 'roughness_ptv', 'delta',
-                    'lashing_wires', 'wire_diameter', 'b_z', 'k', 'o', 'e', ]:
+        list_items2, local_dict2 = ['t_max', 'r_r', 'r_c', 't_e', ], {}
+        for key in ['roughness_ptv', 'lashing_wires', 'wire_diameter', 'b_z', 'delta', 'k', ]:
             if key in kwargs:
                 list_items2.append(key)
-
+        if 'o' in kwargs and 'e' in kwargs:
+            list_items2.append('o')
+            list_items2.append('e')
         for par_id in list_items2:
-            local_dict2[par_id] = kwargs.get(par_id, np.nan)
-
+            local_dict2[par_id] = kwargs.get(par_id, 0.0)
         local_dict2['b'], local_dict2['Rm'] = cuerda, radio_medio
-        s = kwargs.get('s', np.nan)
-
-        if 's' in kwargs:
+        s = kwargs.get('s', 0.0)
+        if not s == 0.0:
             local_dict2['s'] = s
 
         ld_list = [local_dict1, local_dict2]
         for index, ld in enumerate(ld_list):
             for i, v in ld.items():
-                if isinstance(v, (list, tuple)):
+                if not isinstance(v, (int, float)):
                     if index == 0:
-                        geom[i] = np.deg2rad(np.array(v))
-                    else:
-                        geom[i] = np.array(v)
+                        v = [radians(elem) for elem in v]
+                    geom[i] = tuple(v)
                 else:
                     geom[i] = []
                     for _ in range(ns if index == 0 else ns * 2):
-                        geom[i] += [v]
-                    geom[i] = np.deg2rad(np.array(geom[i])) if index == 0 else np.array(geom[i])
+                        geom[i] += [radians(v) if index == 0 else v]
+                    geom[i] = tuple(geom[i])
 
         Rm = geom['Rm']
-        if 'areas' in kwargs and 'H' in kwargs:
-            geom['H'] = np.array(kwargs['H'])
-            geom['areas'] = np.array(kwargs['areas'])
-        else:
-            for i1, i2 in [['areas', 'H'], ['H', 'areas']]:
-                if i1 not in kwargs:
-                    geom[i1] = list()
-                    geom[i2] = np.array(kwargs[i2])
-                    for num, v2 in enumerate(kwargs[i2]):
-                        num2 = num - 1 if num > 0 else 0
-                        geom[i1].append(2 * np.pi * Rm[num2] * v2 if (i1 == 'areas') else v2 / (2 * np.pi * Rm[num2]))
-                    geom[i1] = np.array(geom[i1])
+        for i1, i2 in [['areas', 'H'], ['H', 'areas']]:
+            if i1 not in kwargs:
+                geom[i1] = list()
+                geom[i2] = tuple(kwargs[i2])
+                for num, v2 in enumerate(geom[i2]):
+                    num2 = num - 1 if num > 0 else 0
+                    geom[i1].append(2 * pi * Rm[num2] * v2 if (i1 == 'areas') else v2 / (2 * pi * Rm[num2]))
+                geom[i1] = tuple(geom[i1])
 
-        Rm = np.concatenate([[Rm[0]], Rm])
-        if not np.all(((2*Rm)-geom['H'])/((2*Rm)-geom['H']) < 1.4):
-            registro.critical('No se verifica la hipótesis de bidimensionalidad.')
-            sys.exit()
+        if 'areas' not in geom:
+            geom['areas'], geom['H'] = kwargs['areas'], kwargs['H']
 
-        if s == np.nan:
+        for num, h in enumerate(geom['H']):   # h: 0 1 2 3 4 ... Rm: 0 0 1 2 3
+            num2 = num - 1 if num > 0 else 0
+            if (2*Rm[num2]-h)/(2*Rm[num2]-h) > 1.4:
+                registro.critical('No se verifica la hipótesis de bidimensionalidad.')
+                sys.exit()
+
+        if s == 0.0:
             ap_i_est, ap_i_rot, cuerda = geom['alfap_i_est'], geom['alfap_i_rot'], geom['b']
-            geom['s'] = cuerda[::2]*0.4 / ((np.tan(ap_i_est)+np.tan(ap_i_rot))*np.power(np.cos(ap_i_rot), 2))
+            geom['s'] = [cuerda[(i // 2) * 2] * 0.4 / ((tan(ap_i_est[i // 2]) + tan(ap_i_rot[i // 2])) *
+                                                       (cos(ap_i_rot[i//2])**2)) for i in range(ns*2)]
 
         for B_S, B_S_name, B_A_name, theta_name in [[B_S_rot, 'alfap_o_rot', 'alfap_i_rot', 'theta_r'],
                                                     [B_S_est, 'alfap_o_est', 'alfap_i_est', 'theta_e']]:
             if B_S is None:
-                geom[B_S_name] = geom[theta_name] - geom[B_A_name]
+                geom[B_S_name] = [geom[theta_name][i] - geom[B_A_name][i] for i in range(ns)]
+                geom[B_S_name] = tuple(geom[B_S_name])
             else:
-                geom[theta_name] = geom[B_S_name] + geom[B_A_name]
+                geom[theta_name] = [geom[B_S_name][i] + geom[B_A_name][i] for i in range(ns)]
 
         if 'holgura_radial' in kwargs:
             geom['X'] = 1.35 if kwargs['holgura_radial'] else 0.7
@@ -149,7 +149,7 @@ class config_parameters:
         object.__setattr__(self, 'geom', geom)
         return
 
-    def edit_geom(self, key, values):
+    def edit_geom(self, key, values: tuple):
         """ Se permite modificar parámetros ya introducidos mediante este método. """
 
         geom = self.geom
@@ -157,8 +157,8 @@ class config_parameters:
         object.__setattr__(self, 'geom', geom)
         return
 
-    def edit_tol(self, new_tol):
-        object.__setattr__(self, 'TOL', new_tol)
+    def edit_tol(self, key, new_tol):
+        object.__setattr__(self, key, new_tol)
 
     def edit_relative_jump(self, new_rel_jump):
         object.__setattr__(self, 'relative_jump', new_rel_jump)
@@ -186,12 +186,12 @@ class gas_model_to_solver:
     alternativo a "gas_model.py"."""
 
     thermo_mode: str = "ig"  # Cadena que identifica si se establece modelo multifase o ideal para el vapor de agua.
-    relative_error: float = 1E-10  # Máximo error relativo que se permite en los cálculos.
-    C_atoms: int | float = 12.0  # Átomos de carbono en cada átomo de hidrocarburo en los reactivos.
-    H_atoms: int | float = 23.5  # Átomos de hidrógeno en cada átomo de hidrocarburo en los reactivos.
-    air_excess: int | float = 4  # Exceso de aire considerado en el ajuste estequiométrico de la combustión completa.
+    relative_error: float = 1E-7  # Máximo error relativo que se permite en los cálculos.
+    C_atoms: float | int = 12.0  # Átomos de carbono en cada átomo de hidrocarburo en los reactivos.
+    H_atoms: float | int = 23.5  # Átomos de hidrógeno en cada átomo de hidrocarburo en los reactivos.
+    air_excess: float | int = 4  # Exceso de aire considerado en el ajuste estequiométrico de la combustión completa.
     _memory: list = None  # La finalidad de esta memoria es no recalcular las propiedades si ya se habían determinado.
-    _gamma = None
+    _gamma: float = None
 
     def __post_init__(self):
         if self.thermo_mode not in ("ig", "mp", ):
@@ -200,10 +200,18 @@ class gas_model_to_solver:
                               "cálculo disminuirían demasiado y se realentiza todo el cálculo innecesariamente. \n "
                               "Para  el modelo del Çengel usar el módulo IGmodelfromCengel.py. \n")
             sys.exit()
-        self.gas_model = mixpm(self.thermo_mode, self.relative_error)
+        self.gas_model = mixpm(self.thermo_mode)
         self.gas_model.setmix(self.C_atoms, self.H_atoms, self.air_excess)
+        self.gas_model.rel_error = self.relative_error
 
-    def get_prop(self, known_props: dict, req_prop: dict | str):
+    def get_tol(self):
+        return self.gas_model.rel_error
+
+    def modify_tol(self, tol):
+        self.gas_model.rel_error = tol
+        return
+
+    def get_prop(self, known_props: dict[str, float], req_prop: dict[str, float] | str):
         try:
             if 'h' in known_props or 's' in known_props:
                 output_value = self.gas_model.get_props_with_hs(known_props, req_prop)
@@ -213,23 +221,23 @@ class gas_model_to_solver:
             raise GasLibraryAdaptedException
         return output_value
 
-    def get_din_visc(self, T):   # Se emplea solo en el cálculo del número de Reynolds.
+    def get_din_visc(self, T: float):   # Se emplea solo en el cálculo del número de Reynolds.
         din_visc = self.gas_model.Wilke_visc_calculator(T)
         return din_visc
 
-    def get_sound_speed(self, T, p):
+    def get_sound_speed(self, T: float, p: float):
         sound_speed, _, _, self._gamma = self.gas_model.get_a(T, p, extra=True)
-        self._memory = copy.deepcopy([T, p])
+        self._memory = [T, p].copy()
         return sound_speed
 
-    def get_gamma(self, T, p):
+    def get_gamma(self, T: float, p: float):
         if self._gamma is None and self._memory is None:
             _, _, self._gamma = self.gas_model.get_coeffs(T, p)
         elif T == self._memory[0] and p == self._memory[1]:
             pass
         else:
             _, _, self._gamma = self.gas_model.get_coeffs(T, p)
-        self._memory = copy.deepcopy([T, p])
+        self._memory = [T, p].copy()
         return self._gamma
 
 
