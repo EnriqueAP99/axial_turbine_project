@@ -79,7 +79,7 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx: float |
                     pre_C_inx_a, pre_C_inx_b = C_inx_a, C_inx_b
 
                     registro.info('En proceso de búsqueda de la solución ... Rango actual: [%.2f, %.2f]',
-                                  float(p_out_iter_a), float(p_out_iter_b))
+                                  p_out_iter_a, p_out_iter_b)
 
                 # Se capturan posibles excepciones (ver tendencia p_out vs m_dot)
                 except NonConvergenceError:
