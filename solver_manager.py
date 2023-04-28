@@ -173,26 +173,29 @@ def problem_data_viewer(solver: solver_object, req_vars=None) -> None:
 
 def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_sweep: str,
                  m_dot=None, p_out=None, C_inx_ref=None, jump: float = None, req_vars: list = None):
-
+    """ El rango debe ser creciente. """
     k = 0
-    desired_range = {}
+    just_once = [True, True]
+    rel_jump = solver.cfg.relative_jump
+    sweep_data = {}
     lista_df_a, lista_df_b, lista_df_c = [], [], []
 
     if var_to_sweep == 'T_in':
-        desired_range[var_to_sweep] = T_in
-        desired_range['units'] = 'K'
+        sweep_data[var_to_sweep] = T_in
+        sweep_data['units'] = 'K'
     elif var_to_sweep == 'p_in':
-        desired_range[var_to_sweep] = p_in
-        desired_range['units'] = 'Pa'
+        sweep_data[var_to_sweep] = p_in
+        sweep_data['units'] = 'Pa'
     elif var_to_sweep == 'n_rpm':
-        desired_range[var_to_sweep] = n_rpm
-        desired_range['units'] = 'rpm'
+        sweep_data[var_to_sweep] = n_rpm
+        sweep_data['units'] = 'rpm'
     elif var_to_sweep == 'p_out':
-        desired_range[var_to_sweep] = p_out
-        desired_range['units'] = 'Pa'
+        sweep_data[var_to_sweep] = p_out
+        sweep_data['units'] = 'Pa'
+        sweep_data['acc_approach'] = solver.cfg.accurate_approach
     elif var_to_sweep == 'm_dot':
-        desired_range[var_to_sweep] = m_dot
-        desired_range['units'] = 'kg'
+        sweep_data[var_to_sweep] = m_dot
+        sweep_data['units'] = 'kg'
 
     def set_value(value):
         nonlocal T_in, p_in, n_rpm, p_out, m_dot
@@ -203,17 +206,25 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
         elif var_to_sweep == 'n_rpm':
             n_rpm = value
         elif var_to_sweep == 'p_out':
+            if value < (0.25*sweep_data[var_to_sweep][1]) + (0.75*sweep_data[var_to_sweep][0]):
+                if just_once[0]:
+                    solver.cfg.edit_cfg_prop('accurate_approach', True)
+                    just_once[0] = False
+            else:
+                if just_once[1]:
+                    solver.cfg.edit_cfg_prop('accurate_approach', sweep_data['acc_approach'])
+                    just_once[1] = False
             p_out = value
         elif var_to_sweep == 'm_dot':
             m_dot = value
 
     if jump is None:
-        jump = 10 * solver.cfg.SOLVER_DEC_TOL * desired_range[var_to_sweep][1]
-    resolution = 1 + int((desired_range[var_to_sweep][1] - desired_range[var_to_sweep][0]) // jump)
+        jump = 5*solver.cfg.TOL * sweep_data[var_to_sweep][1]
+    resolution = 1 + int((sweep_data[var_to_sweep][1] - sweep_data[var_to_sweep][0]) // jump)
 
-    while k <= resolution:
+    while k <= resolution - 1:
 
-        value_k = desired_range[var_to_sweep][0] + (k * jump)
+        value_k = sweep_data[var_to_sweep][0] + (k * jump)
         set_value(value_k)
 
         try:
@@ -221,7 +232,7 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
             new_data = True
         except GasLibraryAdaptedException:  # Excepción esperada
             registro.warning('Se ha finalizado el cálculo, en %s=%.3f %s, por una excepción durante el cálculo.',
-                             var_to_sweep, value_k, desired_range['units'])
+                             var_to_sweep, value_k, sweep_data['units'])
             break
         except NonConvergenceError:  # Excepción inesperada del solver
             new_data = False
@@ -230,6 +241,7 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
             lista_df_a.append(copy.deepcopy(df_a))
             lista_df_b.append(copy.deepcopy(df_b))
             lista_df_c.append(copy.deepcopy(df_c))
+        solver.cfg.edit_cfg_prop('relative_jump', rel_jump)
         k += 1
 
     df_a_packg = pd.concat([*lista_df_a], keys=[f'{k}' for k in range(resolution)], names=['Aux_Index', 'Spec_Index'])
@@ -241,8 +253,7 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
 
 def main_1(fast_mode, action):
     if action == 'procesar_y_guardar':
-        settings = config_parameters(TOL=1E-11, STEP_DEC_TOL=1E-10, SOLVER_DEC_TOL=1E-9,
-                                     n_steps=1, relative_jump=0.005, loss_model='Aungier',
+        settings = config_parameters(TOL=1E-11, n_steps=1, relative_jump=0.005, loss_model='Aungier',
                                      ideal_gas=True, fast_mode=fast_mode, iter_limit=800)
 
         Rm = 0.1429
@@ -264,7 +275,7 @@ def main_1(fast_mode, action):
                               t_max=t_max, r_r=0.002, r_c=0.001, t_e=t_e, k=tip_clearance, delta=tip_clearance,
                               roughness_ptv=blade_roughness_peak_to_valley, holgura_radial=False)
 
-        gas_model = gas_model_to_solver(thermo_mode="ig", relative_error=1E-12)
+        gas_model = gas_model_to_solver(thermo_mode="ig")
 
         solver = solver_object(settings, gas_model)
 
@@ -295,9 +306,9 @@ def main_1(fast_mode, action):
 
 
 def main_2():
-    settings = config_parameters(TOL=1.5*1E-12, STEP_DEC_TOL=1E-11, SOLVER_DEC_TOL=1.5*1E-11, accurate_approach=True,
-                                 n_steps=1, relative_jump=0.001, loss_model='Aungier', ideal_gas=True,
-                                 fast_mode=False, iter_limit=1000)
+    settings = config_parameters(TOL=1E-10, accurate_approach=False, ideal_gas=True,
+                                 n_steps=1, relative_jump=0.005, loss_model='Aungier',
+                                 fast_mode=False, iter_limit=800)
 
     Rm = 0.1429
     heights = [0.0445 for _ in range(3)]
@@ -318,11 +329,11 @@ def main_2():
                           t_max=t_max, r_r=0.002, r_c=0.001, t_e=t_e, k=tip_clearance, delta=tip_clearance,
                           roughness_ptv=blade_roughness_peak_to_valley, holgura_radial=False)
 
-    gas_model = gas_model_to_solver(thermo_mode="ig", relative_error=1E-12)
+    gas_model = gas_model_to_solver(thermo_mode="ig")
     solver = solver_object(settings, gas_model)
 
     df_a, df_b, df_c = var_sweeping(solver, T_in=1100, p_in=400_000, n_rpm=17_000, var_to_sweep='p_out',
-                                    C_inx_ref=140, p_out=[180_000, 400_000])
+                                    C_inx_ref=135, p_out=[207_000, 400_000])
 
     df_a.to_csv('df_a.csv')
     df_b.to_csv('df_b.csv')

@@ -4,7 +4,7 @@ las condiciones de funcionamiento de la turbina axial que se defina.
 """
 
 import copy
-import math
+
 from math import log
 from time import time
 
@@ -39,12 +39,18 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx: float |
             # Puntos a, b tal que C_inx_b > C_inx_a
             pre_C_inx_a = pre_C_inx_b = C_inx
             delta = cfg.relative_jump
-            C_inx_a = C_inx*(1 - (2*delta))
-            C_inx_b = C_inx*(1 + (2*delta))
+            C_inx_a = C_inx*(1 - (1.1*delta))
+            C_inx_b = C_inx*(1 + (1.1*delta))
             p_out_iter_b = p_out_iter_a = None
             f_a = f_b = None
 
             registro.info('Se va a buscar un intervalo que contenga la solución.')
+            if cfg.accurate_approach:
+                relative_security_distance = cfg.TOL
+            else:
+                #  Si no se hace aproximación precisa es conveniente establecer un límite arbitrario por el que se
+                #  asegure que el comportamiento no va a ser errático como consecuencia del error de la estimación.
+                relative_security_distance = 1E-5
             while not bolz:
                 try:
                     if not check:  # Primera vuelta
@@ -71,13 +77,13 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx: float |
                             C_inx_b = pre_C_inx_a
                             f_b = f_a
                             f_a = (p_out_iter_a - pre_p_out_iter_a)/(C_inx_a - pre_C_inx_a)
+                            if f_b is None:
+                                f_b = f_a
 
                         # Se evalúa si el nuevo rango contiene la solución.
-                        if cfg.accurate_approach:
-                            error = cfg.SOLVER_DEC_TOL
-                        else:
-                            error = 1E-5
-                        if ((p_out_iter_b*(1+error))-p_out)*((p_out_iter_a*(1-error))-p_out) <= 0:
+                        P_A = p_out_iter_a*(1-relative_security_distance)
+                        P_B = p_out_iter_b*(1+relative_security_distance)
+                        if (P_B-p_out)*(P_A-p_out) <= 0:
                             bolz = True
 
                     # Se almacenan los valores antiguos para repetir el proceso
@@ -89,48 +95,48 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx: float |
                 # Se capturan posibles excepciones (ver tendencia p_out vs m_dot)
                 except NonConvergenceError:
                     registro.warning('Se ha capturado una excepción.')
-                    delta /= math.e
+                    delta /= 1.9
                     C_inx_a, C_inx_b = pre_C_inx_a, pre_C_inx_b
 
                 except GasLibraryAdaptedException:
                     registro.warning('Se ha capturado una excepción.')
-                    delta /= math.e
+                    delta /= 1.9
                     C_inx_a, C_inx_b = pre_C_inx_a, pre_C_inx_b
 
-                # Comprobación de que localmente creciente/decreciente en ambos extremos:
-                # (f_a > 0 & f_b > 0) or (f_a < 0 & f_b < 0)
-                if f_a is not None and f_a*f_b > 0 and not bolz:
-
-                    if p_out_iter_b*(1+cfg.STEP_DEC_TOL) > p_out:
+                if f_a is not None and not bolz:
+                    if p_out_iter_b*(1+relative_security_distance) > p_out:
                         # Nivel de avance en 'b'
-                        C_inx_b = C_inx_b*(1 + delta)
+                        if p_out_iter_b-p_out > 1000 and not cfg.accurate_approach:
+                            C_inx_b = C_inx_b + ((p_out-p_out_iter_b)/(f_b*1.7))
+                            C_inx_a = C_inx_b * (1 - (2*delta))
+                            f_a = f_b = None
+                            check = False
+                        else:
+                            C_inx_b = C_inx_b * (1 + delta)
                         C_inx = C_inx_b
-
-                    elif p_out_iter_a*(1-cfg.STEP_DEC_TOL) < p_out:
+                    elif p_out_iter_a*(1-relative_security_distance) < p_out:
                         # Nivel de retroceso en 'a'
-                        C_inx_a = C_inx_a * (1 - delta)
+                        if p_out-p_out_iter_a > 1000 and not cfg.accurate_approach:
+                            C_inx_a = C_inx_a + ((p_out-p_out_iter_a)/(f_a*1.7))
+                            C_inx_b = C_inx_a * (1 + (2*delta))
+                            f_a = f_b = None
+                            check = False
+                        else:
+                            C_inx_a = C_inx_a * (1 - delta)
                         C_inx = C_inx_a
 
                     else:
                         registro.info('Se ha localizado la solución.')
-
-                elif f_a is None and f_b is None and not bolz:  # Primera vuelta
+                elif f_a is None and f_b is None:
+                    # Primera vuelta
                     C_inx_b = C_inx_b*(1 + delta)
                     C_inx_a = C_inx_a*(1 - delta)
                     C_inx = C_inx_b
 
-                elif bolz:
-                    pass
-
-                else:
-                    registro.critical('Se debe elegir un valor de velocidad a la entrada diferente o modificar '
-                                      'el salto relativo.')
-                    sys.exit()
-
             rel_error = 1.0
             p_out_iter = None
 
-            while fabs(rel_error) > cfg.SOLVER_DEC_TOL:  # Se emplea régula falsi
+            while fabs(rel_error) > cfg.TOL:  # Se emplea régula falsi
                 iter_count += 1
                 f_a = p_out_iter_a-p_out
                 f_b = p_out_iter_b-p_out
@@ -141,14 +147,26 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx: float |
                     p_out_iter = read_ps_list()
                     f_c = p_out_iter - p_out
                     rel_error = f_c / p_out
-                    if f_c * f_b <= 0:
+                    if fabs(f_c) <= cfg.TOL*p_out_iter:
+                        C_inx_a = C_inx_b = C_inx
+                    elif fabs(f_b) <= cfg.TOL*p_out_iter_b:
+                        C_inx = C_inx_a = C_inx_b
+                    elif fabs(f_a) <= cfg.TOL*p_out_iter_a:
+                        C_inx_b = C_inx = C_inx_a
+                    # La propagación del error del producto es la suma de los errores relativos
+                    elif f_c * f_b <= -relative_security_distance*(p_out_iter+p_out_iter_b):
                         C_inx_a = C_inx
                         p_out_iter_a = p_out_iter
-                    elif f_c * f_a <= 0:
+                    elif f_c * f_a <= -relative_security_distance*(p_out_iter+p_out_iter_a):
                         C_inx_b = C_inx
                         p_out_iter_b = p_out_iter
+                    else:
+                        registro.warning('No es posible determinar la acción a realizar, se aplica '
+                                         'una ligera desviación para solucionarlo.')
+                        raise NonConvergenceError
                 except NonConvergenceError:
-                    C_inx_b *= (1 + cfg.SOLVER_DEC_TOL)
+                    C_inx_b *= (1 + relative_security_distance)
+                    C_inx_a *= (1 - relative_security_distance)
 
                 registro.info('Error de presión a la salida: %.10f  ...  Valor actual (Pa): %.3f',
                               rel_error, p_out_iter)
@@ -193,7 +211,7 @@ def step_decorator(cfg: config_parameters, step_corrector_memory):
                     :param step_inner_function: Función que se decora.
                                 :return: Se devuelve el wrapper_r. """
 
-        corrector_tol = cfg.STEP_DEC_TOL
+        tol = cfg.TOL
 
         def get_sif_output(iter_mode: bool = None, iter_end: bool = None, xi=None, rho_seed: list = None, Re=None):
             """ Se hace deepcopy de la salida y se devuelve. """
@@ -212,55 +230,53 @@ def step_decorator(cfg: config_parameters, step_corrector_memory):
                                     funcionamiento que se defina."""
 
             eta_TT_obj = 1 - (((1 - eta_TT) / (200_000 ** (-1 / 5))) * (Re ** (-1 / 5)))
-
+            relative_security_distance = 10*cfg.TOL
             f1 = f2 = None
-            bolz_c, ff = 1.0, 1.0
+            bolz_c = 1.0
 
             if step_corrector_memory is not None:
-                xi_e1 = step_corrector_memory[0] * (1 - corrector_tol)
-                xi_e2 = step_corrector_memory[0] * (1 + corrector_tol)
+                xi_e1 = step_corrector_memory[0] * (1 - cfg.relative_jump)
+                xi_e2 = step_corrector_memory[0] * (1 + cfg.relative_jump)
                 rho_seed_1 = rho_seed_2 = rho_seed_c = step_corrector_memory[1]
             else:
                 xi_e0 = xi_est * (Re ** (-1 / 5)) / (200_000 ** (-1 / 5))
-                xi_e1 = xi_e0 * 0.999
-                xi_e2 = xi_e0 * 1.001
+                xi_e1 = xi_e0 * (1 - cfg.relative_jump)
+                xi_e2 = xi_e0 * (1 + cfg.relative_jump)
                 rho_seed_1 = rho_seed_2 = rho_seed_c = rho_seed
 
             while bolz_c > 0:
                 registro.info('Buscando el rango que garantice encontrar la solución.')
-
+                # En la redacción quizás sea conveniente plotear rendimiento frente a xi para
+                # justificar/contrastar la tendencia supuesta o al menos razonarlo. (Decreciente con xi)
                 if (f1 is None and f2 is None) or step_corrector_memory is not None:
                     sif1 = get_sif_output(True, False, xi_e1, rho_seed_1)
-                    f1, rho_seed_1 = sif1[1] - eta_TT_obj, sif1[3]
+                    f1, rho_seed_1 = (sif1[1]*(1-relative_security_distance)) - eta_TT_obj, sif1[3]
                     sif2 = get_sif_output(True, False, xi_e2, rho_seed_2)
-                    f2, rho_seed_2 = sif2[1] - eta_TT_obj, sif2[3]
-                elif ff > 0:
+                    f2, rho_seed_2 = (sif2[1]*(1+relative_security_distance)) - eta_TT_obj, sif2[3]
+                elif f1 < 0:
                     sif1 = get_sif_output(True, False, xi_e1, rho_seed_1)
-                    f1, rho_seed_1 = sif1[1] - eta_TT_obj, sif1[3]
+                    f1, rho_seed_1 = (sif1[1]*(1-relative_security_distance)) - eta_TT_obj, sif1[3]
                 else:
                     sif2 = get_sif_output(True, False, xi_e2, rho_seed_2)
-                    f2, rho_seed_2 = sif2[1] - eta_TT_obj, sif2[3]
+                    f2, rho_seed_2 = (sif2[1]*(1+relative_security_distance)) - eta_TT_obj, sif2[3]
 
-                ff = (f2 - f1) / (xi_e2 - xi_e1)
                 bolz_c = f1 * f2
 
                 if bolz_c < 0:
                     pass
                 else:
-                    if step_corrector_memory is not None:
-                        xi_e1 = (1 - cfg.relative_jump) * xi_e1
-                        xi_e2 = (1 + cfg.relative_jump) * xi_e2
-                    elif ff > 0:
-                        xi_e1 = (1 - cfg.relative_jump) * xi_e1
-                    else:
-                        xi_e2 = (1 + cfg.relative_jump) * xi_e2
+                    if f1 < 0:
+                        xi_e1 *= (1 - cfg.relative_jump)
+                    elif f2 > 0:
+                        xi_e2 *= (1 + cfg.relative_jump)
 
             registro.info('Corrección iniciada.')
 
             rel_error_eta_TT = 1.0
             xi_ec = None
+            sif1 = sif2 = None
 
-            while fabs(rel_error_eta_TT) > corrector_tol:
+            while fabs(rel_error_eta_TT) > tol:
                 if xi_ec is None:
                     xi_ec = xi_e2 - (f2 * (xi_e2 - xi_e1) / (f2 - f1))
                     sifc = get_sif_output(True, False, xi_ec, rho_seed_c)
@@ -276,10 +292,13 @@ def step_decorator(cfg: config_parameters, step_corrector_memory):
                 rel_error_eta_TT = fc / eta_TT_obj
                 registro.info('Corrección en proceso  ...  eta_TT: %.4f  ...  Error: %.4f',
                               float(sifc[1]), float(rel_error_eta_TT))
-                if fc * f2 < 0:
+                if fc * f2 <= -relative_security_distance*((sifc[1]**2)+(sif2[1]**2)):
                     xi_e1, rho_seed_1 = xi_ec, rho_seed_c
-                elif fc * f1 < 0:
+                elif fc * f1 <= -relative_security_distance*((sifc[1]**2)+(sif1[1]**2)):
                     xi_e2, rho_seed_2 = xi_ec, rho_seed_c
+                else:
+                    xi_e1 *= (1 - relative_security_distance)
+                    xi_e2 *= (1 + relative_security_distance)
 
             _, _, _, _, ll_1 = get_sif_output(True, True, xi_ec, rho_seed_c)
             registro.info('Corrección finalizada.')
@@ -293,7 +312,7 @@ def step_decorator(cfg: config_parameters, step_corrector_memory):
                 Re, rho_seed = step_corrector_memory[0], step_corrector_memory[1]
             rel_error = None
             iter_counter = 0
-            while rel_error is None or rel_error > corrector_tol:
+            while rel_error is None or rel_error > tol:
                 iter_counter += 1
                 if iter_counter > cfg.iter_limit:
                     registro.critical('No converge.')
@@ -379,17 +398,8 @@ class solver_object:
         # En esta lista se almacenan variables que se requieren según el modo de funconamiento.
         ps_list: list[float] = []
 
-        if self.corrector_seed is not None:
-            self.cfg.edit_relative_jump(0.0001)
-
-        props_tol = self.prd.get_tol()
-        registro.debug('El error relativo establecido en el cálculo de propiedades es: %s', props_tol)
         tol = self.cfg.TOL
         registro.debug('El error relativo establecido en el solver es: %s', tol)
-        step_dec_tol = self.cfg.STEP_DEC_TOL
-        registro.debug('El error relativo establecido en el decorador de los escalonamientos es: %s', step_dec_tol)
-        solver_dec_tol = self.cfg.SOLVER_DEC_TOL
-        registro.debug('El error relativo establecido en el decorador del solver es: %s', solver_dec_tol)
 
         just_once_check = [False, False]
 
@@ -422,16 +432,14 @@ class solver_object:
                 if not last_calls:
                     if not just_once_check[0]:
                         registro.info('Para acelerar la aproximación a la solución se modifica la tolerancia.')
-                        self.prd.modify_tol(1E-7)
-                        self.cfg.edit_tol('TOL', 1E-6)
-                        self.cfg.edit_tol('STEP_DEC_TOL', 1E-5)
+                        self.cfg.edit_cfg_prop('TOL', 1E-6)
+                        #  self.prd.modify_tol(1E-6)
                         just_once_check[0] = True
                 else:
                     if not just_once_check[1]:
                         registro.info('Se reestablecen los valores de precisión deseados.')
-                        self.prd.modify_tol(props_tol)
-                        self.cfg.edit_tol('TOL', tol)
-                        self.cfg.edit_tol('STEP_DEC_TOL', step_dec_tol)
+                        self.cfg.edit_cfg_prop('TOL', tol)
+                        #  self.prd.modify_tol(tol)
                         just_once_check[1] = True
 
             self.step_iter_mode = self.step_iter_end = False
@@ -677,6 +685,7 @@ class solver_object:
                 M_1 = C_1 / a_1
                 a_3 = self.prd.get_sound_speed(T=T_3, p=p_3)
                 M_3 = C_3 / a_3
+                registro.info('El Mach a la salida es %.2f', M_3)
                 Pot_esc = w_esc * m_dot
                 GR = (h_2 - h_3) / w_esc
                 PSI = w_esc / (U**2)
@@ -934,8 +943,7 @@ class solver_object:
 
 def main():
     fast_mode = False
-    settings = config_parameters(TOL=1E-11, STEP_DEC_TOL=1E-10, SOLVER_DEC_TOL=1E-9,
-                                 n_steps=1, relative_jump=0.005, loss_model='Aungier',
+    settings = config_parameters(TOL=1E-12, n_steps=1, relative_jump=0.005, loss_model='Aungier',
                                  ideal_gas=True, fast_mode=fast_mode, iter_limit=1200)
 
     # Geometría procedente de: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf
@@ -958,7 +966,7 @@ def main():
                           t_max=t_max, r_r=0.002, r_c=0.001, t_e=t_e, k=tip_clearance, delta=tip_clearance,
                           roughness_ptv=blade_roughness_peak_to_valley, holgura_radial=False)
 
-    gas_model = gas_model_to_solver(thermo_mode="ig", relative_error=1E-12)
+    gas_model = gas_model_to_solver(thermo_mode="ig")
     solver = solver_object(settings, gas_model)
 
     if fast_mode:

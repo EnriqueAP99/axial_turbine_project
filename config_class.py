@@ -22,8 +22,6 @@ class config_parameters:
     fast_mode: bool  # Limitar cálculos y determinar temperatura, presión y velocidad a la salida
     loss_model: str  # Cadena identificador del modelo de pérdidas establecido
     ideal_gas: bool  # True cuando se establece hipótesis de gas ideal
-    STEP_DEC_TOL: float = 1E-7  # Máximo error relativo que se tolera en la corrección de reynolds
-    SOLVER_DEC_TOL: float = 1E-6  # Máxima desviación relativa que se tolera en la presión a la salida
     geom: dict = None  # Diccionario para almacenar parámetros geométricos de la turbina
     iter_limit: int = 600  # Límite de iteraciones que se establece
     relative_jump: float = 0.1  # Salto relativo durante la búsqueda cuando se conoce la presión a la salida
@@ -158,11 +156,8 @@ class config_parameters:
         object.__setattr__(self, 'geom', geom)
         return
 
-    def edit_tol(self, key, new_tol):
+    def edit_cfg_prop(self, key, new_tol):
         object.__setattr__(self, key, new_tol)
-
-    def edit_relative_jump(self, new_rel_jump):
-        object.__setattr__(self, 'relative_jump', new_rel_jump)
 
 
 class GasLibraryAdaptedException(Exception):
@@ -187,7 +182,7 @@ class gas_model_to_solver:
     alternativo a "gas_model.py"."""
 
     thermo_mode: str = "ig"  # Cadena que identifica si se establece modelo multifase o ideal para el vapor de agua.
-    relative_error: float = 1E-7  # Máximo error relativo que se permite en los cálculos.
+    relative_error: float = 1E-9  # Máximo error relativo que se permite en los cálculos.
     C_atoms: float | int = 12.0  # Átomos de carbono en cada átomo de hidrocarburo en los reactivos.
     H_atoms: float | int = 23.5  # Átomos de hidrógeno en cada átomo de hidrocarburo en los reactivos.
     air_excess: float | int = 4  # Exceso de aire considerado en el ajuste estequiométrico de la combustión completa.

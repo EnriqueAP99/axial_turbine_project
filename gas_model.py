@@ -40,7 +40,7 @@ class mixpm:
         self.N = 0.0  # Exceso de aire que se considera en el ajuste estequiométrico de la combustión completa
         self.mu_elem = []
         self.mu_mix = 0.0
-        self.rel_error = 1E-7  # Máximo error relativo permitido.
+        self.rel_error = 1E-9  # Máximo error relativo permitido.
 
         ''' En las líneas que siguen se almacenan en una lista atributo de la clase 'mixpm' identificadores de 
             los componentes como objetos de la librería PyroMat según el modelo especificado. '''
@@ -213,12 +213,9 @@ class mixpm:
                 f1 = self.get_props_by_Tpd({k_g: v_g1, k_b: v_b}, k_a) - v_a
                 f2 = self.get_props_by_Tpd({k_g: v_g2, k_b: v_b}, k_a) - v_a
             bolz = f1 * f2
-            if bolz < 0:
-                pass
-            else:
+            if bolz > 0:
                 v_g1 = v_g1 * 0.999
                 v_g2 = v_g2 * 1.001
-
         c = float(v_g2 - (f2 * (v_g2 - v_g1) / (f2 - f1)))
         if len(known_props) == 2:
             fc = self.get_props_by_Tpd({k_g: c, k_b: v_b}, k_a) - v_a
