@@ -4,6 +4,7 @@ las condiciones de funcionamiento de la turbina axial que se defina.
 """
 
 import copy
+import math
 
 from math import log
 from time import time
@@ -38,7 +39,7 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_reg: lis
             bolz = check = False
             # Puntos a, b tal que C_inx_b > C_inx_a
             delta = cfg.relative_jump
-            if isinstance(C_inx_reg[0], float):
+            if isinstance(C_inx_reg[0], float) and fabs(C_inx_reg[0]-C_inx_reg[1]) > cfg.TOL:
                 if C_inx_reg[0] > C_inx_reg[1]:
                     pre_C_inx_a = C_inx_b = C_inx_reg[0]
                     pre_C_inx_b = C_inx_a = C_inx_reg[1]
@@ -47,7 +48,7 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_reg: lis
                     pre_C_inx_b = C_inx_a = C_inx_reg[0]
             else:
                 pre_C_inx_a = C_inx_b = C_inx_reg[1]
-                pre_C_inx_b = C_inx_a = C_inx_reg[1]*(1 - delta)
+                pre_C_inx_b = C_inx_a = C_inx_reg[1]*(1 - 0.1*delta)
             p_out_iter_b = p_out_iter_a = None
             f_a = f_b = C_inx = None
 
@@ -88,8 +89,8 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_reg: lis
                             f_a = (p_out_iter_a - pre_p_out_iter_a)/(C_inx_a - pre_C_inx_a)
 
                         # Se evalúa si el nuevo rango contiene la solución.
-                        P_A = p_out_iter_a*(1-relative_security_distance)
-                        P_B = p_out_iter_b*(1+relative_security_distance)
+                        P_A = p_out_iter_a*(1+relative_security_distance)
+                        P_B = p_out_iter_b*(1-relative_security_distance)
                         if (P_B-p_out)*(P_A-p_out) <= 0:
                             bolz = True
 
@@ -113,9 +114,9 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_reg: lis
                 if not bolz:
                     if p_out_iter_b*(1+relative_security_distance) > p_out:
                         # Nivel de avance en 'b'
-                        if p_out_iter_b-p_out > 1000 and fabs(f_b)*C_inx_a/p_out_iter_a < 5:
-                            C_inx_b = C_inx_b + ((p_out-p_out_iter_b)/(f_b*1.5))
-                            C_inx_a = C_inx_b * (1 - delta)
+                        if p_out_iter_b-p_out > 1000 and fabs(f_b)*C_inx_a/p_out_iter_a < 6:
+                            C_inx_b = C_inx_b + ((p_out-p_out_iter_b)/(f_b/math.e))
+                            C_inx_a = C_inx_b * (1 - (0.1*delta))
                             f_a = f_b = None
                             check = False
                         else:
@@ -123,9 +124,9 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_reg: lis
                         C_inx = C_inx_b
                     elif p_out_iter_a*(1-relative_security_distance) < p_out:
                         # Nivel de retroceso en 'a'
-                        if p_out-p_out_iter_a > 1000 and fabs(f_a)*C_inx_a/p_out_iter_a < 5:
-                            C_inx_a = C_inx_a + ((p_out-p_out_iter_a)/(f_a*1.5))
-                            C_inx_b = C_inx_a * (1 + delta)
+                        if p_out-p_out_iter_a > 1000 and fabs(f_a)*C_inx_a/p_out_iter_a < 6:
+                            C_inx_a = C_inx_a + ((p_out-p_out_iter_a)/(f_a/math.e))
+                            C_inx_b = C_inx_a * (1 + (0.1*delta))
                             f_a = f_b = None
                             check = False
                         else:
@@ -149,11 +150,11 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_reg: lis
                     p_out_iter = read_ps_list()
                     f_c = p_out_iter - p_out
                     rel_error = f_c / p_out
-                    if fabs(f_c) <= cfg.TOL*p_out_iter:
+                    if fabs(f_c) < cfg.TOL*p_out_iter:
                         C_inx_a = C_inx_b = C_inx
-                    elif fabs(f_b) <= cfg.TOL*p_out_iter_b:
+                    elif fabs(f_b) < cfg.TOL*p_out_iter_b:
                         C_inx_a = C_inx_b
-                    elif fabs(f_a) <= cfg.TOL*p_out_iter_a:
+                    elif fabs(f_a) < cfg.TOL*p_out_iter_a:
                         C_inx_b = C_inx_a
                     # La propagación del error del producto es la suma de los errores relativos
                     elif f_c * f_b <= -relative_security_distance*(p_out_iter+p_out_iter_b):
