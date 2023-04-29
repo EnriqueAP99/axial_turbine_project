@@ -104,6 +104,7 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx: float |
                     C_inx_a, C_inx_b = pre_C_inx_a, pre_C_inx_b
 
                 if not bolz:
+
                     if p_out_iter_b*(1+relative_security_distance) > p_out:
                         # Nivel de avance en 'b'
                         if p_out_iter_b-p_out > 1000 and fabs(f_b)*C_inx_a/p_out_iter_a < 6:
@@ -124,7 +125,6 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx: float |
                         else:
                             C_inx_a = C_inx_a * (1 - delta)
                         C_inx = C_inx_a
-
                     else:
                         registro.info('Se ha localizado la solución.')
 
