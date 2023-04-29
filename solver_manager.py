@@ -206,7 +206,7 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
         elif var_to_sweep == 'n_rpm':
             n_rpm = value
         elif var_to_sweep == 'p_out':
-            if value < (0.10*sweep_data[var_to_sweep][1]) + (0.90*sweep_data[var_to_sweep][0]):
+            if value < (0.5*sweep_data[var_to_sweep][1]) + (0.95*sweep_data[var_to_sweep][0]):
                 if just_once[0]:
                     solver.cfg.edit_cfg_prop('accurate_approach', True)
                     just_once[0] = False
@@ -305,7 +305,7 @@ def main_1(fast_mode, action):
 
 
 def main_2():
-    settings = config_parameters(TOL=1E-10, accurate_approach=True, ideal_gas=True,
+    settings = config_parameters(TOL=1E-12, accurate_approach=True, ideal_gas=True,
                                  n_steps=1, relative_jump=0.01, loss_model='Aungier',
                                  fast_mode=False, iter_limit=1200)
 

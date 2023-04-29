@@ -182,7 +182,7 @@ class gas_model_to_solver:
     alternativo a "gas_model.py"."""
 
     thermo_mode: str = "ig"  # Cadena que identifica si se establece modelo multifase o ideal para el vapor de agua.
-    relative_error: float = 1E-9  # Máximo error relativo que se permite en los cálculos.
+    relative_error: float = 1E-12  # Máximo error relativo que se permite en los cálculos.
     C_atoms: float | int = 12.0  # Átomos de carbono en cada átomo de hidrocarburo en los reactivos.
     H_atoms: float | int = 23.5  # Átomos de hidrógeno en cada átomo de hidrocarburo en los reactivos.
     air_excess: float | int = 4  # Exceso de aire considerado en el ajuste estequiométrico de la combustión completa.

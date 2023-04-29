@@ -40,7 +40,7 @@ class mixpm:
         self.N = 0.0  # Exceso de aire que se considera en el ajuste estequiométrico de la combustión completa
         self.mu_elem = []
         self.mu_mix = 0.0
-        self.rel_error = 1E-9  # Máximo error relativo permitido.
+        self.rel_error = 1E-12  # Máximo error relativo permitido.
 
         ''' En las líneas que siguen se almacenan en una lista atributo de la clase 'mixpm' identificadores de 
             los componentes como objetos de la librería PyroMat según el modelo especificado. '''

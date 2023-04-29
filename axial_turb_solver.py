@@ -11,20 +11,20 @@ from time import time
 from loss_model import *
 
 
-def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx: list | float | None):
+def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_reg: list | float | None):
     """ Decorador externo del método problem solver con la finalidad de definir los argumentos necesarios para permitir
     determinar las condiciones de funcionamiento dada la presión a la salida.
             :param cfg: Objeto que contiene la configuración establecida.
             :param p_out: Presión a la salida de la turbina (Pa).
-            :param C_inx: Estimación de la velocidad a la entrada que se debe recibir cuando se fija la presión a
-                          la salida."""
+            :param C_inx_reg: Registro para estimar la velocidad a la entrada que se debe recibir cuando se fija la
+                             presión a la salida."""
 
     def solver_inner_decorator(solver_method):
         """ Decorador interno que gestiona la función interna del método problem_solver de la clase solver.
                             :param solver_method: Función que se decora. """
 
         def iterate_ps():
-            nonlocal C_inx
+            nonlocal C_inx_reg
             ps_list = None
 
             def read_ps_list():
@@ -38,18 +38,18 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx: list | 
             bolz = check = False
             # Puntos a, b tal que C_inx_b > C_inx_a
             delta = cfg.relative_jump
-            if isinstance(C_inx, list):
-                if C_inx[0] > C_inx[1]:
-                    pre_C_inx_a = C_inx_b = C_inx[0]
-                    pre_C_inx_b = C_inx_a = C_inx[1]
+            if isinstance(C_inx_reg[0], float):
+                if C_inx_reg[0] > C_inx_reg[1]:
+                    pre_C_inx_a = C_inx_b = C_inx_reg[0]
+                    pre_C_inx_b = C_inx_a = C_inx_reg[1]
                 else:
-                    pre_C_inx_a = C_inx_b = C_inx[1]
-                    pre_C_inx_b = C_inx_a = C_inx[0]
+                    pre_C_inx_a = C_inx_b = C_inx_reg[1]
+                    pre_C_inx_b = C_inx_a = C_inx_reg[0]
             else:
-                pre_C_inx_a = C_inx_b = C_inx
-                pre_C_inx_b = C_inx_a = C_inx*(1 - (0.05*delta))
+                pre_C_inx_a = C_inx_b = C_inx_reg[1]
+                pre_C_inx_b = C_inx_a = C_inx_reg[1]*(1 - delta)
             p_out_iter_b = p_out_iter_a = None
-            f_a = f_b = None
+            f_a = f_b = C_inx = None
 
             registro.info('Se va a buscar un intervalo que contenga la solución.')
             if cfg.accurate_approach:
@@ -115,7 +115,7 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx: list | 
                         # Nivel de avance en 'b'
                         if p_out_iter_b-p_out > 1000 and fabs(f_b)*C_inx_a/p_out_iter_a < 5:
                             C_inx_b = C_inx_b + ((p_out-p_out_iter_b)/(f_b*1.5))
-                            C_inx_a = C_inx_b * (1 - (2*delta))
+                            C_inx_a = C_inx_b * (1 - delta)
                             f_a = f_b = None
                             check = False
                         else:
@@ -125,7 +125,7 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx: list | 
                         # Nivel de retroceso en 'a'
                         if p_out-p_out_iter_a > 1000 and fabs(f_a)*C_inx_a/p_out_iter_a < 5:
                             C_inx_a = C_inx_a + ((p_out-p_out_iter_a)/(f_a*1.5))
-                            C_inx_b = C_inx_a * (1 + (2*delta))
+                            C_inx_b = C_inx_a * (1 + delta)
                             f_a = f_b = None
                             check = False
                         else:
@@ -152,9 +152,9 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx: list | 
                     if fabs(f_c) <= cfg.TOL*p_out_iter:
                         C_inx_a = C_inx_b = C_inx
                     elif fabs(f_b) <= cfg.TOL*p_out_iter_b:
-                        C_inx = C_inx_a = C_inx_b
+                        C_inx_a = C_inx_b
                     elif fabs(f_a) <= cfg.TOL*p_out_iter_a:
-                        C_inx_b = C_inx = C_inx_a
+                        C_inx_b = C_inx_a
                     # La propagación del error del producto es la suma de los errores relativos
                     elif f_c * f_b <= -relative_security_distance*(p_out_iter+p_out_iter_b):
                         C_inx_a = C_inx
@@ -352,12 +352,13 @@ class solver_object:
         self.cfg = config  # Objeto que contiene los parámetros de interés para la ejecución del solver.
         self.rho_seed_list = None  # Para aligerar los cálculos para variaciones pequeñas de las variables de entrada
         self.prd = productos  # Modela el comportamiento termodinámico de los productos de la combustión
+        self.prd.modify_tol(self.cfg.TOL)
         self.AM_object = None
         self.AUNGIER_object = None
         self.ref_values = None  # Valores de referencia en las primeras semillas dentro de "blade_outlet_calculator".
         self.first_seeds_boc = None
         # En una nueva evaluación fijando p_out próximo se ahorra tiempo por conocer la solución anterior.
-        self.C_inx_register = [None, None]  # En este orden: Valor anterior al anterior y valor ante
+        self.C_inx_register = [None, None]  # En este orden: Valor anterior al anterior y valor anterior
         self.AU_Re_register = None  # Para que no oscile tanto durante la estimación del tramo asintótico
         self.step_iter_mode = False
         self.step_iter_end = False
@@ -435,13 +436,13 @@ class solver_object:
                     if not just_once_check[0]:
                         registro.info('Para acelerar la aproximación a la solución se modifica la tolerancia.')
                         self.cfg.edit_cfg_prop('TOL', 1E-6)
-                        #  self.prd.modify_tol(1E-6)
+                        self.prd.modify_tol(1E-6)
                         just_once_check[0] = True
                 else:
                     if not just_once_check[1]:
                         registro.info('Se reestablecen los valores de precisión deseados.')
                         self.cfg.edit_cfg_prop('TOL', tol)
-                        #  self.prd.modify_tol(tol)
+                        self.prd.modify_tol(tol)
                         just_once_check[1] = True
 
             self.step_iter_mode = self.step_iter_end = False
