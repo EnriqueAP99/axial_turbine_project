@@ -4,6 +4,7 @@ las condiciones de funcionamiento de la turbina axial que se defina.
 """
 
 import copy
+import math
 
 from math import log
 from time import time
@@ -11,12 +12,12 @@ from time import time
 from loss_model import *
 
 
-def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_reg: list | float | None):
+def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx: float | None):
     """ Decorador externo del método problem solver con la finalidad de definir los argumentos necesarios para permitir
     determinar las condiciones de funcionamiento dada la presión a la salida.
             :param cfg: Objeto que contiene la configuración establecida.
             :param p_out: Presión a la salida de la turbina (Pa).
-            :param C_inx_reg: Registro para estimar la velocidad a la entrada que se debe recibir cuando se fija la
+            :param C_inx: Registro para estimar la velocidad a la entrada que se debe recibir cuando se fija la
                              presión a la salida."""
 
     def solver_inner_decorator(solver_method):
@@ -24,7 +25,7 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_reg: lis
                             :param solver_method: Función que se decora. """
 
         def iterate_ps():
-            nonlocal C_inx_reg
+            nonlocal C_inx
             ps_list = None
 
             def read_ps_list():
@@ -38,16 +39,8 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_reg: lis
             bolz = check = False
             # Puntos a, b tal que C_inx_b > C_inx_a
             delta = cfg.relative_jump
-            if isinstance(C_inx_reg[0], float):
-                if C_inx_reg[0] > C_inx_reg[1]:
-                    pre_C_inx_a = C_inx_b = C_inx_reg[0]
-                    pre_C_inx_b = C_inx_a = C_inx_reg[1]
-                else:
-                    pre_C_inx_a = C_inx_b = C_inx_reg[1]
-                    pre_C_inx_b = C_inx_a = C_inx_reg[0]
-            else:
-                pre_C_inx_a = C_inx_b = C_inx_reg[1]
-                pre_C_inx_b = C_inx_a = C_inx_reg[1]*(1 - delta)
+            pre_C_inx_a = C_inx_b = C_inx
+            pre_C_inx_b = C_inx_a = C_inx*(1 - 0.1*delta)
             p_out_iter_b = p_out_iter_a = None
             f_a = f_b = C_inx = None
 
@@ -88,8 +81,8 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_reg: lis
                             f_a = (p_out_iter_a - pre_p_out_iter_a)/(C_inx_a - pre_C_inx_a)
 
                         # Se evalúa si el nuevo rango contiene la solución.
-                        P_A = p_out_iter_a*(1-relative_security_distance)
-                        P_B = p_out_iter_b*(1+relative_security_distance)
+                        P_A = p_out_iter_a*(1+relative_security_distance)
+                        P_B = p_out_iter_b*(1-relative_security_distance)
                         if (P_B-p_out)*(P_A-p_out) <= 0:
                             bolz = True
 
@@ -113,9 +106,9 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_reg: lis
                 if not bolz:
                     if p_out_iter_b*(1+relative_security_distance) > p_out:
                         # Nivel de avance en 'b'
-                        if p_out_iter_b-p_out > 1000 and fabs(f_b)*C_inx_a/p_out_iter_a < 5:
-                            C_inx_b = C_inx_b + ((p_out-p_out_iter_b)/(f_b*1.5))
-                            C_inx_a = C_inx_b * (1 - delta)
+                        if p_out_iter_b-p_out > 1000 and fabs(f_b)*C_inx_a/p_out_iter_a < 6:
+                            C_inx_b = C_inx_b + ((p_out-p_out_iter_b)/(f_b/math.e))
+                            C_inx_a = C_inx_b * (1 - (0.1*delta))
                             f_a = f_b = None
                             check = False
                         else:
@@ -123,9 +116,9 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_reg: lis
                         C_inx = C_inx_b
                     elif p_out_iter_a*(1-relative_security_distance) < p_out:
                         # Nivel de retroceso en 'a'
-                        if p_out-p_out_iter_a > 1000 and fabs(f_a)*C_inx_a/p_out_iter_a < 5:
-                            C_inx_a = C_inx_a + ((p_out-p_out_iter_a)/(f_a*1.5))
-                            C_inx_b = C_inx_a * (1 + delta)
+                        if p_out-p_out_iter_a > 1000 and fabs(f_a)*C_inx_a/p_out_iter_a < 6:
+                            C_inx_a = C_inx_a + ((p_out-p_out_iter_a)/(f_a/math.e))
+                            C_inx_b = C_inx_a * (1 + (0.1*delta))
                             f_a = f_b = None
                             check = False
                         else:
@@ -149,11 +142,11 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_reg: lis
                     p_out_iter = read_ps_list()
                     f_c = p_out_iter - p_out
                     rel_error = f_c / p_out
-                    if fabs(f_c) <= cfg.TOL*p_out_iter:
+                    if fabs(f_c) < cfg.TOL*p_out_iter:
                         C_inx_a = C_inx_b = C_inx
-                    elif fabs(f_b) <= cfg.TOL*p_out_iter_b:
+                    elif fabs(f_b) < cfg.TOL*p_out_iter_b:
                         C_inx_a = C_inx_b
-                    elif fabs(f_a) <= cfg.TOL*p_out_iter_a:
+                    elif fabs(f_a) < cfg.TOL*p_out_iter_a:
                         C_inx_b = C_inx_a
                     # La propagación del error del producto es la suma de los errores relativos
                     elif f_c * f_b <= -relative_security_distance*(p_out_iter+p_out_iter_b):
@@ -358,7 +351,7 @@ class solver_object:
         self.ref_values = None  # Valores de referencia en las primeras semillas dentro de "blade_outlet_calculator".
         self.first_seeds_boc = None
         # En una nueva evaluación fijando p_out próximo se ahorra tiempo por conocer la solución anterior.
-        self.C_inx_register = [None, None]  # En este orden: Valor anterior al anterior y valor anterior
+        self.C_inx_register = None  # Recordatorio del valor empleado en la evaluación anterior.
         self.AU_Re_register = None  # Para que no oscile tanto durante la estimación del tramo asintótico
         self.step_iter_mode = False
         self.step_iter_end = False
@@ -416,10 +409,10 @@ class solver_object:
                                   '"mass_flow".')
                 sys.exit()
             else:
-                if self.C_inx_register[1] is None:
-                    C_inx = self.C_inx_register[1] = C_inx_ref
+                if self.C_inx_register is None:
+                    C_inx = self.C_inx_register = C_inx_ref
                 else:
-                    C_inx = self.C_inx_register[1]
+                    C_inx = self.C_inx_register
 
         rho_in = self.prd.get_prop(known_props={'T': T_in, 'p': p_in}, req_prop='d')
         if m_dot is not None:
@@ -450,8 +443,7 @@ class solver_object:
             self.Re_corrector_counter = 0
 
             if var_C_inx is not None:
-                self.C_inx_register[0] = self.C_inx_register[1]
-                C_inx = self.C_inx_register[1] = var_C_inx
+                C_inx = self.C_inx_register = var_C_inx
                 m_dot = rho_in * self.cfg.geom['areas'][0] * C_inx
 
             s_in = self.prd.get_prop(known_props={'T': T_in, 'p': p_in}, req_prop='s')
