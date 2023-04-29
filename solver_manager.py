@@ -221,7 +221,7 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
             m_dot = value
 
     if jump is None:
-        jump = 500
+        jump = 250
     resolution = 1 + int((sweep_data[var_to_sweep][1] - sweep_data[var_to_sweep][0]) // jump)
 
     while k <= resolution - 1:
@@ -305,8 +305,8 @@ def main_1(fast_mode, action):
 
 
 def main_2():
-    settings = config_parameters(TOL=1E-12, accurate_approach=True, ideal_gas=True,
-                                 n_steps=1, relative_jump=0.01, loss_model='Aungier',
+    settings = config_parameters(TOL=1E-12, accurate_approach=False, ideal_gas=True,
+                                 n_steps=1, relative_jump=0.05, loss_model='Aungier',
                                  fast_mode=False, iter_limit=1200)
 
     Rm = 0.1429
