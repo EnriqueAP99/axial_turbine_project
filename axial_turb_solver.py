@@ -107,9 +107,9 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx: float |
 
                     if p_out_iter_b*(1+relative_security_distance) > p_out:
                         # Nivel de avance en 'b'
-                        if p_out_iter_b-p_out > 1000 and fabs(f_b)*C_inx_a/p_out_iter_a < 6:
-                            C_inx_b = C_inx_b + ((p_out-p_out_iter_b)/(f_b*math.e))
-                            C_inx_a = C_inx_b * (1 - (0.1*delta))
+                        if p_out_iter_b-p_out > 1000 and fabs(f_b)*C_inx_b/p_out < 6:
+                            C_inx_b = pre_C_inx_a = C_inx_b + ((p_out-p_out_iter_b)/(f_b*math.e))
+                            C_inx_a = pre_C_inx_b = C_inx_b * (1 - (0.1*delta))
                             f_a = f_b = None
                             check = False
                         else:
@@ -117,9 +117,9 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx: float |
                         C_inx = C_inx_b
                     elif p_out_iter_a*(1-relative_security_distance) < p_out:
                         # Nivel de retroceso en 'a'
-                        if p_out-p_out_iter_a > 1000 and fabs(f_a)*C_inx_a/p_out_iter_a < 6:
-                            C_inx_a = C_inx_a + ((p_out-p_out_iter_a)/(f_a*math.e))
-                            C_inx_b = C_inx_a * (1 + (0.1*delta))
+                        if p_out-p_out_iter_a > 1000 and fabs(f_a)*C_inx_a/p_out < 6:
+                            C_inx_a = pre_C_inx_b = C_inx_a + ((p_out-p_out_iter_a)/(f_a*math.e))
+                            C_inx_b = pre_C_inx_a = C_inx_a * (1 + (0.1*delta))
                             f_a = f_b = None
                             check = False
                         else:
