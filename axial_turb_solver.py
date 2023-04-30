@@ -67,7 +67,6 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx: float |
                     else:
                         ps_list = solver_method(C_inx)
                         p_out_iter = read_ps_list()
-                        # En el bloque if else que sigue se omite el rango que no contiene la solución.
                         if C_inx_b > pre_C_inx_b:  # Se proviene del nivel de avance de b
                             p_out_iter_a = pre_p_out_iter_b = p_out_iter_b
                             p_out_iter_b = p_out_iter
@@ -92,7 +91,7 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx: float |
 
                         if p_out_iter_b*(1+relative_security_distance) > p_out:
                             # Nivel de avance en 'b'
-                            if p_out_iter_b-p_out > 1000 and fabs(f_b)*C_inx_b/p_out_iter_b < 3:
+                            if p_out_iter_b-p_out > 1000 and fabs(f_b)*C_inx_b/p_out_iter_b < 2.5:
                                 C_inx_b = pre_C_inx_a = (C_inx_b*(1 + delta)) + ((p_out-p_out_iter_b)/(f_b*math.e))
                                 C_inx_a = pre_C_inx_b = C_inx_b * (1 - (0.1*delta))
                                 check = False
@@ -101,6 +100,7 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx: float |
                                 C_inx_a = pre_C_inx_b = C_inx_b
                                 C_inx_b = C_inx_b * (1 + delta)
                             C_inx = C_inx_b
+
                         elif p_out_iter_a*(1-relative_security_distance) < p_out:
                             # Nivel de retroceso en 'a'
                             if p_out-p_out_iter_a > 1000:
@@ -118,17 +118,23 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx: float |
                 # Se capturan posibles excepciones (ver tendencia p_out vs m_dot)
                 except NonConvergenceError:
                     registro.warning('Se ha capturado una excepción.')
-                    if fabs(f_b)*pre_C_inx_b/p_out_iter_b < 3 and p_out_iter_b-p_out > 1000:
-                        C_inx_b = pre_C_inx_a = (C_inx_b - ((p_out-p_out_iter_b)/(f_b*math.e)))
+                    if fabs(f_b)*pre_C_inx_b/p_out_iter_b < 2.5 and p_out_iter_b-p_out > 1000:
+                        C_inx_b = pre_C_inx_a = (C_inx_b - ((p_out-p_out_iter_b)/(f_b*math.e)))/(1+(1.5*delta))
                         C_inx_a = pre_C_inx_b = C_inx_b*(1-(0.1*delta))
+                    elif p_out-p_out_iter_a > 1000:
+                        C_inx_a = pre_C_inx_b = (C_inx_a - ((p_out-p_out_iter_a)/(f_a*math.e)))/(1-(1.5*delta))
+                        C_inx_b = pre_C_inx_a = C_inx_a*(1+(0.1*delta))
                     else:
                         delta /= 1.1
 
                 except GasLibraryAdaptedException:
                     registro.warning('Se ha capturado una excepción.')
-                    if fabs(f_b)*pre_C_inx_b/p_out_iter_b < 3 and p_out_iter_b-p_out > 1000:
-                        C_inx_b = pre_C_inx_a = (C_inx_b - ((p_out-p_out_iter_b)/(f_b*math.e)))
-                        C_inx_a = pre_C_inx_b = C_inx_b*(1-(0.1*delta))
+                    if fabs(f_b) * pre_C_inx_b / p_out_iter_b < 3 and p_out_iter_b - p_out > 1000:
+                        C_inx_b = pre_C_inx_a = (C_inx_b - ((p_out - p_out_iter_b) / (f_b * math.e)))
+                        C_inx_a = pre_C_inx_b = C_inx_b * (1 - (0.1 * delta))
+                    elif p_out - p_out_iter_a > 1000:
+                        C_inx_a = pre_C_inx_b = (C_inx_a - ((p_out - p_out_iter_a) / (f_a * math.e)))
+                        C_inx_b = pre_C_inx_a = C_inx_a * (1 + (0.1 * delta))
                     else:
                         delta /= 1.1
 
