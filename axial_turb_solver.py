@@ -90,12 +90,12 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx: float |
                 # Se capturan posibles excepciones (ver tendencia p_out vs m_dot)
                 except NonConvergenceError:
                     registro.warning('Se ha capturado una excepción.')
-                    delta /= 2
+                    delta /= 1.1
                     C_inx_a, C_inx_b = pre_C_inx_a, pre_C_inx_b
 
                 except GasLibraryAdaptedException:
                     registro.warning('Se ha capturado una excepción.')
-                    delta /= 2
+                    delta /= 1.1
                     C_inx_a, C_inx_b = pre_C_inx_a, pre_C_inx_b
 
                 if not bolz:
