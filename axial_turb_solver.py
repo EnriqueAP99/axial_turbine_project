@@ -128,6 +128,7 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx: float |
                         C_inx_a = pre_C_inx_b = (C_inx_a - ((p_out-p_out_iter_a)/(f_a*math.e)))/(1-(1.5*delta))
                         C_inx_b = pre_C_inx_a = C_inx_a*(1+(0.1*delta))
                     else:
+                        C_inx_a, C_inx_b = pre_C_inx_a, pre_C_inx_b
                         delta /= 1.1
 
                 except GasLibraryAdaptedException:
@@ -139,6 +140,7 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx: float |
                         C_inx_a = pre_C_inx_b = (C_inx_a - ((p_out - p_out_iter_a) / (f_a * math.e)))
                         C_inx_b = pre_C_inx_a = C_inx_a * (1 + (0.1 * delta))
                     else:
+                        C_inx_a, C_inx_b = pre_C_inx_a, pre_C_inx_b
                         delta /= 1.1
 
             rel_error = 1.0
