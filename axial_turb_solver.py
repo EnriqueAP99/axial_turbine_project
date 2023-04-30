@@ -40,7 +40,7 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx: float |
             # Puntos a, b tal que C_inx_b > C_inx_a
             delta = cfg.relative_jump
             pre_C_inx_a = C_inx_b = C_inx
-            pre_C_inx_b = C_inx_a = C_inx*(1 - 0.1*delta)
+            pre_C_inx_b = C_inx_a = C_inx*(1 - 0.01*delta)
             p_out_iter_b = p_out_iter_a = None
             f_a = f_b = C_inx = None
 
@@ -70,13 +70,11 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx: float |
                         if C_inx_b > pre_C_inx_b:  # Se proviene del nivel de avance de b
                             p_out_iter_a = pre_p_out_iter_b = p_out_iter_b
                             p_out_iter_b = p_out_iter
-                            C_inx_a = pre_C_inx_b
                             f_a = f_b
                             f_b = (p_out_iter_b - pre_p_out_iter_b)/(C_inx_b - pre_C_inx_b)
                         else:  # Se proviene del nivel de retroceso de a
                             p_out_iter_b = pre_p_out_iter_a = p_out_iter_a
                             p_out_iter_a = p_out_iter
-                            C_inx_b = pre_C_inx_a
                             f_b = f_a
                             f_a = (p_out_iter_a - pre_p_out_iter_a)/(C_inx_a - pre_C_inx_a)
 
@@ -86,43 +84,44 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx: float |
                         if (P_B-p_out)*(P_A-p_out) <= 0:
                             bolz = True
 
-                    # Se almacenan los valores antiguos para repetir el proceso
-                    pre_C_inx_a, pre_C_inx_b = C_inx_a, C_inx_b
-
                     registro.info('En proceso de búsqueda de la solución ... Rango actual: [%.2f, %.2f]',
                                   p_out_iter_a, p_out_iter_b)
 
                 # Se capturan posibles excepciones (ver tendencia p_out vs m_dot)
                 except NonConvergenceError:
                     registro.warning('Se ha capturado una excepción.')
-                    delta /= 10
+                    delta /= 2
                     C_inx_a, C_inx_b = pre_C_inx_a, pre_C_inx_b
 
                 except GasLibraryAdaptedException:
                     registro.warning('Se ha capturado una excepción.')
-                    delta /= 10
+                    delta /= 2
                     C_inx_a, C_inx_b = pre_C_inx_a, pre_C_inx_b
 
                 if not bolz:
 
                     if p_out_iter_b*(1+relative_security_distance) > p_out:
                         # Nivel de avance en 'b'
-                        if p_out_iter_b-p_out > 1000 and fabs(f_b)*C_inx_b/p_out < 6:
-                            C_inx_b = pre_C_inx_a = C_inx_b + ((p_out-p_out_iter_b)/(f_b*math.e))
+                        if p_out_iter_b-p_out > 1000 and fabs(f_b)*C_inx_b/p_out < 4:
+                            C_inx_b = pre_C_inx_a = (C_inx_b*(1 + delta)) + ((p_out-p_out_iter_b)/(f_b*math.e))
                             C_inx_a = pre_C_inx_b = C_inx_b * (1 - (0.1*delta))
                             f_a = f_b = None
                             check = False
                         else:
+                            pre_C_inx_a = C_inx_a
+                            C_inx_a = pre_C_inx_b = C_inx_b
                             C_inx_b = C_inx_b * (1 + delta)
                         C_inx = C_inx_b
                     elif p_out_iter_a*(1-relative_security_distance) < p_out:
                         # Nivel de retroceso en 'a'
-                        if p_out-p_out_iter_a > 1000 and fabs(f_a)*C_inx_a/p_out < 6:
-                            C_inx_a = pre_C_inx_b = C_inx_a + ((p_out-p_out_iter_a)/(f_a*math.e))
+                        if p_out-p_out_iter_a > 1000 and fabs(f_a)*C_inx_a/p_out < 4:
+                            C_inx_a = pre_C_inx_b = (C_inx_a*(1 - delta)) + ((p_out-p_out_iter_a)/(f_a*math.e))
                             C_inx_b = pre_C_inx_a = C_inx_a * (1 + (0.1*delta))
                             f_a = f_b = None
                             check = False
                         else:
+                            pre_C_inx_b = C_inx_b
+                            C_inx_b = pre_C_inx_a = C_inx_a
                             C_inx_a = C_inx_a * (1 - delta)
                         C_inx = C_inx_a
                     else:

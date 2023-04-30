@@ -307,7 +307,7 @@ def main_1(fast_mode, action):
 def main_2():
     settings = config_parameters(TOL=1E-12, accurate_approach=False, ideal_gas=True,
                                  n_steps=1, relative_jump=0.05, loss_model='Aungier',
-                                 fast_mode=False, iter_limit=1200)
+                                 fast_mode=False, iter_limit=1500)
 
     Rm = 0.1429
     heights = [0.0445 for _ in range(3)]
