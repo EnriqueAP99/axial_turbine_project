@@ -17,7 +17,7 @@ from dataclasses import dataclass
 class config_parameters:
     """ Objeto que agrupa los parámetros necesarios para configurar la ejecución del solver. """
 
-    TOL: float  # Máximo error relativo que se tolera en los cálculos iterativos del solver
+    relative_error: float  # Máximo error relativo que se permite en los cálculos iterativos del solver
     n_steps: int  # Número de escalonamientos que se definen
     fast_mode: bool  # Limitar cálculos y determinar temperatura, presión y velocidad a la salida
     loss_model: str  # Cadena identificador del modelo de pérdidas establecido
@@ -200,11 +200,11 @@ class gas_model_to_solver:
         self.gas_model.setmix(self.C_atoms, self.H_atoms, self.air_excess)
         self.gas_model.rel_error = self.relative_error
 
-    def get_tol(self):
+    def get_relative_error(self):
         return self.gas_model.rel_error
 
-    def modify_tol(self, tol):
-        self.gas_model.rel_error = tol
+    def modify_relative_error(self, rel_error):
+        self.gas_model.rel_error = rel_error
         return
 
     def get_prop(self, known_props: dict[str, float], req_prop: dict[str, float] | str):

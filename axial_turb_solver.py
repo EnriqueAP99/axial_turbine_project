@@ -46,13 +46,13 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx: float |
 
             registro.info('Se va a buscar un intervalo que contenga la solución.')
             if cfg.accurate_approach:
-                relative_security_distance = cfg.TOL
+                relative_security_distance = cfg.relative_error
             else:
                 #  Si no se hace aproximación precisa para así acelerar el proceso, es conveniente establecer un límite
                 #  arbitrario o margen de seguridad por el que se asegure que el comportamiento no va a ser errático
                 #  como consecuencia del error de la estimación, garantizando que se verifica la condición del teorema
                 #  de Bolzano.
-                relative_security_distance = 1E-5
+                relative_security_distance = 2*1E-4
             while not bolz:
                 try:
                     if not check:  # Primera vuelta
@@ -102,7 +102,7 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx: float |
 
                     if p_out_iter_b*(1+relative_security_distance) > p_out:
                         # Nivel de avance en 'b'
-                        if p_out_iter_b-p_out > 1000 and fabs(f_b)*C_inx_b/p_out < 4:
+                        if p_out_iter_b-p_out > 1000 and fabs(f_b)*C_inx_b/p_out_iter_b < 3.5:
                             C_inx_b = pre_C_inx_a = (C_inx_b*(1 + delta)) + ((p_out-p_out_iter_b)/(f_b*math.e))
                             C_inx_a = pre_C_inx_b = C_inx_b * (1 - (0.1*delta))
                             f_a = f_b = None
@@ -114,7 +114,7 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx: float |
                         C_inx = C_inx_b
                     elif p_out_iter_a*(1-relative_security_distance) < p_out:
                         # Nivel de retroceso en 'a'
-                        if p_out-p_out_iter_a > 1000 and fabs(f_a)*C_inx_a/p_out < 4:
+                        if p_out-p_out_iter_a > 1000:
                             C_inx_a = pre_C_inx_b = (C_inx_a*(1 - delta)) + ((p_out-p_out_iter_a)/(f_a*math.e))
                             C_inx_b = pre_C_inx_a = C_inx_a * (1 + (0.1*delta))
                             f_a = f_b = None
@@ -130,22 +130,22 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx: float |
             rel_error = 1.0
             p_out_iter = None
 
-            while fabs(rel_error) > cfg.TOL:  # Se emplea régula falsi
+            while fabs(rel_error) > cfg.relative_error:  # Se emplea régula falsi
                 iter_count += 1
                 f_a = p_out_iter_a-p_out
                 f_b = p_out_iter_b-p_out
                 diff_value = (f_b * (C_inx_b - C_inx_a) / (f_b - f_a))
                 C_inx = C_inx_b - diff_value
                 try:
-                    ps_list = solver_method(C_inx, True)
+                    ps_list = solver_method(C_inx, True, 0.1*rel_error)
                     p_out_iter = read_ps_list()
                     f_c = p_out_iter - p_out
-                    rel_error = f_c / p_out
-                    if fabs(f_c) < cfg.TOL*p_out_iter:
+                    relative_security_distance = rel_error = f_c / p_out
+                    if fabs(f_c) < cfg.relative_error*p_out_iter:
                         C_inx_a = C_inx_b = C_inx
-                    elif fabs(f_b) < cfg.TOL*p_out_iter_b:
+                    elif fabs(f_b) < cfg.relative_error*p_out_iter_b:
                         C_inx_a = C_inx_b
-                    elif fabs(f_a) < cfg.TOL*p_out_iter_a:
+                    elif fabs(f_a) < cfg.relative_error*p_out_iter_a:
                         C_inx_b = C_inx_a
                     # La propagación del error del producto es la suma de los errores relativos
                     elif f_c * f_b <= -relative_security_distance*(p_out_iter+p_out_iter_b):
@@ -205,7 +205,7 @@ def step_decorator(cfg: config_parameters, step_corrector_memory):
                     :param step_inner_function: Función que se decora.
                                 :return: Se devuelve el wrapper_r. """
 
-        tol = cfg.TOL
+        relative_error = cfg.relative_error
 
         def get_sif_output(iter_mode: bool = None, iter_end: bool = None, xi=None, rho_seed: list = None, Re=None):
             """ Se hace deepcopy de la salida y se devuelve. """
@@ -224,7 +224,7 @@ def step_decorator(cfg: config_parameters, step_corrector_memory):
                                     funcionamiento que se defina."""
 
             eta_TT_obj = 1 - (((1 - eta_TT) / (200_000 ** (-1 / 5))) * (Re ** (-1 / 5)))
-            relative_security_distance = 10*cfg.TOL
+            relative_security_distance = 10*cfg.relative_error
             f1 = f2 = None
             bolz_c = 1.0
 
@@ -270,7 +270,7 @@ def step_decorator(cfg: config_parameters, step_corrector_memory):
             xi_ec = None
             sif1 = sif2 = None
 
-            while fabs(rel_error_eta_TT) > tol:
+            while fabs(rel_error_eta_TT) > relative_error:
                 if xi_ec is None:
                     xi_ec = xi_e2 - (f2 * (xi_e2 - xi_e1) / (f2 - f1))
                     sifc = get_sif_output(True, False, xi_ec, rho_seed_c)
@@ -306,7 +306,7 @@ def step_decorator(cfg: config_parameters, step_corrector_memory):
                 Re, rho_seed = step_corrector_memory[0], step_corrector_memory[1]
             rel_error = None
             iter_counter = 0
-            while rel_error is None or rel_error > tol:
+            while rel_error is None or rel_error > relative_error:
                 iter_counter += 1
                 if iter_counter > cfg.iter_limit:
                     registro.critical('No converge.')
@@ -344,7 +344,7 @@ class solver_object:
         self.cfg = config  # Objeto que contiene los parámetros de interés para la ejecución del solver.
         self.rho_seed_list = None  # Para aligerar los cálculos para variaciones pequeñas de las variables de entrada
         self.prd = productos  # Modela el comportamiento termodinámico de los productos de la combustión
-        self.prd.modify_tol(self.cfg.TOL)
+        self.prd.modify_relative_error(self.cfg.relative_error)
         self.AM_object = None
         self.AUNGIER_object = None
         self.ref_values = None  # Valores de referencia en las primeras semillas dentro de "blade_outlet_calculator".
@@ -393,10 +393,10 @@ class solver_object:
         # En esta lista se almacenan variables que se requieren según el modo de funconamiento.
         ps_list: list[float] = []
 
-        tol = self.cfg.TOL
-        registro.debug('El error relativo establecido en el solver es: %s', tol)
+        relative_error = self.cfg.relative_error
+        registro.debug('El error relativo establecido en el solver es: %s', relative_error)
 
-        just_once_check = [False, False]
+        passage_control = [False, False]
 
         if m_dot is None and C_inx is None:
             if p_out is None:
@@ -420,22 +420,26 @@ class solver_object:
             m_dot = rho_in * self.cfg.geom['areas'][0] * C_inx
 
         @solver_decorator(self.cfg, p_out, self.C_inx_register)
-        def inner_solver(var_C_inx=None, last_calls=False):
-            nonlocal m_dot, C_inx, ps_list, just_once_check
+        def inner_solver(var_C_inx=None, last_calls=False, mid_process_relative_error=relative_error):
+            nonlocal m_dot, C_inx, ps_list, passage_control
 
             if not self.cfg.accurate_approach:
                 if not last_calls:
-                    if not just_once_check[0]:
-                        registro.info('Para acelerar la aproximación a la solución se modifica la tolerancia.')
-                        self.cfg.edit_cfg_prop('TOL', 1E-6)
-                        self.prd.modify_tol(1E-6)
-                        just_once_check[0] = True
+                    if not passage_control[0]:
+                        registro.info('Para acelerar la aproximación a la solución se modifica el error relativo.')
+                        self.cfg.edit_cfg_prop('relative_error', 2*1E-4)
+                        self.prd.modify_relative_error(2*1E-4)
+                        passage_control[0] = True
                 else:
-                    if not just_once_check[1]:
+                    if mid_process_relative_error > relative_error:
+                        self.cfg.edit_cfg_prop('relative_error', mid_process_relative_error)
+                        self.prd.modify_relative_error(mid_process_relative_error)
+                        passage_control[1] = True
+                    elif not passage_control[1]:
                         registro.info('Se reestablecen los valores de precisión deseados.')
-                        self.cfg.edit_cfg_prop('TOL', tol)
-                        self.prd.modify_tol(tol)
-                        just_once_check[1] = True
+                        self.cfg.edit_cfg_prop('relative_error', relative_error)
+                        self.prd.modify_relative_error(relative_error)
+                        passage_control[1] = True
 
             self.step_iter_mode = self.step_iter_end = False
             self.step_counter = 0
@@ -764,7 +768,7 @@ class solver_object:
 
         rho_b = rho_bp = rho_outer_seed
         M_b = h_b = U_b = h_bs = C_bx = Y_total = Re = Re_AU = pr0_b = Tr0_b = None
-        rel_diff, tol, geom = 1.0, self.cfg.TOL, self.cfg.geom
+        rel_diff, relative_error, geom = 1.0, self.cfg.relative_error, self.cfg.geom
 
         if self.first_seeds_boc is None:
             T_b, T_bs, p_b = self.ref_values[0] * 0.9, self.ref_values[0], self.ref_values[1]
@@ -796,7 +800,7 @@ class solver_object:
                 Re_AU = self.AU_Re_register = Re_out
 
         # p: iteración previa .... b: estado que se quiere conocer, a la salida del álabe
-        while fabs(rel_diff) > tol:
+        while fabs(rel_diff) > relative_error:
             iter_count += 1
 
             if iter_count > self.cfg.iter_limit:
@@ -806,7 +810,7 @@ class solver_object:
             C_bx = m_dot / (area_b * rho_b)  # C_bx: velocidad axial a la salida
             tau_b_n = None
 
-            while tau_b_n is None or fabs((tau_b_n - tau_b)/tau_b) > tol:
+            while tau_b_n is None or fabs((tau_b_n - tau_b)/tau_b) > relative_error:
 
                 if tau_b_n is None:
                     tau_b_n = tau_b
@@ -920,7 +924,7 @@ class solver_object:
 
         if p_0x is None and T_0x is None:
             p_0x, T_0x = p_x * 1.1, self.ref_values[0] * 1.1
-        end, tol = False, self.cfg.TOL
+        end, relative_error = False, self.cfg.relative_error
 
         while not end:
             T_0x = self.prd.get_prop(known_props={'h': h_0x, 'p': p_0x}, req_prop={'T': T_0x})
@@ -929,7 +933,7 @@ class solver_object:
                 end = True
             else:
                 p_0x_iter = self.prd.get_prop(known_props={'T': T_0x, 's': s_x}, req_prop={'p': p_0x})
-                if fabs(p_0x - p_0x_iter) / p_0x < tol:
+                if fabs(p_0x - p_0x_iter) / p_0x < relative_error:
                     end = True
                 p_0x = p_0x_iter
 
@@ -938,7 +942,7 @@ class solver_object:
 
 def main():
     fast_mode = False
-    settings = config_parameters(TOL=1E-12, n_steps=1, relative_jump=0.005, loss_model='Aungier',
+    settings = config_parameters(relative_error=1E-12, n_steps=1, relative_jump=0.005, loss_model='Aungier',
                                  ideal_gas=True, fast_mode=fast_mode, iter_limit=1200)
 
     # Geometría procedente de: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf

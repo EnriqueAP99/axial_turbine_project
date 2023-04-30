@@ -172,7 +172,8 @@ class Ainley_and_Mathieson_Loss_Model:  # Ver paper: https://apps.dtic.mil/sti/p
         need_to_adapt = False
         for i, rm1 in enumerate(self.cfg.geom['Rm'][::2]):
             rm2 = self.cfg.geom['Rm'][1::2][i]
-            if not rm2*(1-self.cfg.TOL) < rm1 < rm2*(1+self.cfg.TOL):  # Evaluar si los valores son iguales o no
+            if not rm2*(1-self.cfg.relative_error) < rm1 < rm2*(1+self.cfg.relative_error):
+                # Evaluar si los valores son iguales o no
                 need_to_adapt = True
         if need_to_adapt:
             self.cfg.edit_geom('Rm', AM_mean_radius())  # Se reescribe la tupla anterior por la tupla adaptada.
@@ -284,7 +285,7 @@ class Ainley_and_Mathieson_Loss_Model:  # Ver paper: https://apps.dtic.mil/sti/p
                         :return: Se devuelve Y_total y tau_2, excepto cuando step_iter_mode, en dicho caso Y_total es
                                 conocido y solo se devuelve tau_2, en ambos casos en radianes. """
 
-        self.crown_num, geom, tol = num, self.cfg.geom, self.cfg.TOL
+        self.crown_num, geom, relative_error = num, self.cfg.geom, self.cfg.relative_error
 
         lista_local = [geom[i][num] for i in ['areas', 's', 'k', 'H', 'r_r', 'r_c', 'b', 't_e']]
         A_1, s, K_i, H, r_r, r_c, b, t_e = lista_local
@@ -309,7 +310,7 @@ class Ainley_and_Mathieson_Loss_Model:  # Ver paper: https://apps.dtic.mil/sti/p
             Z = ((C_L*b/s)**2)*((cos(tau_2)**2)/(cos(tau_m)**3))
             Ys = lambda_*Z
             Yk = 0.0
-            if not K_i > tol:
+            if not K_i > relative_error:
                 Yk = 0.5 * (K_i / H) * Z
 
             Y_total = (Yp + Ys + Yk) * self.ji_Te_te_s[1](t_e / s)
@@ -381,8 +382,8 @@ class Aungier_Loss_Model(Ainley_and_Mathieson_Loss_Model):
             delta_0 = delta_0*(1-(10*(X_delta**3)) + (15*(X_delta**4)) - (6*(X_delta**5)))
 
         taud_1, taud_2 = degrees(tau_1), 90 - (beta_g + delta_0)
-        if fabs(taud_2) < self.cfg.TOL:
-            taud_2 = self.cfg.TOL  # Límite para no dividir por cero luego
+        if fabs(taud_2) < self.cfg.relative_error:
+            taud_2 = self.cfg.relative_error  # Límite para no dividir por cero luego
         tau_2 = radians(taud_2)
 
         i_is = self.calculating_incidence_stall_incidence_fraction(taud_1, taud_2)
