@@ -79,8 +79,8 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx: float |
                             f_a = (p_out_iter_a - pre_p_out_iter_a)/(C_inx_a - pre_C_inx_a)
 
                         # Se evalúa si el nuevo rango contiene la solución.
-                        P_A = p_out_iter_a*(1+relative_security_distance)
-                        P_B = p_out_iter_b*(1-relative_security_distance)
+                        P_A = p_out_iter_a*(1-relative_security_distance)
+                        P_B = p_out_iter_b*(1+relative_security_distance)
                         if (P_B-p_out)*(P_A-p_out) <= 0:
                             bolz = True
 
