@@ -46,6 +46,7 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx: float |
 
             registro.info('Se va a buscar un intervalo que contenga la solución.')
             if cfg.accurate_approach:
+                # Quizás sea conveniente para aproximar un punto en el que la variación de p_out frente a C_in sea alta.
                 relative_security_distance = cfg.relative_error
             else:
                 #  Si no se hace aproximación precisa para así acelerar el proceso, es conveniente establecer un límite
@@ -118,16 +119,16 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx: float |
                 except NonConvergenceError:
                     registro.warning('Se ha capturado una excepción.')
                     if fabs(f_b)*pre_C_inx_b/p_out_iter_b < 3 and p_out_iter_b-p_out > 1000:
-                        C_inx_b = pre_C_inx_a = (C_inx_b - ((p_out-p_out_iter_b)/(f_b*math.e)))/(1+delta)
-                        C_inx_a = pre_C_inx_b = C_inx_b*(1-delta)
+                        C_inx_b = pre_C_inx_a = (C_inx_b - ((p_out-p_out_iter_b)/(f_b*math.e)))
+                        C_inx_a = pre_C_inx_b = C_inx_b*(1-(0.1*delta))
                     else:
                         delta /= 1.1
 
                 except GasLibraryAdaptedException:
                     registro.warning('Se ha capturado una excepción.')
                     if fabs(f_b)*pre_C_inx_b/p_out_iter_b < 3 and p_out_iter_b-p_out > 1000:
-                        C_inx_b = pre_C_inx_a = (C_inx_b - ((p_out-p_out_iter_b)/(f_b*math.e)))/(1+delta)
-                        C_inx_a = pre_C_inx_b = C_inx_b*(1-delta)
+                        C_inx_b = pre_C_inx_a = (C_inx_b - ((p_out-p_out_iter_b)/(f_b*math.e)))
+                        C_inx_a = pre_C_inx_b = C_inx_b*(1-(0.1*delta))
                     else:
                         delta /= 1.1
 
