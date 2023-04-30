@@ -58,9 +58,12 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx: float |
                 try:
                     if not check:  # Primera vuelta
                         ps_list = solver_method(C_inx_a)
-                        p_out_iter_a = pre_p_out_iter_b = read_ps_list()
+                        p_out_a = read_ps_list()
+                        # p_out_a y p_out_b se crean para permitir recuperar las presiones ante excepciones
                         ps_list = solver_method(C_inx_b)
-                        p_out_iter_b = pre_p_out_iter_a = read_ps_list()
+                        p_out_b = read_ps_list()
+                        p_out_iter_a = pre_p_out_iter_b = p_out_a
+                        p_out_iter_b = pre_p_out_iter_a = p_out_b
                         f_a = (p_out_iter_a - pre_p_out_iter_a)/(C_inx_a - pre_C_inx_a)
                         f_b = (p_out_iter_b - pre_p_out_iter_b)/(C_inx_b - pre_C_inx_b)
                         check = True
