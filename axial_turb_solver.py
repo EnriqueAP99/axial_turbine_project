@@ -29,7 +29,7 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
             ps_list = None
 
             def read_ps_list():
-                if cfg.fast_mode:
+                if cfg.chain_mode:
                     new_p_out = ps_list.copy()[1]
                 else:
                     new_p_out = copy.deepcopy(ps_list)[-2][1]
@@ -441,7 +441,7 @@ class solver_object:
                 :param C_inx: Velocidad a la entrada de la turbina (Supuesta completamente axial) (m/s).
                 :param C_inx_ref: Valor de referencia que debe aproximarse a C_inx.
                 :param n: Velocidad de giro (rpm).
-                        :return: Si fast_mode se devuelven los valores a la salida de temperatura (K), presión (Pa),
+                        :return: Si chain_mode se devuelven los valores a la salida de temperatura (K), presión (Pa),
                                 velocidad (m/s) y ángulo del flujo con la dirección axial (degrees), en caso contrario
                                 no se devuelve nada."""
 
@@ -509,10 +509,10 @@ class solver_object:
 
             ps_list = [T_in, p_in, rho_in, s_in, h_in, h_0in, C_inx]
             for i in range(self.cfg.n_steps):
-                list_i = ps_list[i-1] if i > 0 and not self.cfg.fast_mode else ps_list
+                list_i = ps_list[i-1] if i > 0 and not self.cfg.chain_mode else ps_list
                 args = list_i[0], list_i[1], list_i[6], list_i[3], list_i[4], list_i[5], m_dot, n, list_i[2]
 
-                if self.cfg.fast_mode:
+                if self.cfg.chain_mode:
                     ps_list = self.step_block(*args)
                 else:
                     if i == 0:
@@ -523,7 +523,7 @@ class solver_object:
                 self.Re_corrector_counter = 0
                 self.step_counter += 1
 
-            if not self.cfg.fast_mode:  # Los subindices A y B indican, resp., los pts. inicio y fin de la turbina.
+            if not self.cfg.chain_mode:  # Los subindices A y B indican, resp., los pts. inicio y fin de la turbina.
                 p_B, s_B, h_B, h_0B = [ps_list[-1][1]] + ps_list[-1][3:6]
                 h_in = self.prd.get_prop(known_props={'T': T_in, 'p': p_in}, req_prop='h')
                 h_0A = h_0in
@@ -548,7 +548,7 @@ class solver_object:
 
         inner_solver()
 
-        if self.cfg.fast_mode:
+        if self.cfg.chain_mode:
             return ps_list[0], ps_list[1], ps_list[6], degrees(ps_list[7])
         else:
             return
@@ -704,7 +704,7 @@ class solver_object:
                     self.rho_seed_list[count] = [rho_2, rho_3].copy()
 
             # Se determina en estas líneas el rendimiento total a total para que sea posible aplicar la corrección:
-            if self.cfg.loss_model == 'Ainley_and_Mathieson' and (self.cfg.fast_mode or iter_mode):
+            if self.cfg.loss_model == 'Ainley_and_Mathieson' and (self.cfg.chain_mode or iter_mode):
                 w_esc = h_02 - h_03
                 p_03, T_03 = self.Zero_pt_calculator(p_x=p_3, s_x=s_3, h_0x=h_03)
                 T_03ss = self.prd.get_prop(known_props={'s': s_1, 'p': p_03}, req_prop={'T': T_03})
@@ -724,7 +724,7 @@ class solver_object:
                     else:
                         self.corrector_seed[count] = copy.deepcopy([Re_23, [rho_2, rho_3]])
 
-            if not self.cfg.fast_mode and (iter_end or not iter_mode):
+            if not self.cfg.chain_mode and (iter_end or not iter_mode):
                 Y_est = xi_est * (0.001 * (C_2**2) / 2)
                 Y_rot = xi_rot * (0.001 * (omega_3**2) / 2)
                 w_esc = h_02 - h_03
@@ -1010,7 +1010,7 @@ class solver_object:
 def main():
     fast_mode = False
     settings = config_parameters(relative_error=1E-12, n_steps=1, relative_jump=0.005, loss_model='Aungier',
-                                 ideal_gas=True, fast_mode=fast_mode, iter_limit=1200)
+                                 ideal_gas=True, chain_mode=fast_mode, iter_limit=1200)
 
     # Geometría procedente de: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf
     Rm = 0.1429

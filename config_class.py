@@ -19,7 +19,7 @@ class config_parameters:
 
     relative_error: float  # Máximo error relativo que se permite en los cálculos iterativos del solver
     n_steps: int  # Número de escalonamientos que se definen
-    fast_mode: bool  # Limitar cálculos y determinar temperatura, presión y velocidad a la salida
+    chain_mode: bool  # Limitar cálculos y determinar temperatura, presión y velocidad a la salida
     loss_model: str  # Cadena identificador del modelo de pérdidas establecido
     ideal_gas: bool  # True cuando se establece hipótesis de gas ideal
     geom: dict = None  # Diccionario para almacenar parámetros geométricos de la turbina
