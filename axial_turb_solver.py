@@ -121,12 +121,12 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
                         ps_list = solver_method(C_inx_b)
                         p_out_iter_b = read_ps_list()
                     except NonConvergenceError:
-                        if C_inx_stimated*(1-cfg.relative_error) < C_inx < C_inx_stimated*(1+cfg.relative_error):
+                        if C_inx_stimated*(1-1E-12) <= C_inx <= C_inx_stimated*(1+1E-12):
                             first_iter_exception_task()
                         else:
                             post_exception_tasks()
                     except GasLibraryAdaptedException:
-                        if C_inx_stimated*(1-cfg.relative_error) < C_inx < C_inx_stimated*(1+cfg.relative_error):
+                        if C_inx_stimated*(1-1E-12) <= C_inx <= C_inx_stimated*(1+1E-12):
                             first_iter_exception_task()
                         else:
                             post_exception_tasks()
@@ -134,6 +134,7 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
                         f_a = f_b = (p_out_iter_a - p_out_iter_b) / (C_inx_a - C_inx_b)
                         ff = (f_b - f_a)/(C_inx_b - C_inx_a)
                         check = True
+                    finally:
                         # Se evalúa si el nuevo rango contiene la solución.
                         P_A = p_out_iter_a*(1-relative_security_distance)
                         P_B = p_out_iter_b*(1+relative_security_distance)
@@ -170,6 +171,7 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
                         else:
                             registro.critical('Something went wrong.')
                             sys.exit()
+                    finally:
                         # Se evalúa si el nuevo rango contiene la solución.
                         P_A = p_out_iter_a*(1-relative_security_distance)
                         P_B = p_out_iter_b*(1+relative_security_distance)
@@ -481,8 +483,8 @@ class solver_object:
                 if not last_calls:
                     if not passage_control[0]:
                         registro.info('Para acelerar la aproximación a la solución se modifica el error relativo.')
-                        self.cfg.edit_cfg_prop('relative_error', 5*1E-4)
-                        self.prd.modify_relative_error(5*1E-4)
+                        self.cfg.edit_cfg_prop('relative_error', 1E-4)
+                        self.prd.modify_relative_error(1E-4)
                         passage_control[0] = True
                 else:
                     if mid_process_relative_error > relative_error:
@@ -926,7 +928,7 @@ class solver_object:
             pre_pre_rel_diff = pre_rel_diff
             pre_rel_diff = rel_diff
             if total_shifts >= self.cfg.maximum_ups_and_downs:
-                registro.error('Se ha excedido el límite de oscilaciones máximo establecido.')
+                registro.error('Se ha excedido el valor límite de oscilaciones establecido.')
                 raise NonConvergenceError
 
             rho_bp = rho_b
