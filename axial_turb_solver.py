@@ -916,8 +916,9 @@ class solver_object:
             rel_diff = (rho_b - rho_bp) / rho_b
 
             if pre_rel_diff is not None and pre_pre_rel_diff is not None:
-                if fabs(pre_pre_rel_diff) > fabs(pre_rel_diff) and fabs(pre_rel_diff) < fabs(rel_diff):
-                    total_shifts += 1
+                for sign in [-1, 1]:
+                    if pre_pre_rel_diff*sign > sign*pre_rel_diff and sign*pre_rel_diff < sign*rel_diff:
+                        total_shifts += 1
             pre_rel_diff = rel_diff
             pre_pre_rel_diff = pre_rel_diff
             if total_shifts >= self.cfg.maximum_ups_and_downs:
@@ -926,7 +927,7 @@ class solver_object:
 
             rho_bp = rho_b
 
-            registro.debug('Densidad (kg/m^3): %.12f  ...  Error relativo: %.12f  ...  Fluctuaciones: %s',
+            registro.debug('Densidad (kg/m^3): %.12f  ...  Error relativo: %.12f  ...  Oscilaciones: %s',
                            rho_b, rel_diff, total_shifts)
 
         if M_b > 0.5:
