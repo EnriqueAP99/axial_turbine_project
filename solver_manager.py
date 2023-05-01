@@ -210,7 +210,7 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
                 if just_once[0]:
                     solver.cfg.edit_cfg_prop('accurate_approach', True)
                     just_once[0] = False
-                    solver.cfg.edit_cfg_prop('relative_jump', 0.1*rel_jump)
+                    solver.cfg.edit_cfg_prop('relative_jump', 0.5*rel_jump)
             else:
                 if just_once[1]:
                     solver.cfg.edit_cfg_prop('accurate_approach', sweep_data['acc_approach'])

@@ -80,16 +80,20 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
 
             def post_exception_tasks():
                 registro.warning('Se ha capturado una excepción.')
-                nonlocal C_inx_a, C_inx_b, delta
+                nonlocal C_inx_a, C_inx_b, delta, check
                 C_inx_a, C_inx_b = pre_C_inx_a, pre_C_inx_b
                 if p_out_iter_b*(1+relative_security_distance) > p_out:
                     C_inx_b = (C_inx_b + C_inx_a)/2
-                    if not (p_out_iter_b-p_out > 1000 and adim_steepness_param > -3.0):
+                    if p_out_iter_b-p_out > 1000 and adim_steepness_param > -3.0:
+                        check = False
+                    else:
                         delta /= 10
 
                 elif p_out_iter_a*(1-relative_security_distance) < p_out:
                     C_inx_a = (C_inx_b + C_inx_a)/2
-                    if not (p_out-p_out_iter_a > 1000 and adim_steepness_param < -0.3):
+                    if p_out-p_out_iter_a > 1000 and adim_steepness_param < -0.3:
+                        check = False
+                    else:
                         delta /= 10
                 else:
                     registro.critical('Houston, we got a problem.')
@@ -175,7 +179,8 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
                         else:
                             C_in_algorithm()
 
-                registro.info('Rango actual: [%.2f, %.2f]', p_out_iter_a, p_out_iter_b)
+                registro.info('Rango actual: [%.2f, %.2f]  ...  Valor objetivo: %.2f',
+                              p_out_iter_a, p_out_iter_b, p_out)
 
             rel_error = 1.0
             p_out_iter = None
@@ -477,8 +482,8 @@ class solver_object:
                 if not last_calls:
                     if not passage_control[0]:
                         registro.info('Para acelerar la aproximación a la solución se modifica el error relativo.')
-                        self.cfg.edit_cfg_prop('relative_error', 2*1E-4)
-                        self.prd.modify_relative_error(2*1E-4)
+                        self.cfg.edit_cfg_prop('relative_error', 5*1E-4)
+                        self.prd.modify_relative_error(5*1E-4)
                         passage_control[0] = True
                 else:
                     if mid_process_relative_error > relative_error:
@@ -916,19 +921,19 @@ class solver_object:
             rel_diff = (rho_b - rho_bp) / rho_b
 
             if pre_rel_diff is not None and pre_pre_rel_diff is not None:
-                for sign in [-1, 1]:
-                    if pre_pre_rel_diff*sign > sign*pre_rel_diff and sign*pre_rel_diff < sign*rel_diff:
+                if fabs(pre_pre_rel_diff) > fabs(pre_rel_diff) and fabs(pre_rel_diff) < fabs(rel_diff):
+                    if iter_count > 3:
                         total_shifts += 1
-            pre_rel_diff = rel_diff
             pre_pre_rel_diff = pre_rel_diff
+            pre_rel_diff = rel_diff
             if total_shifts >= self.cfg.maximum_ups_and_downs:
                 registro.error('Error de convergencia al exceder el límite de cambios de tendencia máximo establecido.')
                 raise NonConvergenceError
 
             rho_bp = rho_b
 
-            registro.debug('Densidad (kg/m^3): %.12f  ...  Error relativo: %.12f  ...  Oscilaciones: %s',
-                           rho_b, rel_diff, total_shifts)
+            registro.debug('Contador: {%s:^3}  ...  Densidad (kg/m^3): %.12f  ...  Error relativo: %.12f  ...  '
+                           'Oscilaciones: %s', iter_count, rho_b, rel_diff, total_shifts)
 
         if M_b > 0.5:
             registro.warning('Mout %sa la salida superior a 0.5 ... Valor: %.2f',
