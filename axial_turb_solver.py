@@ -927,13 +927,14 @@ class solver_object:
             pre_pre_rel_diff = pre_rel_diff
             pre_rel_diff = rel_diff
             if total_shifts >= self.cfg.maximum_ups_and_downs:
-                registro.error('Error de convergencia al exceder el límite de cambios de tendencia máximo establecido.')
+                registro.error('Se ha excedido el límite de oscilaciones máximo establecido.')
                 raise NonConvergenceError
 
             rho_bp = rho_b
 
-            registro.debug('Contador: {%s:^3}  ...  Densidad (kg/m^3): %.12f  ...  Error relativo: %.12f  ...  '
-                           'Oscilaciones: %s', iter_count, rho_b, rel_diff, total_shifts)
+            iter_string = f'{iter_count}'.center(3)
+            registro.debug('Contador: %s  ...  Densidad (kg/m^3): %.12f  ...  Error relativo: %.12f  ...  '
+                           'Oscilaciones: %s', iter_string, rho_b, rel_diff, total_shifts)
 
         if M_b > 0.5:
             registro.warning('Mout %sa la salida superior a 0.5 ... Valor: %.2f',
