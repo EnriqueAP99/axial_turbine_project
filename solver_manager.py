@@ -305,7 +305,7 @@ def main_1(fast_mode, action):
 
 
 def main_2():
-    settings = config_parameters(relative_error=1E-8, accurate_approach=False, ideal_gas=True,
+    settings = config_parameters(relative_error=1E-10, accurate_approach=False, ideal_gas=True,
                                  n_steps=1, relative_jump=0.045, loss_model='Aungier',
                                  chain_mode=False, iter_limit=2000, maximum_ups_and_downs=6)
 

@@ -37,6 +37,7 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
 
             iter_count = 0
             check = from_b = from_a = False
+            first = True
             # Puntos a, b tal que C_inx_b > C_inx_a
             delta = cfg.relative_jump
             C_inx_b = C_inx
@@ -121,13 +122,15 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
                         ps_list = solver_method(C_inx_b)
                         p_out_iter_b = read_ps_list()
                     except NonConvergenceError:
-                        if C_inx_stimated*(1-1E-12) <= C_inx <= C_inx_stimated*(1+1E-12):
+                        if first:
                             first_iter_exception_task()
+                            first = False
                         else:
                             post_exception_tasks()
                     except GasLibraryAdaptedException:
-                        if C_inx_stimated*(1-1E-12) <= C_inx <= C_inx_stimated*(1+1E-12):
+                        if first:
                             first_iter_exception_task()
+                            first = False
                         else:
                             post_exception_tasks()
                     else:
