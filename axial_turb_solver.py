@@ -87,14 +87,14 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
                     if p_out_iter_b-p_out > 1000 and adim_steepness_param > -3.0:
                         check = False
                     else:
-                        delta /= 10
+                        delta /= 2.5
 
                 elif p_out_iter_a*(1-relative_security_distance) < p_out:
                     C_inx_a = (C_inx_b + C_inx_a)/2
                     if p_out-p_out_iter_a > 1000 and adim_steepness_param < -0.3:
                         check = False
                     else:
-                        delta /= 10
+                        delta /= 2.5
                 else:
                     registro.critical('Houston, we got a problem.')
                 return
@@ -922,7 +922,7 @@ class solver_object:
 
             if pre_rel_diff is not None and pre_pre_rel_diff is not None:
                 if fabs(pre_pre_rel_diff) > fabs(pre_rel_diff) and fabs(pre_rel_diff) < fabs(rel_diff):
-                    if iter_count > 3:
+                    if iter_count > 5:
                         total_shifts += 1
             pre_pre_rel_diff = pre_rel_diff
             pre_rel_diff = rel_diff
