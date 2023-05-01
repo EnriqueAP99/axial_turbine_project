@@ -51,7 +51,7 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
                 adim_steepness_param = f_b*C_inx_b/p_out_iter_b
                 pre_C_inx_a, pre_C_inx_b = C_inx_a, C_inx_b
                 if P_B >= p_out:  # Nivel de avance en 'b'
-                    if (adim_steepness_param > -3.0) and (p_out_iter_b-p_out > 1000):
+                    if (-0.3 > adim_steepness_param > -3.0) and (p_out_iter_b-p_out > 1000):
                         C_inx_b = C_inx_b + ((p_out-p_out_iter_b)/(f_b+((C_inx_b-C_inx_a)*ff)))
                         C_inx_a = C_inx_b * (1 - delta)
                         check = False  # Reset
@@ -61,7 +61,7 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
                         from_b = True
                     C_inx = C_inx_b
                 elif P_A <= p_out:  # Nivel de retroceso en 'a'
-                    if (adim_steepness_param < -0.3) and (p_out-p_out_iter_a > 1000):
+                    if (-3.0 < adim_steepness_param < -0.3) and (p_out-p_out_iter_a > 1000):
                         C_inx_a = C_inx_a + ((p_out-p_out_iter_a)/(f_a+((C_inx_a-C_inx_b)*ff)))
                         C_inx_b = C_inx_a * (1 + delta)
                         check = False  # Reset
