@@ -182,7 +182,7 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
                               p_out_iter_a, p_out_iter_b, p_out)
 
             rel_error = 1.0
-            p_out_iter = f_c = None
+            p_out_iter = None
 
             while rel_error > cfg.relative_error:  # Se emplea régula falsi
                 iter_count += 1
