@@ -43,7 +43,7 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
             C_inx_b = C_inx
             C_inx_a = C_inx*(1 - (0.1*delta))
             pre_C_inx_a, pre_C_inx_b = C_inx_b, C_inx_a
-            p_out_iter_b = p_out_iter_a = None
+            p_out_iter_b = p_out_iter_a = pre_p_out_iter_a = None
             f_a = f_b = None
             adim_steepness_param = 0.0
 
@@ -117,6 +117,7 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
             while True:
                 if not check:  # Primera vuelta
                     try:
+                        pre_p_out_iter_a = p_out_iter_a
                         ps_list = solver_method(C_inx_a)
                         p_out_iter_a = read_ps_list()
                         ps_list = solver_method(C_inx_b)
@@ -126,12 +127,14 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
                             first_iter_exception_task()
                             first = False
                         else:
+                            p_out_iter_a = pre_p_out_iter_a
                             post_exception_tasks()
                     except GasLibraryAdaptedException:
                         if first:
                             first_iter_exception_task()
                             first = False
                         else:
+                            p_out_iter_a = pre_p_out_iter_a
                             post_exception_tasks()
                     else:
                         f_a = f_b = (p_out_iter_a - p_out_iter_b) / (C_inx_a - C_inx_b)
