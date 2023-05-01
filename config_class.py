@@ -26,6 +26,7 @@ class config_parameters:
     iter_limit: int = 600  # Límite de iteraciones que se establece
     relative_jump: float = 0.1  # Salto relativo durante la búsqueda cuando se conoce la presión a la salida
     accurate_approach: bool = False  # Opción recomendable cuando el salto de presión es alto.
+    maximum_ups_and_downs: int = 5  # Número máximo de fluctuaciones a partir de las que no se considera que no converge
 
     def __post_init__(self):
         if self.loss_model not in ['Aungier', 'Ainley_and_Mathieson']:

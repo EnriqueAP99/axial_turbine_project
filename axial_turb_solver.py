@@ -41,16 +41,18 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
             delta = cfg.relative_jump
             C_inx_b = C_inx
             C_inx_a = C_inx*(1 - (0.1*delta))
+            pre_C_inx_a, pre_C_inx_b = C_inx_b, C_inx_a
             p_out_iter_b = p_out_iter_a = None
             f_a = f_b = None
             adim_steepness_param = 0.0
 
             def C_in_algorithm():
-                nonlocal C_inx_a, C_inx_b, check, from_a, from_b, adim_steepness_param, C_inx
+                nonlocal C_inx_a, C_inx_b, check, from_a, from_b, adim_steepness_param, C_inx, pre_C_inx_a, pre_C_inx_b
                 adim_steepness_param = f_b*C_inx_b/p_out_iter_b
+                pre_C_inx_a, pre_C_inx_b = C_inx_a, C_inx_b
                 if P_B >= p_out:  # Nivel de avance en 'b'
                     if (adim_steepness_param > -3.0) and (p_out_iter_b-p_out > 1000):
-                        C_inx_b = C_inx_b + ((p_out-p_out_iter_b)/f_b)
+                        C_inx_b = C_inx_b + ((p_out-p_out_iter_b)/(f_b+((C_inx_b-C_inx_a)*ff*0.5)))
                         C_inx_a = C_inx_b * (1 - delta)
                         check = False  # Reset
                     else:
@@ -60,7 +62,7 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
                     C_inx = C_inx_b
                 elif P_A <= p_out:  # Nivel de retroceso en 'a'
                     if (adim_steepness_param < -0.3) and (p_out-p_out_iter_a > 1000):
-                        C_inx_a = C_inx_a + ((p_out-p_out_iter_a)/f_a)
+                        C_inx_a = C_inx_a + ((p_out-p_out_iter_a)/(f_a+((C_inx_a-C_inx_b)*ff*0.5)))
                         C_inx_b = C_inx_a * (1 + delta)
                         check = False  # Reset
                     else:
@@ -79,22 +81,16 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
             def post_exception_tasks():
                 registro.warning('Se ha capturado una excepción.')
                 nonlocal C_inx_a, C_inx_b, delta
+                C_inx_a, C_inx_b = pre_C_inx_a, pre_C_inx_b
                 if p_out_iter_b*(1+relative_security_distance) > p_out:
-                    if p_out_iter_b-p_out > 1000 and adim_steepness_param > -3.0:
-                        C_inx_b = (C_inx_b - ((p_out-p_out_iter_b)/f_b))/(1+(1.5*delta))
-                        C_inx_a = C_inx_b*(1-delta)
-                    else:
-                        C_inx_b = C_inx_b / (1 + (1.5*delta))
-                        C_inx_a = C_inx_b * (1 - delta)
-                        delta /= 1.1
+                    C_inx_b = (C_inx_b + C_inx_a)/2
+                    if not (p_out_iter_b-p_out > 1000 and adim_steepness_param > -3.0):
+                        delta /= 10
+
                 elif p_out_iter_a*(1-relative_security_distance) < p_out:
-                    if p_out-p_out_iter_a > 1000 and adim_steepness_param < -0.3:
-                        C_inx_a = (C_inx_a - ((p_out-p_out_iter_a)/f_a))/(1-(1.5*delta))
-                        C_inx_b = C_inx_a*(1+delta)
-                    else:
-                        C_inx_a = C_inx_a / (1 - (1.5*delta))
-                        C_inx_b = C_inx_a * (1 + delta)
-                        delta /= 1.1
+                    C_inx_a = (C_inx_b + C_inx_a)/2
+                    if not (p_out-p_out_iter_a > 1000 and adim_steepness_param < -0.3):
+                        delta /= 10
                 else:
                     registro.critical('Houston, we got a problem.')
                 return
@@ -110,7 +106,7 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
                 #  de Bolzano.
                 # Se debe tener en cuenta que el error numérico de los métodos empleados cuando convergen es menor
                 # cuanto más se itere.
-                relative_security_distance = 2*1E-4
+                relative_security_distance = 5*1E-4
 
             # Se va a buscar el intervalo que contiene la solución
             while True:
@@ -132,6 +128,7 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
                             post_exception_tasks()
                     else:
                         f_a = f_b = (p_out_iter_a - p_out_iter_b) / (C_inx_a - C_inx_b)
+                        ff = (f_b - f_a)/(C_inx_b - C_inx_a)
                         check = True
                         # Se evalúa si el nuevo rango contiene la solución.
                         P_A = p_out_iter_a*(1-relative_security_distance)
@@ -156,6 +153,7 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
                             p_out_iter_b = p_out_iter
                             f_a = f_b
                             f_b = (p_out_iter_b - p_out_iter_a)/(C_inx_b - C_inx_a)
+                            ff = (f_b - f_a)/(C_inx_b - C_inx_a)
                             from_b = False
                         elif from_a:
                             # Se proviene del nivel de retroceso de a
@@ -163,6 +161,7 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
                             p_out_iter_a = p_out_iter
                             f_b = f_a
                             f_a = (p_out_iter_a - p_out_iter_b)/(C_inx_a - C_inx_b)
+                            ff = (f_b - f_a)/(C_inx_b - C_inx_a)
                             from_a = False
                         else:
                             registro.critical('Something went wrong.')
@@ -817,8 +816,9 @@ class solver_object:
             self.AM_object.limit_mssg = [True, True, True]
 
         rho_b = rho_bp = rho_outer_seed
-        M_b = h_b = U_b = h_bs = C_bx = Y_total = Re = Re_AU = pr0_b = Tr0_b = None
+        M_b = h_b = U_b = h_bs = C_bx = Y_total = Re = Re_AU = pr0_b = Tr0_b = pre_rel_diff = pre_pre_rel_diff = None
         rel_diff, relative_error, geom = 1.0, self.cfg.relative_error, self.cfg.geom
+        total_shifts = 0
 
         if self.first_seeds_boc is None:
             T_b, T_bs, p_b = self.ref_values[0] * 0.9, self.ref_values[0], self.ref_values[1]
@@ -915,9 +915,19 @@ class solver_object:
             rho_b = self.prd.get_prop({'p': p_b, 'h': h_b}, {'d': rho_b})
             rel_diff = (rho_b - rho_bp) / rho_b
 
+            if pre_rel_diff is not None and pre_pre_rel_diff is not None:
+                if fabs(pre_pre_rel_diff) > fabs(pre_rel_diff) and fabs(pre_rel_diff) < fabs(rel_diff):
+                    total_shifts += 1
+            pre_rel_diff = rel_diff
+            pre_pre_rel_diff = pre_rel_diff
+            if total_shifts >= self.cfg.maximum_ups_and_downs:
+                registro.error('Error de convergencia al exceder el límite de cambios de tendencia máximo establecido.')
+                raise NonConvergenceError
+
             rho_bp = rho_b
 
-            registro.debug('Densidad (kg/m^3): %.12f  ...  Error relativo: %.12f', rho_b, rel_diff)
+            registro.debug('Densidad (kg/m^3): %.12f  ...  Error relativo: %.12f  ...  Fluctuaciones: %s',
+                           rho_b, rel_diff, total_shifts)
 
         if M_b > 0.5:
             registro.warning('Mout %sa la salida superior a 0.5 ... Valor: %.2f',
