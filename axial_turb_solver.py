@@ -52,7 +52,7 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
                 pre_C_inx_a, pre_C_inx_b = C_inx_a, C_inx_b
                 if P_B >= p_out:  # Nivel de avance en 'b'
                     if (adim_steepness_param > -3.0) and (p_out_iter_b-p_out > 1000):
-                        C_inx_b = C_inx_b + ((p_out-p_out_iter_b)/(f_b+((C_inx_b-C_inx_a)*ff*0.5)))
+                        C_inx_b = C_inx_b + ((p_out-p_out_iter_b)/(f_b+((C_inx_b-C_inx_a)*ff)))
                         C_inx_a = C_inx_b * (1 - delta)
                         check = False  # Reset
                     else:
@@ -62,7 +62,7 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
                     C_inx = C_inx_b
                 elif P_A <= p_out:  # Nivel de retroceso en 'a'
                     if (adim_steepness_param < -0.3) and (p_out-p_out_iter_a > 1000):
-                        C_inx_a = C_inx_a + ((p_out-p_out_iter_a)/(f_a+((C_inx_a-C_inx_b)*ff*0.5)))
+                        C_inx_a = C_inx_a + ((p_out-p_out_iter_a)/(f_a+((C_inx_a-C_inx_b)*ff)))
                         C_inx_b = C_inx_a * (1 + delta)
                         check = False  # Reset
                     else:
@@ -110,7 +110,7 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
                 #  de Bolzano.
                 # Se debe tener en cuenta que el error numérico de los métodos empleados cuando convergen es menor
                 # cuanto más se itere.
-                relative_security_distance = 5*1E-4
+                relative_security_distance = 1E-4
 
             # Se va a buscar el intervalo que contiene la solución
             while True:
@@ -152,7 +152,7 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
                     else:
                         p_out_iter = read_ps_list()
                         if from_b:
-                            # Se proviene del nivel de avance de b
+                            # Se procede del nivel de avance de b
                             p_out_iter_a = p_out_iter_b
                             p_out_iter_b = p_out_iter
                             f_a = f_b
@@ -160,7 +160,7 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
                             ff = (f_b - f_a)/(C_inx_b - C_inx_a)
                             from_b = False
                         elif from_a:
-                            # Se proviene del nivel de retroceso de a
+                            # Se procede del nivel de retroceso de a
                             p_out_iter_b = p_out_iter_a
                             p_out_iter_a = p_out_iter
                             f_b = f_a
@@ -170,7 +170,6 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
                         else:
                             registro.critical('Something went wrong.')
                             sys.exit()
-                    finally:
                         # Se evalúa si el nuevo rango contiene la solución.
                         P_A = p_out_iter_a*(1-relative_security_distance)
                         P_B = p_out_iter_b*(1+relative_security_distance)
@@ -183,9 +182,9 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
                               p_out_iter_a, p_out_iter_b, p_out)
 
             rel_error = 1.0
-            p_out_iter = None
+            p_out_iter = f_c = None
 
-            while fabs(rel_error) > cfg.relative_error:  # Se emplea régula falsi
+            while rel_error > cfg.relative_error:  # Se emplea régula falsi
                 iter_count += 1
                 f_a = p_out_iter_a-p_out
                 f_b = p_out_iter_b-p_out
@@ -195,7 +194,7 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
                     ps_list = solver_method(C_inx, True, 0.1*rel_error)
                     p_out_iter = read_ps_list()
                     f_c = p_out_iter - p_out
-                    relative_security_distance = rel_error = f_c / p_out
+                    relative_security_distance = rel_error = fabs(f_c) / p_out
                     if fabs(f_c) < cfg.relative_error*p_out_iter:
                         C_inx_a = C_inx_b = C_inx
                     elif fabs(f_b) < cfg.relative_error*p_out_iter_b:
@@ -210,15 +209,15 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
                         C_inx_b = C_inx
                         p_out_iter_b = p_out_iter
                     else:
-                        registro.warning('No es posible determinar la acción a realizar, se aplica '
+                        registro.warning('No es posible determinar la acción a realizar, se va a aplicar '
                                          'una ligera desviación para solucionarlo.')
                         raise NonConvergenceError
                 except NonConvergenceError:
                     C_inx_b *= (1 + relative_security_distance)
                     C_inx_a *= (1 - relative_security_distance)
 
-                registro.info('Error de presión a la salida: %.10f  ...  Valor actual (Pa): %.3f',
-                              rel_error, p_out_iter)
+                registro.info('Error de presión a la salida: %.10f  ...  Valor actual (Pa): %.2f  ...  '
+                              'Valor objetivo (Pa): %.2f', rel_error, p_out_iter, p_out)
 
                 if iter_count > cfg.iter_limit:
                     registro.critical('No converge.')
