@@ -4,7 +4,6 @@ las condiciones de funcionamiento de la turbina axial que se defina.
 """
 
 import copy
-import math
 
 from math import log
 from time import time
@@ -12,12 +11,12 @@ from time import time
 from loss_model import *
 
 
-def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx: float | None):
+def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated: float | None):
     """ Decorador externo del método problem solver con la finalidad de definir los argumentos necesarios para permitir
     determinar las condiciones de funcionamiento dada la presión a la salida.
             :param cfg: Objeto que contiene la configuración establecida.
             :param p_out: Presión a la salida de la turbina (Pa).
-            :param C_inx: Registro para estimar la velocidad a la entrada que se debe recibir cuando se fija la
+            :param C_inx_stimated: Estimación de la velocidad a la entrada que se debe recibir cuando se fija la
                              presión a la salida."""
 
     def solver_inner_decorator(solver_method):
@@ -26,7 +25,7 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx: float |
 
         def iterate_ps():
             # Emplear esta función cuando el solver no tenga
-            nonlocal C_inx
+            C_inx = C_inx_stimated
             ps_list = None
 
             def read_ps_list():
@@ -37,29 +36,60 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx: float |
                 return new_p_out
 
             iter_count = 0
-            bolz = check = from_b = from_a = False
+            check = from_b = from_a = False
             # Puntos a, b tal que C_inx_b > C_inx_a
             delta = cfg.relative_jump
             C_inx_b = C_inx
-            C_inx_a = C_inx*(1 - delta)
+            C_inx_a = C_inx*(1 - (0.1*delta))
             p_out_iter_b = p_out_iter_a = None
             f_a = f_b = None
-            adim_steepness_param = None
+            adim_steepness_param = 0.0
+
+            def C_in_algorithm():
+                nonlocal C_inx_a, C_inx_b, check, from_a, from_b, adim_steepness_param, C_inx
+                adim_steepness_param = f_b*C_inx_b/p_out_iter_b
+                if P_B >= p_out:  # Nivel de avance en 'b'
+                    if (adim_steepness_param > -3.0) and (p_out_iter_b-p_out > 1000):
+                        C_inx_b = C_inx_b + ((p_out-p_out_iter_b)/f_b)
+                        C_inx_a = C_inx_b * (1 - delta)
+                        check = False  # Reset
+                    else:
+                        C_inx_a = C_inx_b
+                        C_inx_b = C_inx_b * (1 + delta)
+                        from_b = True
+                    C_inx = C_inx_b
+                elif P_A <= p_out:  # Nivel de retroceso en 'a'
+                    if (adim_steepness_param < -0.3) and (p_out-p_out_iter_a > 1000):
+                        C_inx_a = C_inx_a + ((p_out-p_out_iter_a)/f_a)
+                        C_inx_b = C_inx_a * (1 + delta)
+                        check = False  # Reset
+                    else:
+                        C_inx_b = C_inx_a
+                        C_inx_a = C_inx_a * (1 - delta)
+                        from_b = True
+                    C_inx = C_inx_a
+                else:
+                    registro.info('Se ha localizado la solución.')
+
+            def first_iter_exception_task():
+                registro.critical('Ha habido un error, quizás sea recomendable modificar la estimación de velocidad '
+                                  'a la entrada o modificar la configuración.')
+                sys.exit()
 
             def post_exception_tasks():
                 registro.warning('Se ha capturado una excepción.')
                 nonlocal C_inx_a, C_inx_b, delta
                 if p_out_iter_b*(1+relative_security_distance) > p_out:
-                    if p_out_iter_b-p_out > 1000 and adim_steepness_param < 3.0:
-                        C_inx_b = (C_inx_b - ((p_out-p_out_iter_b)/(f_b*math.e)))/(1+(1.5*delta))
+                    if p_out_iter_b-p_out > 1000 and adim_steepness_param > -3.0:
+                        C_inx_b = (C_inx_b - ((p_out-p_out_iter_b)/f_b))/(1+(1.5*delta))
                         C_inx_a = C_inx_b*(1-delta)
                     else:
                         C_inx_b = C_inx_b / (1 + (1.5*delta))
                         C_inx_a = C_inx_b * (1 - delta)
                         delta /= 1.1
                 elif p_out_iter_a*(1-relative_security_distance) < p_out:
-                    if p_out-p_out_iter_a > 1000:
-                        C_inx_a = (C_inx_a - ((p_out-p_out_iter_a)/(f_a*math.e)))/(1-(1.5*delta))
+                    if p_out-p_out_iter_a > 1000 and adim_steepness_param < -0.3:
+                        C_inx_a = (C_inx_a - ((p_out-p_out_iter_a)/f_a))/(1-(1.5*delta))
                         C_inx_b = C_inx_a*(1+delta)
                     else:
                         C_inx_a = C_inx_a / (1 - (1.5*delta))
@@ -81,28 +111,35 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx: float |
                 # Se debe tener en cuenta que el error numérico de los métodos empleados cuando convergen es menor
                 # cuanto más se itere.
                 relative_security_distance = 2*1E-4
-            # Se va a buscar el intervalo que contiene la solución
-            while not bolz:
 
+            # Se va a buscar el intervalo que contiene la solución
+            while True:
                 if not check:  # Primera vuelta
                     try:
                         ps_list = solver_method(C_inx_a)
                         p_out_iter_a = read_ps_list()
                         ps_list = solver_method(C_inx_b)
                         p_out_iter_b = read_ps_list()
-                        f_a = f_b = (p_out_iter_a - p_out_iter_b)/(C_inx_a - C_inx_b)
-                        check = True
-
                     except NonConvergenceError:
-                        registro.critical('Ha habido un error, quizás sea recomendable modificar la estimación de '
-                                          'velocidad a la entrada o modificar la configuración.')
-                        sys.exit()
-
+                        if C_inx_stimated*(1-cfg.relative_error) < C_inx < C_inx_stimated*(1+cfg.relative_error):
+                            first_iter_exception_task()
+                        else:
+                            post_exception_tasks()
                     except GasLibraryAdaptedException:
-                        registro.critical('Ha habido un error, quizás sea recomendable modificar la estimación de '
-                                          'velocidad a la entrada o modificar la configuración.')
-                        sys.exit()
-
+                        if C_inx_stimated*(1-cfg.relative_error) < C_inx < C_inx_stimated*(1+cfg.relative_error):
+                            first_iter_exception_task()
+                        else:
+                            post_exception_tasks()
+                    else:
+                        f_a = f_b = (p_out_iter_a - p_out_iter_b) / (C_inx_a - C_inx_b)
+                        check = True
+                        # Se evalúa si el nuevo rango contiene la solución.
+                        P_A = p_out_iter_a*(1-relative_security_distance)
+                        P_B = p_out_iter_b*(1+relative_security_distance)
+                        if (P_B-p_out)*(P_A-p_out) < 0:
+                            break
+                        else:
+                            C_in_algorithm()
                 else:
                     # Se capturan posibles excepciones (ver tendencia p_out vs m_dot)     
                     try:
@@ -130,37 +167,14 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx: float |
                         else:
                             registro.critical('Something went wrong.')
                             sys.exit()
-
+                    finally:
                         # Se evalúa si el nuevo rango contiene la solución.
                         P_A = p_out_iter_a*(1-relative_security_distance)
                         P_B = p_out_iter_b*(1+relative_security_distance)
                         if (P_B-p_out)*(P_A-p_out) < 0:
-                            bolz = True
-
-                        if not bolz:
-                            adim_steepness_param = fabs(f_b)*C_inx_b/p_out_iter_b
-                            if (p_out_iter_b*(1+relative_security_distance)) >= p_out:  # Nivel de avance en 'b'
-                                if adim_steepness_param < 3.0 and p_out_iter_b-p_out > 1000:
-                                    C_inx_b = C_inx_b + ((p_out-p_out_iter_b)/f_b)
-                                    C_inx_a = C_inx_b * (1 - delta)
-                                    check = False
-                                else:
-                                    C_inx_a = C_inx_b
-                                    C_inx_b = C_inx_b * (1 + delta)
-                                    C_inx = C_inx_b
-                                    from_b = True
-                            elif p_out_iter_a*(1-relative_security_distance) <= p_out:  # Nivel de retroceso en 'a'
-                                if adim_steepness_param > 0.3 and p_out-p_out_iter_a > 1000:
-                                    C_inx_a = C_inx_a + ((p_out-p_out_iter_a)/f_a)
-                                    C_inx_b = C_inx_a * (1 + delta)
-                                    check = False
-                                else:
-                                    C_inx_b = C_inx_a
-                                    C_inx_a = C_inx_a * (1 - delta)
-                                    C_inx = C_inx_a
-                                    from_a = True
-                            else:
-                                registro.info('Se ha localizado la solución.')
+                            break
+                        else:
+                            C_in_algorithm()
 
                 registro.info('Rango actual: [%.2f, %.2f]', p_out_iter_a, p_out_iter_b)
 
