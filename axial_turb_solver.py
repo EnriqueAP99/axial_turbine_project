@@ -69,7 +69,7 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
                     else:
                         C_inx_b = C_inx_a
                         C_inx_a = C_inx_a * (1 - delta)
-                        from_b = True
+                        from_a = True
                     C_inx = C_inx_a
                 else:
                     registro.info('Se ha localizado la solución.')
