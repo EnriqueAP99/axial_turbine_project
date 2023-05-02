@@ -107,8 +107,8 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
                 #  arbitrario o margen de seguridad por el que se asegure que el comportamiento no va a ser errático
                 #  como consecuencia del error de la estimación, garantizando que se verifica la condición del teorema
                 #  de Bolzano.
-                # Se debe tener en cuenta que el error numérico de los métodos empleados cuando convergen es menor
-                # cuanto más se itere.
+                #  Se debe tener en cuenta que el error numérico de los métodos empleados cuando convergen es menor
+                #  cuanto más se itere.
                 relative_security_distance = 1E-4
 
             # Se va a buscar el intervalo que contiene la solución
@@ -187,34 +187,41 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
                 registro.info('Rango actual: [%.2f, %.2f]  ...  Valor objetivo: %.2f',
                               p_out_iter_a, p_out_iter_b, p_out)
 
-            rel_error = 1.0
+            rel_error = None
             p_out_iter = None
 
-            while rel_error > cfg.relative_error:  # Se emplea régula falsi
+            while rel_error is None or rel_error > cfg.relative_error:  # Se emplea régula falsi
                 iter_count += 1
-                f_a = p_out_iter_a-p_out
-                f_b = p_out_iter_b-p_out
+                if rel_error is None:
+                    rel_error = 1E-4
+                # Tener en cuenta comportamiento decreciente entre pérdidas y rendimiento
+                f_a = (p_out_iter_a*(1+rel_error))-p_out
+                f_b = (p_out_iter_b*(1-rel_error))-p_out
                 diff_value = (f_b * (C_inx_b - C_inx_a) / (f_b - f_a))
                 C_inx = C_inx_b - diff_value
                 try:
                     ps_list = solver_method(C_inx, True, 0.1*rel_error)
                 except NonConvergenceError:
-                    C_inx_b *= (1 + relative_security_distance)
-                    C_inx_a *= (1 - relative_security_distance)
+                    C_inx_b *= (1 + cfg.relative_error)
+                    C_inx_a *= (1 - cfg.relative_error)
                 else:
                     p_out_iter = read_ps_list()
                     f_c = p_out_iter - p_out
                     relative_security_distance = rel_error = fabs(f_c) / p_out
-                    # La propagación del error del producto es la suma de los errores relativos
-                    if f_c * f_b <= -relative_security_distance*(p_out_iter+p_out_iter_b):
+                    if fabs(f_c) < cfg.relative_error*p_out_iter:
+                        C_inx_a = C_inx_b = C_inx
+                    elif fabs(f_b) < cfg.relative_error*p_out_iter_b:
+                        C_inx_a = C_inx_b
+                    elif fabs(f_a) < cfg.relative_error*p_out_iter_a:
+                        C_inx_b = C_inx_a
+                    elif f_c * f_b < 0:
                         C_inx_a = C_inx
                         p_out_iter_a = p_out_iter
-                    elif f_c * f_a <= -relative_security_distance*(p_out_iter+p_out_iter_a):
+                    elif f_c * f_a < 0:
                         C_inx_b = C_inx
                         p_out_iter_b = p_out_iter
                     else:
-                        registro.warning('No es posible determinar la acción a realizar, se va a aplicar '
-                                         'una ligera desviación para solucionarlo.')
+                        registro.warning('Decisión no efectuable. Aplicando ligera desviación.')
                         raise NonConvergenceError
 
                 registro.info('Error de presión a la salida: %.10f  ...  Valor actual (Pa): %.2f  ...  '
@@ -279,7 +286,7 @@ def step_decorator(cfg: config_parameters, step_corrector_memory):
                                     funcionamiento que se defina."""
 
             eta_TT_obj = 1 - (((1 - eta_TT) / (200_000 ** (-1 / 5))) * (Re ** (-1 / 5)))
-            relative_security_distance = 10*cfg.relative_error
+            relative_security_distance = cfg.relative_error
             f1 = f2 = None
             bolz_c = 1.0
 
@@ -323,7 +330,6 @@ def step_decorator(cfg: config_parameters, step_corrector_memory):
 
             rel_error_eta_TT = 1.0
             xi_ec = None
-            sif1 = sif2 = None
 
             while fabs(rel_error_eta_TT) > relative_error:
                 if xi_ec is None:
@@ -332,22 +338,22 @@ def step_decorator(cfg: config_parameters, step_corrector_memory):
                     fc, rho_seed_c = sifc[1] - eta_TT_obj, sifc[3]
                 else:
                     sif1 = get_sif_output(True, False, xi_e1, rho_seed_1)
-                    f1, rho_seed_1 = sif1[1] - eta_TT_obj, sif1[3]
+                    f1, rho_seed_1 = sif1[1]*(1+relative_security_distance) - eta_TT_obj, sif1[3]
                     sif2 = get_sif_output(True, False, xi_e2, rho_seed_2)
-                    f2, rho_seed_2 = sif2[1] - eta_TT_obj, sif2[3]
+                    f2, rho_seed_2 = sif2[1]*(1-relative_security_distance) - eta_TT_obj, sif2[3]
                     xi_ec = xi_e2 - (f2 * (xi_e2 - xi_e1) / (f2 - f1))
                     sifc = get_sif_output(True, False, xi_ec, rho_seed_c)
                     fc, rho_seed_c = sifc[1] - eta_TT_obj, sifc[3]
                 rel_error_eta_TT = fc / eta_TT_obj
                 registro.info('Corrección en proceso  ...  eta_TT: %.4f  ...  Error: %.4f',
                               float(sifc[1]), float(rel_error_eta_TT))
-                if fc * f2 <= -relative_security_distance*(sifc[1]+sif2[1]):
+                if fc * f2 <= 0:
                     xi_e1, rho_seed_1 = xi_ec, rho_seed_c
-                elif fc * f1 <= -relative_security_distance*(sifc[1]+sif1[1]):
+                elif fc * f1 <= 0:
                     xi_e2, rho_seed_2 = xi_ec, rho_seed_c
                 else:
-                    xi_e1 *= (1 - relative_security_distance)
-                    xi_e2 *= (1 + relative_security_distance)
+                    registro.critical('Intervalo no válido.')
+                    raise NonConvergenceError
 
             _, _, _, _, ll_1 = get_sif_output(True, True, xi_ec, rho_seed_c)
             registro.info('Corrección finalizada.')
