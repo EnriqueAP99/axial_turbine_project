@@ -84,14 +84,12 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
                 nonlocal C_inx_a, C_inx_b, delta, check
                 C_inx_a, C_inx_b = pre_C_inx_a, pre_C_inx_b
                 if p_out_iter_b*(1+relative_security_distance) > p_out:
-                    C_inx_b = (C_inx_b + C_inx_a)/2
                     if p_out_iter_b-p_out > 1000 and adim_steepness_param > -3.0:
                         check = False
                     else:
                         delta /= 2.5
 
                 elif p_out_iter_a*(1-relative_security_distance) < p_out:
-                    C_inx_a = (C_inx_b + C_inx_a)/2
                     if p_out-p_out_iter_a > 1000 and adim_steepness_param < -0.3:
                         check = False
                     else:
