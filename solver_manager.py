@@ -172,7 +172,7 @@ def problem_data_viewer(solver: solver_object, req_vars=None) -> None:
 
 
 def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_sweep: str,
-                 m_dot=None, p_out=None, C_inx_ref=None, jump: float = None, req_vars: list = None):
+                 m_dot=None, p_out=None, C_inx_ref=None, resolution: float | int = None, req_vars: list = None):
     """ El rango debe ser creciente. """
     k = 0
     just_once = [True, True]
@@ -220,11 +220,10 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
         elif var_to_sweep == 'm_dot':
             m_dot = value
 
-    if jump is None:
-        jump = 200
-    resolution = 1 + int((sweep_data[var_to_sweep][1] - sweep_data[var_to_sweep][0]) // jump)
-
-    while k <= resolution - 1:
+    if resolution is None:
+        resolution = 200
+    jump = (sweep_data[var_to_sweep][1] - sweep_data[var_to_sweep][0]) / (resolution - 1)
+    while k < resolution:
 
         value_k = sweep_data[var_to_sweep][0] + (k * jump)
         set_value(value_k)
@@ -332,7 +331,7 @@ def main_2():
     solver = solver_object(settings, gas_model)
 
     df_a, df_b, df_c = var_sweeping(solver, T_in=1100, p_in=400_000, n_rpm=17_000, var_to_sweep='p_out',
-                                    C_inx_ref=140, p_out=[203_000, 400_000])
+                                    C_inx_ref=140, p_out=[203_000, 400_000], resolution=200)
 
     df_a.to_csv('df_a.csv')
     df_b.to_csv('df_b.csv')
