@@ -221,7 +221,7 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
             m_dot = value
 
     if jump is None:
-        jump = 250
+        jump = 200
     resolution = 1 + int((sweep_data[var_to_sweep][1] - sweep_data[var_to_sweep][0]) // jump)
 
     while k <= resolution - 1:

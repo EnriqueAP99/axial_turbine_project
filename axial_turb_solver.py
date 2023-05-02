@@ -123,18 +123,18 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
                     except NonConvergenceError:
                         if first:
                             first_iter_exception_task()
-                            first = False
                         else:
                             p_out_iter_a = pre_p_out_iter_a
                             post_exception_tasks()
                     except GasLibraryAdaptedException:
                         if first:
                             first_iter_exception_task()
-                            first = False
                         else:
                             p_out_iter_a = pre_p_out_iter_a
                             post_exception_tasks()
                     else:
+                        if first:
+                            first = False
                         f_a = f_b = (p_out_iter_a - p_out_iter_b) / (C_inx_a - C_inx_b)
                         ff = (f_b - f_a)/(C_inx_b - C_inx_a)
                         check = True
@@ -224,8 +224,8 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
                         registro.warning('Decisión no efectuable. Aplicando ligera desviación.')
                         raise NonConvergenceError
 
-                registro.info('Error de presión a la salida: %.10f  ...  Valor actual (Pa): %.2f  ...  '
-                              'Valor objetivo (Pa): %.2f', rel_error, p_out_iter, p_out)
+                registro.info('Error de presión a la salida: %.10f  ...  Valor actual: %.2f Pa ...  '
+                              'Valor objetivo: %.2f Pa', rel_error, p_out_iter, p_out)
 
                 if iter_count > cfg.iter_limit:
                     registro.critical('No converge.')
