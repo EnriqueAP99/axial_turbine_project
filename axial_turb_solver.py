@@ -198,17 +198,15 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
                 C_inx = C_inx_b - diff_value
                 try:
                     ps_list = solver_method(C_inx, True, 0.1*rel_error)
+                except NonConvergenceError:
+                    C_inx_b *= (1 + relative_security_distance)
+                    C_inx_a *= (1 - relative_security_distance)
+                else:
                     p_out_iter = read_ps_list()
                     f_c = p_out_iter - p_out
                     relative_security_distance = rel_error = fabs(f_c) / p_out
-                    if fabs(f_c) < cfg.relative_error*p_out_iter:
-                        C_inx_a = C_inx_b = C_inx
-                    elif fabs(f_b) < cfg.relative_error*p_out_iter_b:
-                        C_inx_a = C_inx_b
-                    elif fabs(f_a) < cfg.relative_error*p_out_iter_a:
-                        C_inx_b = C_inx_a
                     # La propagación del error del producto es la suma de los errores relativos
-                    elif f_c * f_b <= -relative_security_distance*(p_out_iter+p_out_iter_b):
+                    if f_c * f_b <= -relative_security_distance*(p_out_iter+p_out_iter_b):
                         C_inx_a = C_inx
                         p_out_iter_a = p_out_iter
                     elif f_c * f_a <= -relative_security_distance*(p_out_iter+p_out_iter_a):
@@ -218,9 +216,6 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
                         registro.warning('No es posible determinar la acción a realizar, se va a aplicar '
                                          'una ligera desviación para solucionarlo.')
                         raise NonConvergenceError
-                except NonConvergenceError:
-                    C_inx_b *= (1 + relative_security_distance)
-                    C_inx_a *= (1 - relative_security_distance)
 
                 registro.info('Error de presión a la salida: %.10f  ...  Valor actual (Pa): %.2f  ...  '
                               'Valor objetivo (Pa): %.2f', rel_error, p_out_iter, p_out)
