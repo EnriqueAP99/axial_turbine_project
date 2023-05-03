@@ -90,9 +90,9 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                 # This is convenient for approaching a solution where the variation of p_out against C_in is high.
                 solver_relative_error = cfg.relative_error
             else:
-                #  If the accurate approach option was not chosen, it is very advisable considering the error from
-                #  solver's output. It ensures that the behavior will not be erratic as a consequence of this error,
-                #  guaranteeing that the condition from Bolzano's theorem is verified.
+                #  If the accurate approach option was not chosen, the error from solver's output must be taken into
+                #  account. It ensures that the behavior will not be erratic as a consequence of the error during
+                #  the approach.
                 #  It should be noted that, when problem has convergence, the numerical error from all methods being
                 #  used is smaller the more iterations are performed for the same input values.
                 solver_relative_error = 1E-4
@@ -145,7 +145,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                     else:
                         C_in_algorithm()
 
-                record.info('Rango actual: [%.2f, %.2f]  ...  Valor objetivo: %.2f',
+                record.info('Current range: [%.2f, %.2f]  ...  Target value: %.2f',
                             p_out_iter_a, p_out_iter_b, p_out)
 
             rel_error = None
@@ -160,8 +160,11 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                     f_b = (p_out_iter_b*(1-rel_error))-p_out
                 diff_value = (f_b * (C_inx_b - C_inx_a) / (f_b - f_a))
                 C_inx = C_inx_b - diff_value
+                solver_relative_error = 0.1*rel_error
+                if solver_relative_error < cfg.relative_error:
+                    solver_relative_error = cfg.relative_error
                 try:
-                    ps_list = inner_funtion_from_problem_solver(C_inx, True, 0.1 * rel_error)
+                    ps_list = inner_funtion_from_problem_solver(C_inx, True, solver_relative_error)
                 except NonConvergenceError:
                     # This event will most likely never happen if iter counter limit is high enough.
                     C_inx_b *= (1 + cfg.relative_error)
@@ -171,7 +174,8 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                     C_inx_a *= (1 - cfg.relative_error)
                 else:
                     p_out_iter = read_ps_list()
-                    f_c = [(p_out_iter*(1-0.1*rel_error)) - p_out, (p_out_iter*(1+0.1*rel_error)) - p_out]
+                    f_c = [(p_out_iter * (1-solver_relative_error)) - p_out,
+                           (p_out_iter * (1+solver_relative_error)) - p_out]
                     if f_c[1] * f_b < 0:
                         f_c = f_a = f_c[1]
                         C_inx_a = C_inx
