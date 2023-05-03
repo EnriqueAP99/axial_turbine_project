@@ -152,7 +152,6 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                         break
                     elif (P_B[0]-p_out)*(P_A[1]-p_out) <= 0:  # Less restrictive option
                         f_ad = fabs((p_out_iter_b - p_out_iter_a)/(C_inx_b - C_inx_a))*C_inx_a/p_out
-
                         C_inx_b, C_inx_a = C_inx_b*(1+(delta/f_ad)), C_inx_a*(1-(delta/f_ad))
                         start = False  # Reset required
                     else:
@@ -179,29 +178,32 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                 try:
                     ps_list = inner_funtion_from_problem_solver(C_inx, True, solver_relative_error)
                 except NonConvergenceError:
-                    # This event will most likely never happen if iter counter limit is high enough.
-                    C_inx_b *= (1 + cfg.relative_error)
-                    C_inx_a *= (1 - cfg.relative_error)
+                    # This event will most likely only happen because of the light deviation or when iter counter
+                    # limit is not high enough.
+                    C_inx_b, C_inx_a = pre_C_inx_b, pre_C_inx_a
+                    delta /= 2.5
                 except GasLibraryAdaptedException:
-                    C_inx_b *= (1 + cfg.relative_error)
-                    C_inx_a *= (1 - cfg.relative_error)
+                    C_inx_b, C_inx_a = pre_C_inx_b, pre_C_inx_a
+                    delta /= 2.5
                 else:
+                    pre_C_inx_b, pre_C_inx_a = C_inx_b, C_inx_a
                     p_out_iter = read_ps_list()
                     f_c = [(p_out_iter * (1+(sign*solver_relative_error))) - p_out for sign in [-1, 1]]
                     if f_c[0] * f_b < 0:  # Most restrictive option
                         f_c = f_a = f_c[0]
                         C_inx_a = C_inx
                         p_out_iter_a = p_out_iter
-                        solver_relative_error = rel_error = fabs(f_c) / p_out
+                        rel_error = fabs(f_c) / p_out
                     elif f_c[1] * f_a < 0:  # Most restrictive option
                         f_c = f_b = f_c[1]
                         C_inx_b = C_inx
                         p_out_iter_b = p_out_iter
-                        solver_relative_error = rel_error = fabs(f_c) / p_out
+                        rel_error = fabs(f_c) / p_out
                     else:
                         record.error('Decisión no efectuable. Aplicando ligera desviación.')
-                        C_inx_b *= (1 + cfg.relative_error)
-                        C_inx_a *= (1 - cfg.relative_error)
+                        f_ad = fabs((p_out_iter_b - p_out_iter_a)/(C_inx_b - C_inx_a))*C_inx_a/p_out
+                        pre_C_inx_b, pre_C_inx_a = C_inx_b, C_inx_a
+                        C_inx_b, C_inx_a = C_inx_b*(1+(delta/f_ad)), C_inx_a*(1-(delta/f_ad))
 
                 record.info('Error de presión a la salida: %.10f  ...  Valor actual: %.2f Pa ...  '
                             'Valor objetivo: %.2f Pa', rel_error, p_out_iter, p_out)
