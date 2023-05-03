@@ -44,13 +44,13 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
 
             iter_count = 0
             from_b = from_a = False
-            first = True
+            start = first_iter = True
             # Points "a" and "b" such that C_inx_b > C_inx_a.
             delta = cfg.relative_jump
             C_inx_b = C_inx
             C_inx_a = C_inx*(1 - (0.1*delta))
             pre_C_inx_a, pre_C_inx_b = C_inx_b, C_inx_a
-            p_out_iter_b = p_out_iter_a = None
+            p_out_iter_b = p_out_iter_a = pre_p_out_iter_a = None
 
             def C_in_algorithm():
                 nonlocal C_inx_a, C_inx_b, from_a, from_b, C_inx, pre_C_inx_a, pre_C_inx_b
@@ -62,7 +62,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                     C_inx_b = C_inx_b * (1 + delta)
                     from_b = True  # To indicate where does the process flow come from
                     C_inx = C_inx_b
-                else:
+                elif P_A[1] <= p_out:
                     # Here goes the level to decrease velocity at point "a".
                     C_inx_b = C_inx_a
                     C_inx_a = C_inx_a * (1 - delta)
@@ -78,11 +78,13 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
 
             def post_exception_tasks():
                 record.warning('An exception was caught.')
-                nonlocal C_inx_a, C_inx_b, delta
+                nonlocal C_inx_a, C_inx_b, delta, p_out_iter_a
                 # Returning to previous values.
                 C_inx_a, C_inx_b = pre_C_inx_a, pre_C_inx_b
                 # Then, reducing the relative jump.
                 delta /= 2.5
+                if start:
+                    p_out_iter_a = pre_p_out_iter_a
                 return
 
             record.info('Searching for a range containing the solution.')
@@ -100,26 +102,29 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
             # The search begins.
             while True:
                 try:
-                    if first:
+                    if start:
+                        pre_p_out_iter_a = p_out_iter_a
                         ps_list = inner_funtion_from_problem_solver(C_inx_a)
                         p_out_iter_a = read_ps_list()
                         ps_list = inner_funtion_from_problem_solver(C_inx_b)
                         p_out_iter_b = read_ps_list()
+                        if first_iter:
+                            first_iter = False
                     else:
                         ps_list = inner_funtion_from_problem_solver(C_inx)
                 except NonConvergenceError:
-                    if first:
+                    if first_iter:
                         first_iter_exception_task()
                     else:
                         post_exception_tasks()
                 except GasLibraryAdaptedException:
-                    if first:
+                    if first_iter:
                         first_iter_exception_task()
                     else:
                         post_exception_tasks()
                 else:
-                    if first:
-                        first = False
+                    if start:
+                        start = False
                     else:
                         p_out_iter = read_ps_list()
                         if from_b:
@@ -137,15 +142,15 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                             sys.exit()
                 finally:
                     # It is evaluated whether the new range contains the solution.
-                    P_A = [p_out_iter_a*(1-(sign*solver_relative_error)) for sign in [-1, 1]]
-                    P_B = [p_out_iter_a*(1-(sign*solver_relative_error)) for sign in [-1, 1]]
-                    if (P_B[0]-p_out)*(P_A[1]-p_out) <= 0:
+                    P_A = [p_out_iter_a*(1+(sign*solver_relative_error)) for sign in [-1, 1]]
+                    P_B = [p_out_iter_a*(1+(sign*solver_relative_error)) for sign in [-1, 1]]
+                    if (P_B[1]-p_out)*(P_A[0]-p_out) <= 0:  # Most restrictive option
                         record.info('The solution has been found.')
                         break
-                    elif (P_B[0]-p_out)*(P_A[1]-p_out) <= 0 or (P_B[1]-p_out)*(P_B[0]-p_out) <= 0 or \
-                         (P_A[1]-p_out)*(P_A[0]-p_out) <= 0:
-                        C_inx_b, C_inx_a = C_inx_b*(1+solver_relative_error), C_inx_a*(1-solver_relative_error)
-                        first = False
+                    elif (P_B[0]-p_out)*(P_A[1]-p_out) <= 0:  # Less restrictive option
+                        f_ad = fabs((p_out_iter_b - p_out_iter_a)/(C_inx_b - C_inx_a))*C_inx_a/p_out
+                        C_inx_b, C_inx_a = C_inx_b*(1+(delta/f_ad)), C_inx_a*(1-(delta/f_ad))
+                        start = False  # Reset required
                     else:
                         C_in_algorithm()
 
