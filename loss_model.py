@@ -11,7 +11,7 @@ import numpy as np
 # https://www.youtube.com/watch?v=tTG5Re5G7B8&ab_channel=Petr%C3%B3leoyprogramaci%C3%B3nSMAE
 
 
-def Reynolds(num: int, rho_2: float, C_2: float, T_2: float, config: config_parameters, productos: gas_model_to_solver):
+def Reynolds(num: int, rho_2: float, C_2: float, T_2: float, config: config_class, productos: gas_model_to_solver):
     """ Se calcula el número de Reynolds usando el diámetro hidráulico y las propiedades del fluido a la salida del
     estátor.
             :param num: Número identificador de la corona que se evalúa.
@@ -56,7 +56,7 @@ class Ainley_and_Mathieson_Loss_Model:  # Ver paper: https://apps.dtic.mil/sti/p
     interpolando con cada llamada al módulo actual, sino que se llamará a una instancia del objeto que se inicializó
     durante la configuración del solver."""
 
-    def __init__(self, cfg: config_parameters):
+    def __init__(self, cfg: config_class):
         """ :param cfg: Argumento necesario para tener acceso a los parámetros geométricos que contiene dicho objeto."""
 
         self.cfg = cfg
@@ -134,7 +134,7 @@ class Ainley_and_Mathieson_Loss_Model:  # Ver paper: https://apps.dtic.mil/sti/p
         for num, cuerda in enumerate(self.cfg.geom['b']):
             solidez = cuerda / self.cfg.geom['s'][num]
             if 1/solidez < 0.3 or 1/solidez > 1:
-                registro.warning('La solidez del %s del escalonamiento %s excede el rango de valores para los que '
+                record.warning('La solidez del %s del escalonamiento %s excede el rango de valores para los que '
                                  'existe función. El valor es %.2f y los límites son [1.0, 2.5].',
                                  'estátor' if bool((num+1) % 2) else 'rótor', (num//2) + 1, solidez)
 
@@ -144,8 +144,8 @@ class Ainley_and_Mathieson_Loss_Model:  # Ver paper: https://apps.dtic.mil/sti/p
         for i in range(self.cfg.n_steps*2):
             x_value = degrees(acos(throat_distance[i] / pitch[i]))
             if x_value < 35 or x_value > 80:
-                registro.warning('El valor de acos(o/s) excede los límites de la correlación. Valor: %.1f; Límites: %s',
-                                 x_value, [35, 80])
+                record.warning('El valor de acos(o/s) excede los límites de la correlación. Valor: %.1f; Límites: %s',
+                               x_value, [35, 80])
             tau_2_ast_value = self.tau_2_ast[1](x_value)
             flow_angle = tau_2_ast_value + 4 * (pitch[i] / mean_radius_curvature[i])
             self.outlet_angle_before_mod.append(radians(flow_angle))
@@ -181,7 +181,7 @@ class Ainley_and_Mathieson_Loss_Model:  # Ver paper: https://apps.dtic.mil/sti/p
             str_rm_logger = "El radio medio ha sido corregido acorde al diámetro de referencia del modelo AM: "
             for _ in r_corregidos:
                 str_rm_logger += "  ...  %.3f m"
-            registro.info(str_rm_logger, *r_corregidos)
+            record.info(str_rm_logger, *r_corregidos)
         return
 
     def calculating_incidence_stall_incidence_fraction(self, tau_1: float, tau_2: float):
@@ -193,7 +193,7 @@ class Ainley_and_Mathieson_Loss_Model:  # Ver paper: https://apps.dtic.mil/sti/p
         alpha_2_sc075 = tau_2 / a2_a2sc075
         if self.limit_mssg[0]:
             if alfap_1 / alpha_2_sc075 < -1.1 or alfap_1 / alpha_2_sc075 > 1:
-                registro.warning('La relación B.A. - Ángulo de salida (s/c=0.75) sobrepasa los límites válidos. '
+                record.warning('La relación B.A. - Ángulo de salida (s/c=0.75) sobrepasa los límites válidos. '
                                  'El valor es %.2f y los límites son [-1.1, 1].', alfap_1 / alpha_2_sc075)
                 self.limit_mssg[0] = False
 
@@ -204,7 +204,7 @@ class Ainley_and_Mathieson_Loss_Model:  # Ver paper: https://apps.dtic.mil/sti/p
 
         if self.limit_mssg[1]:
             if i_is > 1.7 or i_is < -4.1:
-                registro.warning('La relación entre la incidencia y la incidencia de desprendimiento sobrepasa los '
+                record.warning('La relación entre la incidencia y la incidencia de desprendimiento sobrepasa los '
                                  'límites de validez del ajuste. El valor es %.3f y los límites son [-4.1, 1.7]', i_is)
                 self.limit_mssg[1] = False
 
@@ -230,13 +230,13 @@ class Ainley_and_Mathieson_Loss_Model:  # Ver paper: https://apps.dtic.mil/sti/p
 
         if t_max_b < 0.15:
             if self.limit_mssg[2]:
-                registro.warning('La relación espesor-cuerda es demasiado baja, se ha corregido el valor.')
+                record.warning('La relación espesor-cuerda es demasiado baja, se ha corregido el valor.')
                 self.limit_mssg[2] = False
             t_max_b = 0.15
 
         elif t_max_b > 0.25:
             if self.limit_mssg[2]:
-                registro.warning('La relación espesor-cuerda es demasiado alta, se ha corregido el valor.')
+                record.warning('La relación espesor-cuerda es demasiado alta, se ha corregido el valor.')
                 self.limit_mssg[2] = False
             t_max_b = 0.25
 
@@ -335,7 +335,7 @@ class Ainley_and_Mathieson_Loss_Model:  # Ver paper: https://apps.dtic.mil/sti/p
 
 
 class Aungier_Loss_Model(Ainley_and_Mathieson_Loss_Model):
-    def __init__(self, cfg: config_parameters):
+    def __init__(self, cfg: config_class):
         super().__init__(cfg)
 
         s_e = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]

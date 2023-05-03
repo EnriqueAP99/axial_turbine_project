@@ -251,8 +251,8 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
 
 def main_1(fast_mode, action):
     if action == 'procesar_y_guardar':
-        settings = config_parameters(relative_error=1E-11, n_steps=1, relative_jump=0.004, loss_model='Aungier',
-                                     ideal_gas=True, chain_mode=fast_mode, iter_limit=800)
+        settings = config_class(relative_error=1E-11, n_steps=1, relative_jump=0.004, loss_model='Aungier',
+                                ideal_gas=True, chain_mode=fast_mode, iter_limit=800)
 
         Rm = 0.1429
         heights = [0.0445 for _ in range(3)]
@@ -304,9 +304,9 @@ def main_1(fast_mode, action):
 
 
 def main_2():
-    settings = config_parameters(relative_error=1E-11, accurate_approach=False, ideal_gas=True,
-                                 n_steps=1, relative_jump=0.04, loss_model='Aungier',
-                                 chain_mode=False, iter_limit=2000, maximum_ups_and_downs=6)
+    settings = config_class(relative_error=1E-11, accurate_approach=False, ideal_gas=True,
+                            n_steps=1, relative_jump=0.04, loss_model='Aungier',
+                            chain_mode=False, iter_limit=2000, maximum_ups_and_downs=6)
 
     Rm = 0.1429
     heights = [0.0445 for _ in range(3)]

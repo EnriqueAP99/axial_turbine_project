@@ -1,6 +1,7 @@
 """
-En este módulo se crea una clase que, con sus métodos y con herramientas de otros módulos, permite determinar
-las condiciones de funcionamiento de la turbina axial que se defina.
+This module creates a class that allows to determine the operating conditions of the axial turbine to be defined, given
+the temperature and pressure at the entrance and another variable such as inlet speed, mass flow or pressure at the
+outlet.
 """
 
 import copy
@@ -11,21 +12,27 @@ from time import time
 from loss_model import *
 
 
-def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated: float | None):
-    """ Decorador externo del método problem solver con la finalidad de definir los argumentos necesarios para permitir
-    determinar las condiciones de funcionamiento dada la presión a la salida.
-            :param cfg: Objeto que contiene la configuración establecida.
-            :param p_out: Presión a la salida de la turbina (Pa).
-            :param C_inx_stimated: Estimación de la velocidad a la entrada que se debe recibir cuando se fija la
-                             presión a la salida."""
+def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: float | None):
+    """
+    Outer decorator of solver's main method in order to define the necessary arguments to handle it and allow
+    to determine the operating conditions given the pressure at the outlet.
 
-    def solver_inner_decorator(solver_method):
-        """ Decorador interno que gestiona la función interna del método problem_solver de la clase solver.
-                            :param solver_method: Función que se decora. """
+    Args:
+        cfg: This is an object containing the configuration set.
+        p_out: Pressure at the turbine outlet (Pa).
+        C_inx_estimated: Estimated inlet velocity to be received when the outlet pressure is set (m/s).
+    """
+
+    def solver_inner_decorator(inner_funtion_from_problem_solver):
+        """ Inner decorator that manages the internal function of the problem_solver method from solver_class.
+
+        Args:
+            inner_funtion_from_problem_solver: Funtion to be decorated.
+        """
 
         def iterate_ps():
-            # Emplear esta función cuando el solver no tenga
-            C_inx = C_inx_stimated
+            """ Function to be used whenever the spline attribute of the solver is not set. """
+            C_inx = C_inx_estimated
             ps_list = None
 
             def read_ps_list():
@@ -38,7 +45,7 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
             iter_count = 0
             check = from_b = from_a = False
             first = True
-            # Puntos a, b tal que C_inx_b > C_inx_a
+            # Points "a" and "b" such that C_inx_b > C_inx_a.
             delta = cfg.relative_jump
             C_inx_b = C_inx
             C_inx_a = C_inx*(1 - (0.1*delta))
@@ -51,74 +58,73 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
                 nonlocal C_inx_a, C_inx_b, check, from_a, from_b, adim_steepness_param, C_inx, pre_C_inx_a, pre_C_inx_b
                 adim_steepness_param = f_b*C_inx_b/p_out_iter_b
                 pre_C_inx_a, pre_C_inx_b = C_inx_a, C_inx_b
-                if P_B >= p_out:  # Nivel de avance en 'b'
+                if P_B >= p_out:
+                    # Here goes the level to increase the velocity at point "b".
                     if (-0.3 > adim_steepness_param > -3.0) and (p_out_iter_b-p_out > 1000):
-                        C_inx_b = C_inx_b + ((p_out-p_out_iter_b)/(f_b+((C_inx_b-C_inx_a)*ff)))
+                        # Shotcut for speeding up
+                        C_inx_b = C_inx_b + ((p_out-p_out_iter_b)/f_b)
                         C_inx_a = C_inx_b * (1 - delta)
-                        check = False  # Reset
+                        check = False  # Reset (It is necessary to recalculate both derivatives)
                     else:
+                        # Simple step
                         C_inx_a = C_inx_b
                         C_inx_b = C_inx_b * (1 + delta)
-                        from_b = True
+                        from_b = True  # To indicate where does the process flow come from
                     C_inx = C_inx_b
-                elif P_A <= p_out:  # Nivel de retroceso en 'a'
-                    if (-3.0 < adim_steepness_param < -0.3) and (p_out-p_out_iter_a > 1000):
-                        C_inx_a = C_inx_a + ((p_out-p_out_iter_a)/(f_a+((C_inx_a-C_inx_b)*ff)))
+                else:
+                    # Here goes the level to decrease the velocity at point "a".
+                    if (-3.5 < adim_steepness_param < -1.0) and (p_out-p_out_iter_a > 1000):
+                        # Shotcut for speeding up
+                        C_inx_a = C_inx_a + ((p_out-p_out_iter_a)/f_a)
                         C_inx_b = C_inx_a * (1 + delta)
                         check = False  # Reset
                     else:
+                        # Simple step
                         C_inx_b = C_inx_a
                         C_inx_a = C_inx_a * (1 - delta)
                         from_a = True
                     C_inx = C_inx_a
-                else:
-                    registro.info('Se ha localizado la solución.')
 
             def first_iter_exception_task():
-                registro.critical('Ha habido un error, quizás sea recomendable modificar la estimación de velocidad '
-                                  'a la entrada o modificar la configuración.')
+                record.critical('An error has occurred. It is recommended to modify the speed estimation at the '
+                                'inlet or to modify the configuration.')
                 sys.exit()
 
             def post_exception_tasks():
-                registro.warning('Se ha capturado una excepción.')
+                record.warning('An exception was caught.')
                 nonlocal C_inx_a, C_inx_b, delta, check
+                # Setting the previous values back in first place.
                 C_inx_a, C_inx_b = pre_C_inx_a, pre_C_inx_b
-                if p_out_iter_b*(1+relative_security_distance) > p_out:
-                    if p_out_iter_b-p_out > 1000 and adim_steepness_param > -3.0:
-                        check = False
-                    else:
-                        delta /= 2.5
-
-                elif p_out_iter_a*(1-relative_security_distance) < p_out:
-                    if p_out-p_out_iter_a > 1000 and adim_steepness_param < -0.3:
-                        check = False
-                    else:
-                        delta /= 2.5
+                if (p_out-p_out_iter_a > 1000 or p_out_iter_b-p_out > 1000) and -3.5 < adim_steepness_param < -1.0:
+                    # This event is very likely to never happen.
+                    C_inx_b *= (1 - cfg.relative_error)
+                    C_inx_a *= (1 + cfg.relative_error)
+                    check = False
                 else:
-                    registro.critical('Houston, we got a problem.')
+                    # Reducing the relative jump.
+                    delta /= 2.5
                 return
 
-            registro.info('Se va a buscar un intervalo que contenga la solución.')
+            record.info('Searching for a range containing the solution.')
             if cfg.accurate_approach:
-                # Quizás sea conveniente para aproximar un punto en el que la variación de p_out frente a C_in sea alta.
-                relative_security_distance = cfg.relative_error
+                # This is convenient for approaching a solution where the variation of p_out against C_in is high.
+                solver_relative_error = cfg.relative_error
             else:
-                #  Si no se hace aproximación precisa para así acelerar el proceso, es conveniente establecer un límite
-                #  arbitrario o margen de seguridad por el que se asegure que el comportamiento no va a ser errático
-                #  como consecuencia del error de la estimación, garantizando que se verifica la condición del teorema
-                #  de Bolzano.
-                #  Se debe tener en cuenta que el error numérico de los métodos empleados cuando convergen es menor
-                #  cuanto más se itere.
-                relative_security_distance = 1E-4
+                #  If the accurate approach option was not chosen, it is very advisable considering the error from
+                #  solver's output. It ensures that the behavior will not be erratic as a consequence of this error,
+                #  guaranteeing that the condition from Bolzano's theorem is verified.
+                #  It should be noted that, when problem has convergence, the numerical error from all methods being
+                #  used is smaller the more iterations are performed for the same input values.
+                solver_relative_error = 1E-4
 
-            # Se va a buscar el intervalo que contiene la solución
+            # The search begins.
             while True:
-                if not check:  # Primera vuelta
+                if not check:  # First round
                     try:
                         pre_p_out_iter_a = p_out_iter_a
-                        ps_list = solver_method(C_inx_a)
+                        ps_list = inner_funtion_from_problem_solver(C_inx_a)
                         p_out_iter_a = read_ps_list()
-                        ps_list = solver_method(C_inx_b)
+                        ps_list = inner_funtion_from_problem_solver(C_inx_b)
                         p_out_iter_b = read_ps_list()
                     except NonConvergenceError:
                         if first:
@@ -136,20 +142,20 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
                         if first:
                             first = False
                         f_a = f_b = (p_out_iter_a - p_out_iter_b) / (C_inx_a - C_inx_b)
-                        ff = (f_b - f_a)/(C_inx_b - C_inx_a)
                         check = True
                     finally:
-                        # Se evalúa si el nuevo rango contiene la solución.
-                        P_A = p_out_iter_a*(1-relative_security_distance)
-                        P_B = p_out_iter_b*(1+relative_security_distance)
+                        # It is evaluated whether the new range contains the solution.
+                        P_A = p_out_iter_a*(1-solver_relative_error)
+                        P_B = p_out_iter_b*(1+solver_relative_error)
                         if (P_B-p_out)*(P_A-p_out) < 0:
+                            record.info('The solution has been found.')
                             break
                         else:
                             C_in_algorithm()
                 else:
                     # Se capturan posibles excepciones (ver tendencia p_out vs m_dot)     
                     try:
-                        ps_list = solver_method(C_inx)
+                        ps_list = inner_funtion_from_problem_solver(C_inx)
                     except NonConvergenceError:
                         post_exception_tasks()
                     except GasLibraryAdaptedException:
@@ -162,7 +168,6 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
                             p_out_iter_b = p_out_iter
                             f_a = f_b
                             f_b = (p_out_iter_b - p_out_iter_a)/(C_inx_b - C_inx_a)
-                            ff = (f_b - f_a)/(C_inx_b - C_inx_a)
                             from_b = False
                         elif from_a:
                             # Se procede del nivel de retroceso de a
@@ -170,22 +175,22 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
                             p_out_iter_a = p_out_iter
                             f_b = f_a
                             f_a = (p_out_iter_a - p_out_iter_b)/(C_inx_a - C_inx_b)
-                            ff = (f_b - f_a)/(C_inx_b - C_inx_a)
                             from_a = False
                         else:
-                            registro.critical('Something went wrong.')
+                            record.critical('Something went wrong.')
                             sys.exit()
                     finally:
                         # Se evalúa si el nuevo rango contiene la solución.
-                        P_A = p_out_iter_a*(1-relative_security_distance)
-                        P_B = p_out_iter_b*(1+relative_security_distance)
+                        P_A = p_out_iter_a*(1-solver_relative_error)
+                        P_B = p_out_iter_b*(1+solver_relative_error)
                         if (P_B-p_out)*(P_A-p_out) < 0:
+                            record.info('The solution has been found.')
                             break
                         else:
                             C_in_algorithm()
 
-                registro.info('Rango actual: [%.2f, %.2f]  ...  Valor objetivo: %.2f',
-                              p_out_iter_a, p_out_iter_b, p_out)
+                record.info('Rango actual: [%.2f, %.2f]  ...  Valor objetivo: %.2f',
+                            p_out_iter_a, p_out_iter_b, p_out)
 
             rel_error = None
             p_out_iter = None
@@ -193,21 +198,25 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
             while rel_error is None or rel_error > cfg.relative_error:  # Se emplea régula falsi
                 iter_count += 1
                 if rel_error is None:
-                    rel_error = relative_security_distance
+                    rel_error = solver_relative_error
                 # Tener en cuenta comportamiento decreciente entre pérdidas y rendimiento
                 f_a = (p_out_iter_a*(1+rel_error))-p_out
                 f_b = (p_out_iter_b*(1-rel_error))-p_out
                 diff_value = (f_b * (C_inx_b - C_inx_a) / (f_b - f_a))
                 C_inx = C_inx_b - diff_value
                 try:
-                    ps_list = solver_method(C_inx, True, 0.1*rel_error)
+                    ps_list = inner_funtion_from_problem_solver(C_inx, True, 0.1 * rel_error)
                 except NonConvergenceError:
+                    # This event will most likely never happen if iter counter limit is high enough.
+                    C_inx_b *= (1 + cfg.relative_error)
+                    C_inx_a *= (1 - cfg.relative_error)
+                except GasLibraryAdaptedException:
                     C_inx_b *= (1 + cfg.relative_error)
                     C_inx_a *= (1 - cfg.relative_error)
                 else:
                     p_out_iter = read_ps_list()
                     f_c = p_out_iter - p_out
-                    relative_security_distance = rel_error = fabs(f_c) / p_out
+                    solver_relative_error = rel_error = fabs(f_c) / p_out
                     if fabs(f_c) < cfg.relative_error*p_out_iter:
                         C_inx_a = C_inx_b = C_inx
                     elif fabs(f_b) < cfg.relative_error*p_out_iter_b:
@@ -221,14 +230,14 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
                         C_inx_b = C_inx
                         p_out_iter_b = p_out_iter
                     else:
-                        registro.warning('Decisión no efectuable. Aplicando ligera desviación.')
+                        record.warning('Decisión no efectuable. Aplicando ligera desviación.')
                         raise NonConvergenceError
 
-                registro.info('Error de presión a la salida: %.10f  ...  Valor actual: %.2f Pa ...  '
-                              'Valor objetivo: %.2f Pa', rel_error, p_out_iter, p_out)
+                record.info('Error de presión a la salida: %.10f  ...  Valor actual: %.2f Pa ...  '
+                            'Valor objetivo: %.2f Pa', rel_error, p_out_iter, p_out)
 
                 if iter_count > cfg.iter_limit:
-                    registro.critical('No converge.')
+                    record.critical('No converge.')
 
             return
 
@@ -239,13 +248,13 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
 
             t_1 = time()
             if p_out is None:
-                _ = solver_method(None, True)
+                _ = inner_funtion_from_problem_solver(None, True)
             else:
                 iterate_ps()
             t_2 = (time() - t_1).__round__(0)
 
             m, s = divmod(t_2, 60)
-            registro.info('Tiempo de cálculo: %s minutos y %s segundos.', int(m), int(s))
+            record.info('Tiempo de cálculo: %s minutos y %s segundos.', int(m), int(s))
 
             return
 
@@ -254,7 +263,7 @@ def solver_decorator(cfg: config_parameters, p_out: float | None, C_inx_stimated
     return solver_inner_decorator
 
 
-def step_decorator(cfg: config_parameters, step_corrector_memory):
+def step_decorator(cfg: config_class, step_corrector_memory):
     """ Decorador del decorador real, permite referenciar los parámetros necesarios para manipular la salida de la
     función decorada.
                 :param cfg: Objeto que contiene datos sobre la configuración que se ha establecido.
@@ -301,7 +310,7 @@ def step_decorator(cfg: config_parameters, step_corrector_memory):
                 rho_seed_1 = rho_seed_2 = rho_seed_c = rho_seed
 
             while bolz_c > 0:
-                registro.info('Buscando el rango que garantice encontrar la solución.')
+                record.info('Buscando el rango que garantice encontrar la solución.')
                 # En la redacción quizás sea conveniente plotear rendimiento frente a xi para
                 # justificar/contrastar la tendencia supuesta o al menos razonarlo. (Decreciente con xi)
                 if (f1 is None and f2 is None) or step_corrector_memory is not None:
@@ -326,7 +335,7 @@ def step_decorator(cfg: config_parameters, step_corrector_memory):
                     elif f2 > 0:
                         xi_e2 *= (1 + cfg.relative_jump)
 
-            registro.info('Corrección iniciada.')
+            record.info('Corrección iniciada.')
 
             rel_error_eta_TT = 1.0
             xi_ec = None
@@ -345,18 +354,18 @@ def step_decorator(cfg: config_parameters, step_corrector_memory):
                     sifc = get_sif_output(True, False, xi_ec, rho_seed_c)
                     fc, rho_seed_c = sifc[1] - eta_TT_obj, sifc[3]
                 rel_error_eta_TT = fc / eta_TT_obj
-                registro.info('Corrección en proceso  ...  eta_TT: %.4f  ...  Error: %.4f',
-                              float(sifc[1]), float(rel_error_eta_TT))
+                record.info('Corrección en proceso  ...  eta_TT: %.4f  ...  Error: %.4f',
+                            float(sifc[1]), float(rel_error_eta_TT))
                 if fc * f2 <= 0:
                     xi_e1, rho_seed_1 = xi_ec, rho_seed_c
                 elif fc * f1 <= 0:
                     xi_e2, rho_seed_2 = xi_ec, rho_seed_c
                 else:
-                    registro.critical('Intervalo no válido.')
+                    record.critical('Intervalo no válido.')
                     raise NonConvergenceError
 
             _, _, _, _, ll_1 = get_sif_output(True, True, xi_ec, rho_seed_c)
-            registro.info('Corrección finalizada.')
+            record.info('Corrección finalizada.')
 
             return ll_1
 
@@ -370,7 +379,7 @@ def step_decorator(cfg: config_parameters, step_corrector_memory):
             while rel_error is None or rel_error > relative_error:
                 iter_counter += 1
                 if iter_counter > cfg.iter_limit:
-                    registro.critical('No converge.')
+                    record.critical('No converge.')
                     raise NonConvergenceError
                 Re_n = Re
                 Re, rho_seed, _ = get_sif_output(True, False, None, rho_seed, Re_n)
@@ -398,7 +407,7 @@ class solver_object:
     """ Clase que define un objeto que agrupa y coordina al conjunto de métodos/atributos que conforman
     el procedimiento resolutivo propuesto para determinar unas condiciones de funcionamiento de una turbina axial."""
 
-    def __init__(self, config: config_parameters, productos: gas_model_to_solver):
+    def __init__(self, config: config_class, productos: gas_model_to_solver):
         """ :param config: Objeto que agrupa lo relativo a la configuración establecida para la ejecución del solver."""
 
         self.vmmr = []  # Almacena ciertas variables, para facilitar la comunicación de sus valores
@@ -424,7 +433,7 @@ class solver_object:
         if config.loss_model == 'Ainley_and_Mathieson':
             for key in ['e', 'o', 't_max', 'r_r', 'r_c', 't_e', 'k']:
                 if key not in self.cfg.geom:
-                    registro.critical('Para emplear el modelo de pérdidas se debe introducir "%s"', key)
+                    record.critical('Para emplear el modelo de pérdidas se debe introducir "%s"', key)
                     sys.exit()
             self.AM_object = Ainley_and_Mathieson_Loss_Model(config)
             self.AM_object.AM_diameter_def()
@@ -432,7 +441,7 @@ class solver_object:
         if config.loss_model == 'Aungier':
             for key in ['e', 'o', 't_max', 'r_r', 'r_c', 't_e', 'k', 'roughness_ptv', 'b_z', 'delta']:
                 if key not in self.cfg.geom:
-                    registro.critical('Para emplear el modelo de pérdidas se debe introducir "%s"', key)
+                    record.critical('Para emplear el modelo de pérdidas se debe introducir "%s"', key)
                     sys.exit()
             self.AUNGIER_object = Aungier_Loss_Model(config)
 
@@ -455,18 +464,18 @@ class solver_object:
         ps_list: list[float] = []
 
         relative_error = self.cfg.relative_error
-        registro.debug('El error relativo establecido en el solver es: %s', relative_error)
+        record.debug('El error relativo establecido en el solver es: %s', relative_error)
 
         passage_control = [False, False]
 
         if m_dot is None and C_inx is None:
             if p_out is None:
-                registro.critical('Debe indicarse un valor de referencia de velocidad a la entrada si se desea fijar '
-                                  'la presión a la salida de la turbina.')
+                record.critical('Debe indicarse un valor de referencia de velocidad a la entrada si se desea fijar '
+                                'la presión a la salida de la turbina.')
                 sys.exit()  # Quizas convenga cambiar esto por raise y algún error para datos insuficientes
             elif C_inx_ref is None:
-                registro.critical('Se debe establecer uno de los parámetros opcionales "p_outlet", "Cinlet" ó '
-                                  '"mass_flow".')
+                record.critical('Se debe establecer uno de los parámetros opcionales "p_outlet", "Cinlet" ó '
+                                '"mass_flow".')
                 sys.exit()
             else:
                 if self.C_inx_register is None:
@@ -487,7 +496,7 @@ class solver_object:
             if not self.cfg.accurate_approach:
                 if not last_calls:
                     if not passage_control[0]:
-                        registro.info('Para acelerar la aproximación a la solución se modifica el error relativo.')
+                        record.info('Para acelerar la aproximación a la solución se modifica el error relativo.')
                         self.cfg.edit_cfg_prop('relative_error', 1E-4)
                         self.prd.modify_relative_error(1E-4)
                         passage_control[0] = True
@@ -496,7 +505,7 @@ class solver_object:
                         self.cfg.edit_cfg_prop('relative_error', mid_process_relative_error)
                         self.prd.modify_relative_error(mid_process_relative_error)
                     elif not passage_control[1]:
-                        registro.info('Se reestablecen los valores de precisión deseados.')
+                        record.info('Se reestablecen los valores de precisión deseados.')
                         self.cfg.edit_cfg_prop('relative_error', relative_error)
                         self.prd.modify_relative_error(relative_error)
                         passage_control[1] = True
@@ -627,7 +636,7 @@ class solver_object:
                 pass
             else:
                 self.Re_corrector_counter += 1
-            registro.info('Modo de repetición: %s  ...  Llamadas: %s', iter_mode, self.Re_corrector_counter)
+            record.info('Modo de repetición: %s  ...  Llamadas: %s', iter_mode, self.Re_corrector_counter)
 
             if count > 0:
                 C_1x = m_dot / (rho_1 * A_tpl[0])
@@ -635,11 +644,11 @@ class solver_object:
             else:
                 C_1x = C_1
                 alfa_1 = 0.0
-            registro.debug('La velocidad axial establecida a la entrada del escalonamiento %s es: %.2f m/s',
-                           count + 1, C_1x)
+            record.debug('La velocidad axial establecida a la entrada del escalonamiento %s es: %.2f m/s',
+                         count + 1, C_1x)
 
-            registro.info('Se va a calcular la salida del estátor del escalonamiento número %d',
-                          count + 1)
+            record.info('Se va a calcular la salida del estátor del escalonamiento número %d',
+                        count + 1)
 
             h_02 = h_01
             a_1 = self.prd.get_sound_speed(T=T_1, p=p_1)
@@ -658,15 +667,15 @@ class solver_object:
 
             # En las líneas que siguen se determinan los triángulos de velocidades
             U = self.cfg.geom['Rm'][(count * 2) + 1] * n * 2 * pi / 60
-            registro.debug('La velocidad tangencial de giro en el radio medio es: %.2f m/s', U)
+            record.debug('La velocidad tangencial de giro en el radio medio es: %.2f m/s', U)
             C_2u = C_2 * sin(alfa_2)
-            registro.debug('La velocidad tangencial del flujo a la entrada del rótor es: %.2f m/s', C_2u)
+            record.debug('La velocidad tangencial del flujo a la entrada del rótor es: %.2f m/s', C_2u)
             omega_2u = C_2u - U
             omega_2x = C_2x
             beta_2 = atan(omega_2u / C_2x)
             omega_2 = C_2x / cos(beta_2)
 
-            registro.info(' Se va a calcular la salida del rótor del escalonamiento número %d.     ', count+1)
+            record.info(' Se va a calcular la salida del rótor del escalonamiento número %d.     ', count + 1)
             h_r3 = h_r2 = h_2 + ((10 ** (-3)) * (omega_2 ** 2) / 2)
             self.ref_values = (T_2, p_2 * 0.95)
 
@@ -692,16 +701,16 @@ class solver_object:
             local_list_1 = [T_3, p_3, rho_3, s_3, h_3, h_03, C_3, alfa_3]
 
             if h_02 - h_03 < 0:
-                registro.error('No se extrae energía del fluido.')
+                record.error('No se extrae energía del fluido.')
 
             if self.cfg.loss_model == 'Ainley_and_Mathieson':
                 # Media aritmética de Re a la entrada y a la salida recomendada por AM para la corrección.
                 if not iter_mode and not iter_end:
                     Re = (Re_12 + Re_23)/2
-                    registro.debug('Reynolds a la entrada: %d, Reynolds a la salida: %d, Reynolds promedio del '
-                                   'escalonamiento: %d', Re_12, Re_23, Re)
+                    record.debug('Reynolds a la entrada: %d, Reynolds a la salida: %d, Reynolds promedio del '
+                                 'escalonamiento: %d', Re_12, Re_23, Re)
                     if Re < 50_000:
-                        registro.warning('El número de Reynolds es demasiado bajo.')
+                        record.warning('El número de Reynolds es demasiado bajo.')
 
             if not iter_mode and not iter_end:
                 if len(self.rho_seed_list) < self.cfg.n_steps:
@@ -744,7 +753,7 @@ class solver_object:
                 M_1 = C_1 / a_1
                 a_3 = self.prd.get_sound_speed(T=T_3, p=p_3)
                 M_3 = C_3 / a_3
-                registro.info('El Mach a la salida es %.2f', M_3)
+                record.info('El Mach a la salida es %.2f', M_3)
                 Pot_esc = w_esc * m_dot
                 GR = (h_2 - h_3) / w_esc
                 PSI = w_esc / (U**2)
@@ -829,7 +838,7 @@ class solver_object:
         rho_b = rho_bp = rho_outer_seed
         M_b = h_b = U_b = h_bs = C_bx = Y_total = Re = Re_AU = pr0_b = Tr0_b = pre_rel_diff = pre_pre_rel_diff = None
         rel_diff, relative_error, geom = 1.0, self.cfg.relative_error, self.cfg.geom
-        total_shifts = 0
+        trend_changes = 0
 
         if self.first_seeds_boc is None:
             T_b, T_bs, p_b = self.ref_values[0] * 0.9, self.ref_values[0], self.ref_values[1]
@@ -852,7 +861,7 @@ class solver_object:
         else:
             tau_b = self.AUNGIER_object.outlet_angle_before_mod[num]  # Primera estimación
             if Re_out is None:
-                registro.debug('Se emplea el valor de Reynolds a la entrada como primera estimación.')
+                record.debug('Se emplea el valor de Reynolds a la entrada como primera estimación.')
                 if self.AU_Re_register is None:
                     Re_AU = Reynolds(counter * 2, rho_a, C_a, T_a, self.cfg, self.prd)
                 else:
@@ -865,7 +874,7 @@ class solver_object:
             iter_count += 1
 
             if iter_count > self.cfg.iter_limit:
-                registro.error('Iteración aboratada, no se cumple el criterio de convergencia.')
+                record.error('Iteración aboratada, no se cumple el criterio de convergencia.')
                 raise NonConvergenceError
 
             C_bx = m_dot / (area_b * rho_b)  # C_bx: velocidad axial a la salida
@@ -927,36 +936,37 @@ class solver_object:
             rel_diff = (rho_b - rho_bp) / rho_b
 
             if pre_rel_diff is not None and pre_pre_rel_diff is not None:
-                if fabs(pre_pre_rel_diff) > fabs(pre_rel_diff) and fabs(pre_rel_diff) < fabs(rel_diff):
-                    if iter_count > 5:
-                        total_shifts += 1
+                for sign in [-1, 1]:
+                    if sign*pre_pre_rel_diff > sign*pre_rel_diff and sign*pre_rel_diff < sign*rel_diff:
+                        if iter_count > 5:
+                            trend_changes += 1
             pre_pre_rel_diff = pre_rel_diff
             pre_rel_diff = rel_diff
-            if total_shifts >= self.cfg.maximum_ups_and_downs:
-                registro.error('Se ha excedido el valor límite de oscilaciones establecido.')
+            if trend_changes >= self.cfg.maximum_ups_and_downs:
+                record.error('Se ha excedido el valor límite de oscilaciones establecido.')
                 raise NonConvergenceError
 
             rho_bp = rho_b
 
             iter_string = f'{iter_count}'.center(3)
-            registro.debug('Contador: %s  ...  Densidad (kg/m^3): %.12f  ...  Error relativo: %.12f  ...  '
-                           'Oscilaciones: %s', iter_string, rho_b, rel_diff, total_shifts)
+            record.debug('Iter counter: %s  ...  Density: %.12f kg/m^3  ...  Relative error: %.12f  ...  '
+                         'Trend change counter: %s', iter_string, rho_b, rel_diff, trend_changes)
 
         if M_b > 0.5:
-            registro.warning('Mout %sa la salida superior a 0.5 ... Valor: %.2f',
-                             '' if num % 2 == 0 else 'relativo ', M_b)
-        else:
-            registro.debug('Valor del número de Mach %sa la salida: %.2f',
+            record.warning('Mout %sa la salida superior a 0.5 ... Valor: %.2f',
                            '' if num % 2 == 0 else 'relativo ', M_b)
+        else:
+            record.debug('Valor del número de Mach %sa la salida: %.2f',
+                         '' if num % 2 == 0 else 'relativo ', M_b)
 
         if (self.step_iter_mode or self.step_iter_end) and self.cfg.loss_model == 'Ainley_and_Mathieson':
-            registro.debug('La relación entre el valor actual y el inicial de las pérdidas adimensionales de presión '
-                           'en ambas coronas del escalonamiento %s es: %.3f\n  ...   ',
-                           1 + (num//2), Y_total / self.AM_object.Y_t_preiter[num])
-        registro.debug('Incidencia: %.2f°  ...  tau_in: %.2f°  ...  Ángulo del B.A.: %.2f°',
-                       degrees(tau_a) - degrees(alfap_1), degrees(tau_a), degrees(alfap_1))
-        registro.debug('Desviación: %.2f°  ...  tau_out: %.2f°  ...  Ángulo del B.S.: %.2f°',
-                       degrees(tau_b) - degrees(alfap_2), degrees(tau_b), degrees(alfap_2))
+            record.debug('La relación entre el valor actual y el inicial de las pérdidas adimensionales de presión '
+                         'en ambas coronas del escalonamiento %s es: %.3f\n  ...   ',
+                         1 + (num//2), Y_total / self.AM_object.Y_t_preiter[num])
+        record.debug('Incidencia: %.2f°  ...  tau_in: %.2f°  ...  Ángulo del B.A.: %.2f°',
+                     degrees(tau_a) - degrees(alfap_1), degrees(tau_a), degrees(alfap_1))
+        record.debug('Desviación: %.2f°  ...  tau_out: %.2f°  ...  Ángulo del B.S.: %.2f°',
+                     degrees(tau_b) - degrees(alfap_2), degrees(tau_b), degrees(alfap_2))
 
         if self.cfg.loss_model == 'Ainley_and_Mathieson':
             if not self.step_iter_mode and not self.step_iter_end:
@@ -965,8 +975,8 @@ class solver_object:
                 Yp = self.AM_object.Yp_iter_mode
         else:
             Yp = self.AUNGIER_object.Yp_iter_mode
-        registro.debug('Pérdidas:  ...  Y_total: %.4f  ...  Yp: %.4f   ',
-                       Y_total, Yp)
+        record.debug('Pérdidas:  ...  Y_total: %.4f  ...  Yp: %.4f   ',
+                     Y_total, Yp)
 
         if self.cfg.loss_model == 'Aungier':
             if blade == 'rot':
@@ -1014,9 +1024,9 @@ class solver_object:
 
 
 def main():
-    fast_mode = False
-    settings = config_parameters(relative_error=1E-12, n_steps=1, relative_jump=0.005, loss_model='Aungier',
-                                 ideal_gas=True, chain_mode=fast_mode, iter_limit=1200)
+    chain_mode = False
+    settings = config_class(relative_error=1E-12, n_steps=1, relative_jump=0.005, loss_model='Aungier',
+                            ideal_gas=True, chain_mode=chain_mode, iter_limit=1200)
 
     # Geometría procedente de: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf
     Rm = 0.1429
@@ -1041,7 +1051,7 @@ def main():
     gas_model = gas_model_to_solver(thermo_mode="ig")
     solver = solver_object(settings, gas_model)
 
-    if fast_mode:
+    if chain_mode:
         output = solver.problem_solver(T_in=1100, p_in=400_000, n=20_000, p_out=250_000, C_inx_ref=160)
         T_salida, p_salida, C_salida, alfa_salida = output
         print(' T_out =', T_salida, '\n', 'P_out =', p_salida,

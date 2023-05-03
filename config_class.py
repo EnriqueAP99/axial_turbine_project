@@ -1,6 +1,6 @@
 """
 En este módulo se define una clase que caracteriza un objeto que contiene la configuración y los parámetros geométricos
-que se emplearán en el cálculo (config_parameters). Se emplea un módulo aparte para esta clase para evitar importaciones
+que se emplearán en el cálculo (config_class). Se emplea un módulo aparte para esta clase para evitar importaciones
 circulares, ya que se va a almacenar información que será necesaria en varios módulos. Además, también se crea una
 clase que facilita el intercambio del módulo "gas_model.py" por otro similar.
 """
@@ -14,7 +14,7 @@ from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
-class config_parameters:
+class config_class:
     """ Objeto que agrupa los parámetros necesarios para configurar la ejecución del solver. """
 
     relative_error: float  # Máximo error relativo que se permite en los cálculos iterativos del solver
@@ -81,7 +81,7 @@ class config_parameters:
             elif theta_rot is not None:
                 local_dict1[theta_name] = theta
             else:
-                registro.critical('Se precisa definir de alguna manera la deflexión de cada álabe.')
+                record.critical('Se precisa definir de alguna manera la deflexión de cada álabe.')
                 sys.exit()
 
         list_items2, local_dict2 = ['t_max', 'r_r', 'r_c', 't_e', ], {}
@@ -127,7 +127,7 @@ class config_parameters:
         for num, h in enumerate(geom['H']):   # h: 0 1 2 3 4 ... Rm: 0 0 1 2 3
             num2 = num - 1 if num > 0 else 0
             if (2*Rm[num2]-h)/(2*Rm[num2]-h) > 1.4:
-                registro.critical('No se verifica la hipótesis de bidimensionalidad.')
+                record.critical('No se verifica la hipótesis de bidimensionalidad.')
                 sys.exit()
 
         if s == 0.0:
@@ -192,7 +192,7 @@ class gas_model_to_solver:
 
     def __post_init__(self):
         if self.thermo_mode not in ("ig", "mp", ):
-            registro.critical("Los modos a elegir son ig (gas ideal con NASA coefs) o mp ('multi-phase').\n "
+            record.critical("Los modos a elegir son ig (gas ideal con NASA coefs) o mp ('multi-phase').\n "
                               "El modo mp se aplica solo en el vapor de agua, en caso contrario los límites del "
                               "cálculo disminuirían demasiado y se realentiza todo el cálculo innecesariamente. \n "
                               "Para  el modelo del Çengel usar el módulo IGmodelfromCengel.py. \n")
@@ -263,4 +263,4 @@ handler = logging.StreamHandler()
 handler.setFormatter(CustomFormatter())
 logging.basicConfig(level=logging.DEBUG, handlers=[handler])
 
-registro = logging.getLogger("coloured-registro")
+record = logging.getLogger("coloured-record")
