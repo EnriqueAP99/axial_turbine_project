@@ -68,6 +68,9 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                     C_inx_a = C_inx_a * (1 - delta)
                     from_a = True
                     C_inx = C_inx_a
+                else:
+                    record.critical('You shall not pass.')
+                    sys.exit()
 
             def first_iter_exception_task():
                 nonlocal C_inx_a, C_inx_b
@@ -108,8 +111,6 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                         p_out_iter_a = read_ps_list()
                         ps_list = inner_funtion_from_problem_solver(C_inx_b)
                         p_out_iter_b = read_ps_list()
-                        if first_iter:
-                            first_iter = False
                     else:
                         ps_list = inner_funtion_from_problem_solver(C_inx)
                 except NonConvergenceError:
@@ -125,15 +126,17 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                 else:
                     if start:
                         start = False
+                        if first_iter:
+                            first_iter = False
                     else:
                         p_out_iter = read_ps_list()
                         if from_b:
-                            # Process flow comes from level for increasing velocity of point "b".
+                            # Process flow comes from the block that increases velocity of point "b".
                             p_out_iter_a = p_out_iter_b
                             p_out_iter_b = p_out_iter
                             from_b = False
                         elif from_a:
-                            # Process flow comes from level for decreasing velocity of point "a".
+                            # Process flow comes from the block that decreases velocity of point "a".
                             p_out_iter_b = p_out_iter_a
                             p_out_iter_a = p_out_iter
                             from_a = False
@@ -142,8 +145,8 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                             sys.exit()
                 finally:
                     # It is evaluated whether the new range contains the solution.
-                    P_A = [p_out_iter_a*(1+(sign*solver_relative_error)) for sign in [-1, 1]]
-                    P_B = [p_out_iter_a*(1+(sign*solver_relative_error)) for sign in [-1, 1]]
+                    P_A = [p_out_iter_a*(1+(sign*solver_relative_error)) for sign in [-1, 2]]
+                    P_B = [p_out_iter_a*(1+(sign*solver_relative_error)) for sign in [-2, 1]]
                     if (P_B[1]-p_out)*(P_A[0]-p_out) <= 0:  # Most restrictive option
                         record.info('The solution has been found.')
                         break
