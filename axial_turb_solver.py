@@ -146,12 +146,13 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                 finally:
                     # It is evaluated whether the new range contains the solution.
                     P_A = [p_out_iter_a*(1+(sign*solver_relative_error)) for sign in [-1, 2]]
-                    P_B = [p_out_iter_a*(1+(sign*solver_relative_error)) for sign in [-2, 1]]
+                    P_B = [p_out_iter_b*(1+(sign*solver_relative_error)) for sign in [-2, 1]]
                     if (P_B[1]-p_out)*(P_A[0]-p_out) <= 0:  # Most restrictive option
                         record.info('The solution has been found.')
                         break
                     elif (P_B[0]-p_out)*(P_A[1]-p_out) <= 0:  # Less restrictive option
                         f_ad = fabs((p_out_iter_b - p_out_iter_a)/(C_inx_b - C_inx_a))*C_inx_a/p_out
+
                         C_inx_b, C_inx_a = C_inx_b*(1+(delta/f_ad)), C_inx_a*(1-(delta/f_ad))
                         start = False  # Reset required
                     else:
@@ -192,7 +193,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                         C_inx_a = C_inx
                         p_out_iter_a = p_out_iter
                         solver_relative_error = rel_error = fabs(f_c) / p_out
-                    elif f_c[1] * f_a < 0:
+                    elif f_c[1] * f_a < 0:  # Most restrictive option
                         f_c = f_b = f_c[1]
                         C_inx_b = C_inx
                         p_out_iter_b = p_out_iter
