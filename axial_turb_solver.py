@@ -897,15 +897,16 @@ class solver_object:
                             trend_changes += 1
             pre_pre_rel_diff = pre_rel_diff
             pre_rel_diff = rel_diff
-            if trend_changes >= self.cfg.maximum_ups_and_downs:
-                record.error('Se ha excedido el valor límite de oscilaciones establecido.')
-                raise NonConvergenceError
 
             rho_bp = rho_b
 
             iter_string = f'{iter_count}'.center(3)
             record.debug('Iter counter: %s  ...  Density: %.12f kg/m^3  ...  Relative error: %.12f  ...  '
                          'Trend change counter: %s', iter_string, rho_b, rel_diff, trend_changes)
+
+            if trend_changes >= self.cfg.maximum_ups_and_downs:
+                record.error('Se ha excedido el valor límite de oscilaciones establecido.')
+                raise NonConvergenceError
 
         if M_b > 0.5:
             record.warning('Mout %sa la salida superior a 0.5 ... Valor: %.2f',
