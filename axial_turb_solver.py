@@ -43,66 +43,46 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                 return new_p_out
 
             iter_count = 0
-            check = from_b = from_a = False
+            from_b = from_a = False
             first = True
             # Points "a" and "b" such that C_inx_b > C_inx_a.
             delta = cfg.relative_jump
             C_inx_b = C_inx
             C_inx_a = C_inx*(1 - (0.1*delta))
             pre_C_inx_a, pre_C_inx_b = C_inx_b, C_inx_a
-            p_out_iter_b = p_out_iter_a = pre_p_out_iter_a = None
-            f_a = f_b = None
-            adim_steepness_param = 0.0
+            p_out_iter_b = p_out_iter_a = None
 
             def C_in_algorithm():
-                nonlocal C_inx_a, C_inx_b, check, from_a, from_b, adim_steepness_param, C_inx, pre_C_inx_a, pre_C_inx_b
-                adim_steepness_param = f_b*C_inx_b/p_out_iter_b
+                nonlocal C_inx_a, C_inx_b, from_a, from_b, C_inx, pre_C_inx_a, pre_C_inx_b
+                # Saving previous values before doing changes, required in case of exceptions.
                 pre_C_inx_a, pre_C_inx_b = C_inx_a, C_inx_b
                 if P_B >= p_out:
-                    # Here goes the level to increase the velocity at point "b".
-                    if (-0.3 > adim_steepness_param > -3.0) and (p_out_iter_b-p_out > 1000):
-                        # Shotcut for speeding up
-                        C_inx_b = C_inx_b + ((p_out-p_out_iter_b)/f_b)
-                        C_inx_a = C_inx_b * (1 - delta)
-                        check = False  # Reset (It is necessary to recalculate both derivatives)
-                    else:
-                        # Simple step
-                        C_inx_a = C_inx_b
-                        C_inx_b = C_inx_b * (1 + delta)
-                        from_b = True  # To indicate where does the process flow come from
+                    # Here goes the level to increase velocity at point "b".
+                    C_inx_a = C_inx_b
+                    C_inx_b = C_inx_b * (1 + delta)
+                    from_b = True  # To indicate where does the process flow come from
                     C_inx = C_inx_b
                 else:
-                    # Here goes the level to decrease the velocity at point "a".
-                    if (-3.5 < adim_steepness_param < -1.0) and (p_out-p_out_iter_a > 1000):
-                        # Shotcut for speeding up
-                        C_inx_a = C_inx_a + ((p_out-p_out_iter_a)/f_a)
-                        C_inx_b = C_inx_a * (1 + delta)
-                        check = False  # Reset
-                    else:
-                        # Simple step
-                        C_inx_b = C_inx_a
-                        C_inx_a = C_inx_a * (1 - delta)
-                        from_a = True
+                    # Here goes the level to decrease velocity at point "a".
+                    C_inx_b = C_inx_a
+                    C_inx_a = C_inx_a * (1 - delta)
+                    from_a = True
                     C_inx = C_inx_a
 
             def first_iter_exception_task():
+                nonlocal C_inx_a, C_inx_b
                 record.critical('An error has occurred. It is recommended to modify the speed estimation at the '
                                 'inlet or to modify the configuration.')
-                sys.exit()
+                C_inx_a = C_inx_b
+                C_inx_b = C_inx_b * (1 + delta)
 
             def post_exception_tasks():
                 record.warning('An exception was caught.')
-                nonlocal C_inx_a, C_inx_b, delta, check
-                # Setting the previous values back in first place.
+                nonlocal C_inx_a, C_inx_b, delta
+                # Returning to previous values.
                 C_inx_a, C_inx_b = pre_C_inx_a, pre_C_inx_b
-                if (p_out-p_out_iter_a > 1000 or p_out_iter_b-p_out > 1000) and -3.5 < adim_steepness_param < -1.0:
-                    # This event is very likely to never happen.
-                    C_inx_b *= (1 - cfg.relative_error)
-                    C_inx_a *= (1 + cfg.relative_error)
-                    check = False
-                else:
-                    # Reducing the relative jump.
-                    delta /= 2.5
+                # Then, reducing the relative jump.
+                delta /= 2.5
                 return
 
             record.info('Searching for a range containing the solution.')
@@ -119,75 +99,51 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
 
             # The search begins.
             while True:
-                if not check:  # First round
-                    try:
-                        pre_p_out_iter_a = p_out_iter_a
+                try:
+                    if first:
                         ps_list = inner_funtion_from_problem_solver(C_inx_a)
                         p_out_iter_a = read_ps_list()
                         ps_list = inner_funtion_from_problem_solver(C_inx_b)
                         p_out_iter_b = read_ps_list()
-                    except NonConvergenceError:
-                        if first:
-                            first_iter_exception_task()
-                        else:
-                            p_out_iter_a = pre_p_out_iter_a
-                            post_exception_tasks()
-                    except GasLibraryAdaptedException:
-                        if first:
-                            first_iter_exception_task()
-                        else:
-                            p_out_iter_a = pre_p_out_iter_a
-                            post_exception_tasks()
                     else:
-                        if first:
-                            first = False
-                        f_a = f_b = (p_out_iter_a - p_out_iter_b) / (C_inx_a - C_inx_b)
-                        check = True
-                    finally:
-                        # It is evaluated whether the new range contains the solution.
-                        P_A = p_out_iter_a*(1-solver_relative_error)
-                        P_B = p_out_iter_b*(1+solver_relative_error)
-                        if (P_B-p_out)*(P_A-p_out) < 0:
-                            record.info('The solution has been found.')
-                            break
-                        else:
-                            C_in_algorithm()
-                else:
-                    # Se capturan posibles excepciones (ver tendencia p_out vs m_dot)     
-                    try:
                         ps_list = inner_funtion_from_problem_solver(C_inx)
-                    except NonConvergenceError:
+                except NonConvergenceError:
+                    if first:
+                        first_iter_exception_task()
+                    else:
                         post_exception_tasks()
-                    except GasLibraryAdaptedException:
+                except GasLibraryAdaptedException:
+                    if first:
+                        first_iter_exception_task()
+                    else:
                         post_exception_tasks()
+                else:
+                    if first:
+                        first = False
                     else:
                         p_out_iter = read_ps_list()
                         if from_b:
-                            # Se procede del nivel de avance de b
+                            # Process flow comes from level for increasing velocity of point "b".
                             p_out_iter_a = p_out_iter_b
                             p_out_iter_b = p_out_iter
-                            f_a = f_b
-                            f_b = (p_out_iter_b - p_out_iter_a)/(C_inx_b - C_inx_a)
                             from_b = False
                         elif from_a:
-                            # Se procede del nivel de retroceso de a
+                            # Process flow comes from level for decreasing velocity of point "a".
                             p_out_iter_b = p_out_iter_a
                             p_out_iter_a = p_out_iter
-                            f_b = f_a
-                            f_a = (p_out_iter_a - p_out_iter_b)/(C_inx_a - C_inx_b)
                             from_a = False
                         else:
                             record.critical('Something went wrong.')
                             sys.exit()
-                    finally:
-                        # Se evalúa si el nuevo rango contiene la solución.
-                        P_A = p_out_iter_a*(1-solver_relative_error)
-                        P_B = p_out_iter_b*(1+solver_relative_error)
-                        if (P_B-p_out)*(P_A-p_out) < 0:
-                            record.info('The solution has been found.')
-                            break
-                        else:
-                            C_in_algorithm()
+                finally:
+                    # It is evaluated whether the new range contains the solution.
+                    P_A = p_out_iter_a*(1-solver_relative_error)
+                    P_B = p_out_iter_b*(1+solver_relative_error)
+                    if (P_B-p_out)*(P_A-p_out) < 0:
+                        record.info('The solution has been found.')
+                        break
+                    else:
+                        C_in_algorithm()
 
                 record.info('Rango actual: [%.2f, %.2f]  ...  Valor objetivo: %.2f',
                             p_out_iter_a, p_out_iter_b, p_out)
@@ -195,11 +151,10 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
             rel_error = None
             p_out_iter = None
 
-            while rel_error is None or rel_error > cfg.relative_error:  # Se emplea régula falsi
+            while rel_error is None or rel_error > cfg.relative_error:  # Applying Regula Falsi
                 iter_count += 1
                 if rel_error is None:
                     rel_error = solver_relative_error
-                # Tener en cuenta comportamiento decreciente entre pérdidas y rendimiento
                 f_a = (p_out_iter_a*(1+rel_error))-p_out
                 f_b = (p_out_iter_b*(1-rel_error))-p_out
                 diff_value = (f_b * (C_inx_b - C_inx_a) / (f_b - f_a))
