@@ -56,13 +56,13 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                 nonlocal C_inx_a, C_inx_b, from_a, from_b, C_inx, pre_C_inx_a, pre_C_inx_b
                 # Saving previous values before doing changes, required in case of exceptions.
                 pre_C_inx_a, pre_C_inx_b = C_inx_a, C_inx_b
-                if P_B[0] >= p_out:  # Most restrictive option
+                if P_B[0] > p_out:  # Most restrictive option
                     # Here goes the level to increase velocity at point "b".
                     C_inx_a = C_inx_b
                     C_inx_b = C_inx_b * (1 + delta)
                     from_b = True  # To indicate where does the process flow come from
                     C_inx = C_inx_b
-                elif P_A[1] <= p_out:
+                elif P_A[1] < p_out:
                     # Here goes the level to decrease velocity at point "a".
                     C_inx_b = C_inx_a
                     C_inx_a = C_inx_a * (1 - delta)
