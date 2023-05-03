@@ -206,7 +206,7 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
         elif var_to_sweep == 'n_rpm':
             n_rpm = value
         elif var_to_sweep == 'p_out':
-            if value < (0.1*sweep_data[var_to_sweep][1]) + (0.9*sweep_data[var_to_sweep][0]):
+            if value < (0.05*sweep_data[var_to_sweep][1]) + (0.95*sweep_data[var_to_sweep][0]):
                 if just_once[0]:
                     solver.cfg.edit_cfg_prop('accurate_approach', True)
                     just_once[0] = False

@@ -150,13 +150,14 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
 
             rel_error = None
             p_out_iter = None
+            f_a = f_b = None
 
             while rel_error is None or rel_error > cfg.relative_error:  # Applying Regula Falsi
                 iter_count += 1
                 if rel_error is None:
                     rel_error = solver_relative_error
-                f_a = (p_out_iter_a*(1+rel_error))-p_out
-                f_b = (p_out_iter_b*(1-rel_error))-p_out
+                    f_a = (p_out_iter_a*(1+rel_error))-p_out
+                    f_b = (p_out_iter_b*(1-rel_error))-p_out
                 diff_value = (f_b * (C_inx_b - C_inx_a) / (f_b - f_a))
                 C_inx = C_inx_b - diff_value
                 try:
@@ -170,29 +171,25 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                     C_inx_a *= (1 - cfg.relative_error)
                 else:
                     p_out_iter = read_ps_list()
-                    f_c = p_out_iter - p_out
-                    solver_relative_error = rel_error = fabs(f_c) / p_out
-                    if fabs(f_c) < cfg.relative_error*p_out_iter:
-                        C_inx_a = C_inx_b = C_inx
-                    elif fabs(f_b) < cfg.relative_error*p_out_iter_b:
-                        C_inx_a = C_inx_b
-                    elif fabs(f_a) < cfg.relative_error*p_out_iter_a:
-                        C_inx_b = C_inx_a
-                    elif f_c * f_b < 0:
+                    f_c = [(p_out_iter*(1-0.1*rel_error)) - p_out, (p_out_iter*(1+0.1*rel_error)) - p_out]
+                    if f_c[1] * f_b < 0:
+                        f_c = f_a = f_c[1]
                         C_inx_a = C_inx
                         p_out_iter_a = p_out_iter
-                    elif f_c * f_a < 0:
+                    elif f_c[0] * f_a < 0:
+                        f_c = f_b = f_c[0]
                         C_inx_b = C_inx
                         p_out_iter_b = p_out_iter
                     else:
-                        record.warning('Decisión no efectuable. Aplicando ligera desviación.')
+                        record.error('Decisión no efectuable. Aplicando ligera desviación.')
                         raise NonConvergenceError
+                    solver_relative_error = rel_error = fabs(f_c) / p_out
 
                 record.info('Error de presión a la salida: %.10f  ...  Valor actual: %.2f Pa ...  '
                             'Valor objetivo: %.2f Pa', rel_error, p_out_iter, p_out)
 
                 if iter_count > cfg.iter_limit:
-                    record.critical('No converge.')
+                    record.critical('Does not converge.')
 
             return
 
