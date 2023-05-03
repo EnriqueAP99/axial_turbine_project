@@ -422,7 +422,7 @@ class solver_object:
         relative_error = self.cfg.relative_error
         record.debug('El error relativo establecido en el solver es: %s', relative_error)
 
-        passage_control = [False, False]
+        passage_control = [True, True]
 
         if m_dot is None and C_inx is None:
             if p_out is None:
@@ -451,20 +451,20 @@ class solver_object:
 
             if not self.cfg.accurate_approach:
                 if not last_calls:
-                    if not passage_control[0]:
+                    if passage_control[0]:
                         record.info('Para acelerar la aproximación a la solución se modifica el error relativo.')
                         self.cfg.edit_cfg_prop('relative_error', 1E-4)
                         self.prd.modify_relative_error(1E-4)
-                        passage_control[0] = True
+                        passage_control[0] = False
                 else:
                     if mid_process_relative_error > relative_error:
                         self.cfg.edit_cfg_prop('relative_error', mid_process_relative_error)
                         self.prd.modify_relative_error(mid_process_relative_error)
-                    elif not passage_control[1]:
+                    elif passage_control[1]:
                         record.info('Se reestablecen los valores de precisión deseados.')
                         self.cfg.edit_cfg_prop('relative_error', relative_error)
                         self.prd.modify_relative_error(relative_error)
-                        passage_control[1] = True
+                        passage_control[1] = False
 
             self.step_iter_mode = self.step_iter_end = False
             self.step_counter = 0
