@@ -137,11 +137,15 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                             sys.exit()
                 finally:
                     # It is evaluated whether the new range contains the solution.
-                    P_A = p_out_iter_a*(1-solver_relative_error)
-                    P_B = p_out_iter_b*(1+solver_relative_error)
-                    if (P_B-p_out)*(P_A-p_out) < 0:
+                    P_A = [p_out_iter_a*(1-(sign*solver_relative_error)) for sign in [-1, 1]]
+                    P_B = [p_out_iter_a*(1-(sign*solver_relative_error)) for sign in [-1, 1]]
+                    if (P_B[0]-p_out)*(P_A[1]-p_out) <= 0:
                         record.info('The solution has been found.')
                         break
+                    elif (P_B[0]-p_out)*(P_A[1]-p_out) <= 0 or (P_B[1]-p_out)*(P_B[0]-p_out) <= 0 or \
+                         (P_A[1]-p_out)*(P_A[0]-p_out) <= 0:
+                        C_inx_b, C_inx_a = C_inx_b*(1+solver_relative_error), C_inx_a*(1-solver_relative_error)
+                        first = False
                     else:
                         C_in_algorithm()
 
@@ -174,20 +178,21 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                     C_inx_a *= (1 - cfg.relative_error)
                 else:
                     p_out_iter = read_ps_list()
-                    f_c = [(p_out_iter * (1-solver_relative_error)) - p_out,
-                           (p_out_iter * (1+solver_relative_error)) - p_out]
-                    if f_c[1] * f_b < 0:
-                        f_c = f_a = f_c[1]
+                    f_c = [(p_out_iter * (1+(sign*solver_relative_error))) - p_out for sign in [-1, 1]]
+                    if f_c[0] * f_b < 0:  # Most restrictive option
+                        f_c = f_a = f_c[0]
                         C_inx_a = C_inx
                         p_out_iter_a = p_out_iter
-                    elif f_c[0] * f_a < 0:
-                        f_c = f_b = f_c[0]
+                        solver_relative_error = rel_error = fabs(f_c) / p_out
+                    elif f_c[1] * f_a < 0:
+                        f_c = f_b = f_c[1]
                         C_inx_b = C_inx
                         p_out_iter_b = p_out_iter
+                        solver_relative_error = rel_error = fabs(f_c) / p_out
                     else:
                         record.error('Decisión no efectuable. Aplicando ligera desviación.')
-                        raise NonConvergenceError
-                    solver_relative_error = rel_error = fabs(f_c) / p_out
+                        C_inx_b *= (1 + cfg.relative_error)
+                        C_inx_a *= (1 - cfg.relative_error)
 
                 record.info('Error de presión a la salida: %.10f  ...  Valor actual: %.2f Pa ...  '
                             'Valor objetivo: %.2f Pa', rel_error, p_out_iter, p_out)
@@ -902,7 +907,7 @@ class solver_object:
             rho_bp = rho_b
 
             iter_string = f'{iter_count}'.center(3)
-            record.debug('Iter counter: %s  ...  Density: %.12f kg/m^3  ...  Relative error: %.12f  ...  '
+            record.debug('Iter counter: %s  ...  Density: %.12f kg/m^3  ...  Relative variation: %.12f  ...  '
                          'Trend change counter: %s', iter_string, rho_b, rel_diff, trend_changes)
 
             if trend_changes >= self.cfg.maximum_ups_and_downs:
