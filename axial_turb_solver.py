@@ -221,12 +221,12 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                             except NonConvergenceError:
                                 p_out_iter_a = pre_p_out_iter_a
                                 C_inx_b, C_inx_a = pre_C_inx_b, pre_C_inx_a
-                                solver_relative_error = 0.1 * rel_error
+                                solver_relative_error = 0.1 * solver_relative_error
                                 C_inx_b, C_inx_a = C_inx*(1+solver_relative_error), C_inx*(1-solver_relative_error)
                             except GasLibraryAdaptedException:
                                 p_out_iter_a = pre_p_out_iter_a
                                 C_inx_b, C_inx_a = pre_C_inx_b, pre_C_inx_a
-                                solver_relative_error = 0.1 * rel_error
+                                solver_relative_error = 0.1 * solver_relative_error
                                 C_inx_b, C_inx_a = C_inx*(1+solver_relative_error), C_inx*(1-solver_relative_error)
                             else:
                                 reducing_error = False
