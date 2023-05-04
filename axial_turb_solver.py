@@ -174,13 +174,11 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                 iter_count += 1
                 if rel_error is None:
                     rel_error = solver_relative_error
-                    f_a = (p_out_iter_a*(1+rel_error))-p_out
-                    f_b = (p_out_iter_b*(1-rel_error))-p_out
+                    f_a = (p_out_iter_a*(1-rel_error))-p_out
+                    f_b = (p_out_iter_b*(1+rel_error))-p_out
                 diff_value = (f_b * (C_inx_b - C_inx_a) / (f_b - f_a))
                 C_inx = C_inx_b - diff_value
                 solver_relative_error = 0.1*rel_error
-                if solver_relative_error < cfg.relative_error:
-                    solver_relative_error = cfg.relative_error
                 try:
                     ps_list = inner_funtion_from_problem_solver(C_inx, solver_relative_error)
                 except NonConvergenceError:
