@@ -145,13 +145,13 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                             sys.exit()
                 finally:
                     # It is evaluated whether the new range contains the solution.
-                    P_A = [p_out_iter_a*(1+(sign*solver_relative_error)) for sign in [-1, 2]]
-                    P_B = [p_out_iter_b*(1+(sign*solver_relative_error)) for sign in [-2, 1]]
+                    P_A = [p_out_iter_a*(1+(sign*solver_relative_error)) for sign in [-1, 1]]
+                    P_B = [p_out_iter_b*(1+(sign*solver_relative_error)) for sign in [-1, 1]]
                     if (P_B[1]-p_out)*(P_A[0]-p_out) <= 0:  # Most restrictive option
                         record.info('The solution has been found.')
                         break
                     elif (P_B[0]-p_out)*(P_A[1]-p_out) <= 0:  # Less restrictive option
-                        record.warning('Relative error might be too much to discern how to proceed. Recalculating.')
+                        record.warning('Relative error is too much to discern how to proceed. Recalculating.')
                         solver_relative_error *= 0.1
                         start = False  # Reset required
                     else:
