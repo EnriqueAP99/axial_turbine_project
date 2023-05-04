@@ -150,6 +150,12 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                     if (P_B[1]-p_out)*(P_A[0]-p_out) <= 0:  # Most restrictive option
                         record.info('The solution has been found.')
                         break
+                    elif p_out == p_out_iter_a:
+                        C_inx_b = C_inx_a*(1+solver_relative_error)
+                        C_inx_a *= (1-solver_relative_error)
+                    elif p_out == p_out_iter_b:
+                        C_inx_a = C_inx_b*(1-solver_relative_error)
+                        C_inx_b *= (1-solver_relative_error)
                     elif (P_B[0]-p_out)*(P_A[1]-p_out) <= 0:  # Less restrictive option
                         record.warning('Relative error is too much to discern how to proceed. Recalculating.')
                         solver_relative_error *= 0.1
