@@ -62,7 +62,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                     C_inx_b = C_inx_b * (1 + delta)
                     from_b = True  # To indicate where does the process flow come from
                     C_inx = C_inx_b
-                elif P_A[1] < p_out:
+                elif P_A[1] < p_out:  # Most restrictive option
                     # Here goes the level to decrease velocity at point "a".
                     C_inx_b = C_inx_a
                     C_inx_a = C_inx_a * (1 - delta)
@@ -90,7 +90,6 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                     p_out_iter_a = pre_p_out_iter_a
                 return
 
-            record.info('Searching for a range containing the solution.')
             if cfg.accurate_approach:
                 # This is convenient for approaching a solution where the variation of p_out against C_in is high.
                 solver_relative_error = cfg.relative_error
@@ -102,6 +101,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                 #  used is smaller the more iterations are performed for the same input values.
                 solver_relative_error = 1E-4
 
+            record.info('Searching for a range containing the solution.')
             # The search begins.
             while True:
                 try:
@@ -151,6 +151,8 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                         record.info('The solution has been found.')
                         break
                     elif (P_B[0]-p_out)*(P_A[1]-p_out) <= 0:  # Less restrictive option
+                        record.warning('Relative error might be too big to discern how to proceed.')
+                        # If this solution is not effective then the relative error has not been chosen correctly.
                         f_ad = fabs((p_out_iter_b - p_out_iter_a)/(C_inx_b - C_inx_a))*C_inx_a/p_out
                         C_inx_b, C_inx_a = C_inx_b*(1+(delta/f_ad)), C_inx_a*(1-(delta/f_ad))
                         start = False  # Reset required
@@ -190,20 +192,43 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                     p_out_iter = read_ps_list()
                     f_c = [(p_out_iter * (1+(sign*solver_relative_error))) - p_out for sign in [-1, 1]]
                     if f_c[0] * f_b < 0:  # Most restrictive option
-                        f_c = f_a = f_c[0]
+                        f_c = f_a = p_out_iter - p_out
                         C_inx_a = C_inx
                         p_out_iter_a = p_out_iter
                         rel_error = fabs(f_c) / p_out
                     elif f_c[1] * f_a < 0:  # Most restrictive option
-                        f_c = f_b = f_c[1]
+                        f_c = f_b = p_out_iter - p_out
                         C_inx_b = C_inx
                         p_out_iter_b = p_out_iter
                         rel_error = fabs(f_c) / p_out
                     else:
-                        record.error('Decisión no efectuable. Aplicando ligera desviación.')
-                        f_ad = fabs((p_out_iter_b - p_out_iter_a)/(C_inx_b - C_inx_a))*C_inx_a/p_out
+                        record.warning('Decisión no efectuable. Se continúa el cálculo para reducir el error.')
                         pre_C_inx_b, pre_C_inx_a = C_inx_b, C_inx_a
-                        C_inx_b, C_inx_a = C_inx_b*(1+(delta/f_ad)), C_inx_a*(1-(delta/f_ad))
+                        solver_relative_error = 0.1*rel_error
+                        C_inx_b, C_inx_a = C_inx*(1+solver_relative_error), C_inx*(1-solver_relative_error)
+                        reducing_error = True
+                        while reducing_error:
+                            try:
+                                pre_p_out_iter_a = p_out_iter_a
+                                ps_list = inner_funtion_from_problem_solver(C_inx_a, True, solver_relative_error)
+                                p_out_iter_a = read_ps_list()
+                                ps_list = inner_funtion_from_problem_solver(C_inx_b, True, solver_relative_error)
+                                p_out_iter_b = read_ps_list()
+                            except NonConvergenceError:
+                                p_out_iter_a = pre_p_out_iter_a
+                                C_inx_b, C_inx_a = pre_C_inx_b, pre_C_inx_a
+                                solver_relative_error = 0.1 * rel_error
+                                C_inx_b, C_inx_a = C_inx*(1+solver_relative_error), C_inx*(1-solver_relative_error)
+                            except GasLibraryAdaptedException:
+                                p_out_iter_a = pre_p_out_iter_a
+                                C_inx_b, C_inx_a = pre_C_inx_b, pre_C_inx_a
+                                solver_relative_error = 0.1 * rel_error
+                                C_inx_b, C_inx_a = C_inx*(1+solver_relative_error), C_inx*(1-solver_relative_error)
+                            else:
+                                reducing_error = False
+
+                        # Continuar con esto mañana con un while hasta que no choque con el error
+                        # f_ad = fabs((p_out_iter_b - p_out_iter_a)/(C_inx_b - C_inx_a))*C_inx_a/p_out
 
                 record.info('Error de presión a la salida: %.10f  ...  Valor actual: %.2f Pa ...  '
                             'Valor objetivo: %.2f Pa', rel_error, p_out_iter, p_out)
@@ -248,7 +273,7 @@ def step_decorator(cfg: config_class, step_corrector_memory):
                     :param step_inner_function: Función que se decora.
                                 :return: Se devuelve el wrapper_r. """
 
-        relative_error = cfg.relative_error
+        step_relative_error = cfg.relative_error
 
         def get_sif_output(iter_mode: bool = None, iter_end: bool = None, xi=None, rho_seed: list = None, Re=None):
             """ Se hace deepcopy de la salida y se devuelve. """
@@ -266,8 +291,8 @@ def step_decorator(cfg: config_class, step_corrector_memory):
                             :return: Se devuelve la lista de variables que corresponda según el modo de
                                     funcionamiento que se defina."""
 
-            eta_TT_obj = 1 - (((1 - eta_TT) / (200_000 ** (-1 / 5))) * (Re ** (-1 / 5)))
-            relative_security_distance = cfg.relative_error
+            nonlocal step_relative_error
+            target_efficiency = 1 - (((1 - eta_TT) / (200_000 ** (-1 / 5))) * (Re ** (-1 / 5)))
             f1 = f2 = None
             bolz_c = 1.0
 
@@ -287,15 +312,15 @@ def step_decorator(cfg: config_class, step_corrector_memory):
                 # justificar/contrastar la tendencia supuesta o al menos razonarlo. (Decreciente con xi)
                 if (f1 is None and f2 is None) or step_corrector_memory is not None:
                     sif1 = get_sif_output(True, False, xi_e1, rho_seed_1)
-                    f1, rho_seed_1 = (sif1[1]*(1-relative_security_distance)) - eta_TT_obj, sif1[3]
+                    f1, rho_seed_1 = (sif1[1]*(1-step_relative_error)) - target_efficiency, sif1[3]
                     sif2 = get_sif_output(True, False, xi_e2, rho_seed_2)
-                    f2, rho_seed_2 = (sif2[1]*(1+relative_security_distance)) - eta_TT_obj, sif2[3]
+                    f2, rho_seed_2 = (sif2[1]*(1+step_relative_error)) - target_efficiency, sif2[3]
                 elif f1 < 0:
                     sif1 = get_sif_output(True, False, xi_e1, rho_seed_1)
-                    f1, rho_seed_1 = (sif1[1]*(1-relative_security_distance)) - eta_TT_obj, sif1[3]
+                    f1, rho_seed_1 = (sif1[1]*(1-step_relative_error)) - target_efficiency, sif1[3]
                 else:
                     sif2 = get_sif_output(True, False, xi_e2, rho_seed_2)
-                    f2, rho_seed_2 = (sif2[1]*(1+relative_security_distance)) - eta_TT_obj, sif2[3]
+                    f2, rho_seed_2 = (sif2[1]*(1+step_relative_error)) - target_efficiency, sif2[3]
 
                 bolz_c = f1 * f2
 
@@ -310,31 +335,45 @@ def step_decorator(cfg: config_class, step_corrector_memory):
             record.info('Corrección iniciada.')
 
             rel_error_eta_TT = 1.0
-            xi_ec = None
+            xi_ec = sif1 = sif2 = None
 
-            while fabs(rel_error_eta_TT) > relative_error:
+            while fabs(rel_error_eta_TT) > cfg.relative_error:
                 if xi_ec is None:
                     xi_ec = xi_e2 - (f2 * (xi_e2 - xi_e1) / (f2 - f1))
                     sifc = get_sif_output(True, False, xi_ec, rho_seed_c)
-                    fc, rho_seed_c = sifc[1] - eta_TT_obj, sifc[3]
+                    eta_TT_c, rho_seed_c = sifc[1], sifc[3]
                 else:
                     sif1 = get_sif_output(True, False, xi_e1, rho_seed_1)
-                    f1, rho_seed_1 = sif1[1]*(1+relative_security_distance) - eta_TT_obj, sif1[3]
+                    f1, rho_seed_1 = sif1[1]*(1+step_relative_error) - target_efficiency, sif1[3]
                     sif2 = get_sif_output(True, False, xi_e2, rho_seed_2)
-                    f2, rho_seed_2 = sif2[1]*(1-relative_security_distance) - eta_TT_obj, sif2[3]
+                    f2, rho_seed_2 = sif2[1]*(1-step_relative_error) - target_efficiency, sif2[3]
                     xi_ec = xi_e2 - (f2 * (xi_e2 - xi_e1) / (f2 - f1))
                     sifc = get_sif_output(True, False, xi_ec, rho_seed_c)
-                    fc, rho_seed_c = sifc[1] - eta_TT_obj, sifc[3]
-                rel_error_eta_TT = fc / eta_TT_obj
-                record.info('Corrección en proceso  ...  eta_TT: %.4f  ...  Error: %.4f',
-                            float(sifc[1]), float(rel_error_eta_TT))
-                if fc * f2 <= 0:
+                    eta_TT_c, rho_seed_c = sifc[1], sifc[3]
+                fc = [eta_TT_c*(1+(sign*step_relative_error)) for sign in [-1, 1]]
+                if fc[0] * f2 <= 0:  # Most restrictive option
                     xi_e1, rho_seed_1 = xi_ec, rho_seed_c
-                elif fc * f1 <= 0:
+                elif fc[1] * f1 <= 0:  # Most restrictive option
                     xi_e2, rho_seed_2 = xi_ec, rho_seed_c
                 else:
-                    record.critical('Intervalo no válido.')
-                    raise NonConvergenceError
+                    record.warning('Relative error is too big to continue with the algorithm. Proceeding to reduce it.')
+                    old_rel_error = step_relative_error
+                    while step_relative_error > 0.1*old_rel_error:
+                        # The evaluations are repeated and, as the input is the same, the real error decreases,
+                        # enabling the necessary decision-making.
+                        pre_eta_1, pre_eta_2 = sif1[1], sif2[1]
+                        sif1 = get_sif_output(True, False, xi_e1, rho_seed_1)
+                        rho_seed_1 = sif1[3]
+                        rel_error_1 = fabs(sif1[1] - pre_eta_1)/sif1[1]
+                        sif2 = get_sif_output(True, False, xi_e2, rho_seed_2)
+                        rho_seed_2 = sif2[3]
+                        rel_error_2 = fabs(sif2[1] - pre_eta_2)/sif2[1]
+                        step_relative_error = rel_error_1 if rel_error_1 > rel_error_2 else rel_error_2
+
+                    step_relative_error *= 0.1
+
+                rel_error_eta_TT = (eta_TT_c - target_efficiency) / target_efficiency
+                record.info('Corrección en proceso  ...  eta_TT: %.4f  ...  Error: %.4f', sifc[1], rel_error_eta_TT)
 
             _, _, _, _, ll_1 = get_sif_output(True, True, xi_ec, rho_seed_c)
             record.info('Corrección finalizada.')
@@ -348,7 +387,7 @@ def step_decorator(cfg: config_class, step_corrector_memory):
                 Re, rho_seed = step_corrector_memory[0], step_corrector_memory[1]
             rel_error = None
             iter_counter = 0
-            while rel_error is None or rel_error > relative_error:
+            while rel_error is None or rel_error > step_relative_error:
                 iter_counter += 1
                 if iter_counter > cfg.iter_limit:
                     record.critical('No converge.')
@@ -383,6 +422,7 @@ class solver_object:
         """ :param config: Objeto que agrupa lo relativo a la configuración establecida para la ejecución del solver."""
 
         self.vmmr = []  # Almacena ciertas variables, para facilitar la comunicación de sus valores
+        self.spline_function = None
         self.cfg = config  # Objeto que contiene los parámetros de interés para la ejecución del solver.
         self.rho_seed_list = None  # Para aligerar los cálculos para variaciones pequeñas de las variables de entrada
         self.prd = productos  # Modela el comportamiento termodinámico de los productos de la combustión
@@ -417,10 +457,19 @@ class solver_object:
                     sys.exit()
             self.AUNGIER_object = Aungier_Loss_Model(config)
 
+        if self.cfg.spline_automatic_preloading:
+            self.function_generator_from_spline_interpolation()
+
+    def function_generator_from_spline_interpolation(self):
+        # In process...
+        record.debug('Creando la función para relacionar la presión a la salida con la velocidad a la entrada...')
+        self.spline_function = None
+        pass
+
     def problem_solver(self, T_in: float, p_in: float, n: float, C_inx=None, m_dot=None,
                        p_out=None, C_inx_ref=None) -> None | tuple[float, float, float, float]:
         """Esta función inicia la resolución del problema definido por la geometría configurada y las variables
-        requeridas como argumento.
+        requeridas como argumento. (Main method)
                 :param p_out:
                 :param m_dot:
                 :param T_in: Temperatura a la entrada de la turbina (K).
@@ -921,7 +970,7 @@ class solver_object:
             record.debug('Iter counter: %s  ...  Density: %.12f kg/m^3  ...  Relative variation: %.12f  ...  '
                          'Trend change counter: %s', iter_string, rho_b, rel_diff, trend_changes)
 
-            if trend_changes >= self.cfg.maximum_ups_and_downs:
+            if trend_changes >= self.cfg.max_trend_changes:
                 record.error('Se ha excedido el valor límite de oscilaciones establecido.')
                 raise NonConvergenceError
 

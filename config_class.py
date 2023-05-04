@@ -26,7 +26,10 @@ class config_class:
     iter_limit: int = 600  # Límite de iteraciones que se establece
     relative_jump: float = 0.1  # Salto relativo durante la búsqueda cuando se conoce la presión a la salida
     accurate_approach: bool = False  # Opción recomendable cuando el salto de presión es alto.
-    maximum_ups_and_downs: int = 5  # Número máximo de fluctuaciones a partir de las que no se considera que no converge
+    max_trend_changes: int = 5  # Número máximo de fluctuaciones a partir de las que no se considera que no converge
+    # Al comenzar la ejecución se genera una función a partir de interpolación por splines que va a permitir fijar
+    # la presión a la salida como parámetro de entrada.
+    spline_automatic_preloading = False
 
     def __post_init__(self):
         if self.loss_model not in ['Aungier', 'Ainley_and_Mathieson']:
@@ -193,9 +196,9 @@ class gas_model_to_solver:
     def __post_init__(self):
         if self.thermo_mode not in ("ig", "mp", ):
             record.critical("Los modos a elegir son ig (gas ideal con NASA coefs) o mp ('multi-phase').\n "
-                              "El modo mp se aplica solo en el vapor de agua, en caso contrario los límites del "
-                              "cálculo disminuirían demasiado y se realentiza todo el cálculo innecesariamente. \n "
-                              "Para  el modelo del Çengel usar el módulo IGmodelfromCengel.py. \n")
+                            "El modo mp se aplica solo en el vapor de agua, en caso contrario los límites del "
+                            "cálculo disminuirían demasiado y se realentiza todo el cálculo innecesariamente. \n "
+                            "Para  el modelo del Çengel usar el módulo IGmodelfromCengel.py. \n")
             sys.exit()
         self.gas_model = mixpm(self.thermo_mode)
         self.gas_model.setmix(self.C_atoms, self.H_atoms, self.air_excess)
@@ -253,10 +256,10 @@ FORMATS = {
 
 
 class CustomFormatter(logging.Formatter):
-    def format(self, record) -> str:
-        log_fmt = FORMATS[record.levelno]
+    def format(self, record_) -> str:
+        log_fmt = FORMATS[record_.levelno]
         formatter = logging.Formatter(log_fmt, style="{")
-        return formatter.format(record)
+        return formatter.format(record_)
 
 
 handler = logging.StreamHandler()
