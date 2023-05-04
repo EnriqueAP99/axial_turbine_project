@@ -212,8 +212,8 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                         C_inx_b, C_inx_a = C_inx*(1+solver_relative_error), C_inx*(1-solver_relative_error)
                         reducing_error = True
                         while reducing_error:
+                            pre_p_out_iter_a = p_out_iter_a
                             try:
-                                pre_p_out_iter_a = p_out_iter_a
                                 ps_list = inner_funtion_from_problem_solver(C_inx_a, solver_relative_error)
                                 p_out_iter_a = read_ps_list()
                                 ps_list = inner_funtion_from_problem_solver(C_inx_b, solver_relative_error)
