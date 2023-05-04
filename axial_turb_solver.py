@@ -208,9 +208,9 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                     else:
                         record.warning('Decisión no efectuable. Se continúa el cálculo con un error reducido.')
                         reducing_error = True
+                        pre_C_inx_b, pre_C_inx_a = C_inx_b, C_inx_a
                         while reducing_error:
                             solver_relative_error = 0.1*solver_relative_error
-                            pre_C_inx_b, pre_C_inx_a = C_inx_b, C_inx_a
                             if p_out > p_out_iter:
                                 C_inx_b = C_inx*(1+solver_relative_error)
                             else:
