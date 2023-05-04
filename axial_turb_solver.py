@@ -148,7 +148,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                     P_A = [p_out_iter_a*(1+(sign*solver_relative_error)) for sign in [-1, 1]]
                     P_B = [p_out_iter_b*(1+(sign*solver_relative_error)) for sign in [-1, 1]]
                     if (P_B[1]-p_out)*(P_A[0]-p_out) <= 0:  # Most restrictive option
-                        record.info('The solution has been found.')
+                        record.info('Operation point has been located.')
                         break
                     elif p_out == p_out_iter_a:
                         C_inx_b = C_inx_a*(1+solver_relative_error)
@@ -192,46 +192,47 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                     C_inx_b, C_inx_a = pre_C_inx_b, pre_C_inx_a
                     delta /= 2.5
                 else:
-                    pre_C_inx_b, pre_C_inx_a = C_inx_b, C_inx_a
+                    pre_C_inx_b, pre_C_inx_a = C_inx_b, C_inx_a  # Previous values are stored
                     p_out_iter = read_ps_list()
                     f_c = [(p_out_iter * (1+(sign*solver_relative_error))) - p_out for sign in [-1, 1]]
-                    if f_c[0] * f_b < 0:  # Most restrictive option
+                    if f_c[0] * f_b <= 0:  # Most restrictive value of f_c
                         f_c = f_a = p_out_iter - p_out
                         C_inx_a = C_inx
                         p_out_iter_a = p_out_iter
                         rel_error = fabs(f_c) / p_out
-                    elif f_c[1] * f_a < 0:  # Most restrictive option
+                    elif f_c[1] * f_a <= 0:  # Most restrictive value of f_c
                         f_c = f_b = p_out_iter - p_out
                         C_inx_b = C_inx
                         p_out_iter_b = p_out_iter
                         rel_error = fabs(f_c) / p_out
                     else:
-                        record.warning('Decisión no efectuable. Se continúa el cálculo para reducir el error.')
-                        pre_C_inx_b, pre_C_inx_a = C_inx_b, C_inx_a
-                        solver_relative_error = 0.1*rel_error
-                        C_inx_b, C_inx_a = C_inx*(1+solver_relative_error), C_inx*(1-solver_relative_error)
+                        record.warning('Decisión no efectuable. Se continúa el cálculo con un error reducido.')
                         reducing_error = True
                         while reducing_error:
-                            pre_p_out_iter_a = p_out_iter_a
-                            try:
-                                ps_list = inner_funtion_from_problem_solver(C_inx_a, solver_relative_error)
-                                p_out_iter_a = read_ps_list()
-                                ps_list = inner_funtion_from_problem_solver(C_inx_b, solver_relative_error)
-                                p_out_iter_b = read_ps_list()
-                            except NonConvergenceError:
-                                p_out_iter_a = pre_p_out_iter_a
-                                C_inx_b, C_inx_a = pre_C_inx_b, pre_C_inx_a
-                                solver_relative_error = 0.1 * solver_relative_error
-                                C_inx_b, C_inx_a = C_inx*(1+solver_relative_error), C_inx*(1-solver_relative_error)
-                            except GasLibraryAdaptedException:
-                                p_out_iter_a = pre_p_out_iter_a
-                                C_inx_b, C_inx_a = pre_C_inx_b, pre_C_inx_a
-                                solver_relative_error = 0.1 * solver_relative_error
-                                C_inx_b, C_inx_a = C_inx*(1+solver_relative_error), C_inx*(1-solver_relative_error)
+                            solver_relative_error = 0.1*rel_error
+                            pre_C_inx_b, pre_C_inx_a = C_inx_b, C_inx_a
+                            if p_out > p_out_iter:
+                                C_inx = C_inx_b = C_inx*(1+solver_relative_error)
                             else:
-                                reducing_error = False
+                                C_inx = C_inx_a = C_inx*(1-solver_relative_error)
+                            try:
+                                ps_list = inner_funtion_from_problem_solver(C_inx, solver_relative_error)
+                            except NonConvergenceError:
+                                C_inx_b, C_inx_a = pre_C_inx_b, pre_C_inx_a
+                                solver_relative_error = 0.1 * solver_relative_error
+                            except GasLibraryAdaptedException:
+                                C_inx_b, C_inx_a = pre_C_inx_b, pre_C_inx_a
+                                solver_relative_error = 0.1 * solver_relative_error
+                            else:
+                                if p_out > p_out_iter:
+                                    p_out_iter_b = read_ps_list()
+                                    if p_out_iter_b*(1-solver_relative_error) > p_out_iter:
+                                        reducing_error = False
+                                else:
+                                    p_out_iter_a = read_ps_list()
+                                    if p_out_iter_a*(1+solver_relative_error) > p_out_iter:
+                                        reducing_error = False
 
-                        # Continuar con esto mañana con un while hasta que no choque con el error
                         # f_ad = fabs((p_out_iter_b - p_out_iter_a)/(C_inx_b - C_inx_a))*C_inx_a/p_out
 
                 record.info('Error de presión a la salida: %.10f  ...  Valor actual: %.2f Pa ...  '
