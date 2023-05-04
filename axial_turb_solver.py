@@ -226,11 +226,11 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                             else:
                                 if p_out > p_out_iter:
                                     p_out_iter_b = read_ps_list()
-                                    if p_out_iter_b*(1-solver_relative_error) > p_out_iter:
+                                    if p_out_iter_b*(1+solver_relative_error) < p_out_iter:
                                         reducing_error = False
                                 else:
                                     p_out_iter_a = read_ps_list()
-                                    if p_out_iter_a*(1+solver_relative_error) > p_out_iter:
+                                    if p_out_iter_a*(1-solver_relative_error) > p_out_iter:
                                         reducing_error = False
 
                         # f_ad = fabs((p_out_iter_b - p_out_iter_a)/(C_inx_b - C_inx_a))*C_inx_a/p_out
