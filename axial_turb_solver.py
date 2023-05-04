@@ -151,7 +151,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                         record.info('The solution has been found.')
                         break
                     elif (P_B[0]-p_out)*(P_A[1]-p_out) <= 0:  # Less restrictive option
-                        record.warning('Relative error might be too big to discern how to proceed. Recalculating.')
+                        record.warning('Relative error might be too much to discern how to proceed. Recalculating.')
                         solver_relative_error *= 0.1
                         start = False  # Reset required
                     else:
