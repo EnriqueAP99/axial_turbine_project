@@ -206,14 +206,12 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
         elif var_to_sweep == 'n_rpm':
             n_rpm = value
         elif var_to_sweep == 'p_out':
-            if value < (0.05*sweep_data[var_to_sweep][1]) + (0.95*sweep_data[var_to_sweep][0]):
+            if value < (0.15*sweep_data[var_to_sweep][1]) + (0.85*sweep_data[var_to_sweep][0]):
                 if just_once[0]:
-                    solver.cfg.edit_cfg_prop('accurate_approach', True)
                     just_once[0] = False
                     solver.cfg.edit_cfg_prop('relative_jump', 0.1*rel_jump)
             else:
                 if just_once[1]:
-                    solver.cfg.edit_cfg_prop('accurate_approach', sweep_data['acc_approach'])
                     just_once[1] = False
                     solver.cfg.edit_cfg_prop('relative_jump', rel_jump)
             p_out = value
@@ -251,7 +249,7 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
 
 def main_1(fast_mode, action):
     if action == 'procesar_y_guardar':
-        settings = config_class(relative_error=1E-11, n_steps=1, relative_jump=0.004, loss_model='Aungier',
+        settings = config_class(relative_error=1E-12, n_steps=1, relative_jump=0.004, loss_model='Aungier',
                                 ideal_gas=True, chain_mode=fast_mode, iter_limit=800)
 
         Rm = 0.1429
@@ -304,7 +302,7 @@ def main_1(fast_mode, action):
 
 
 def main_2():
-    settings = config_class(relative_error=1E-11, accurate_approach=False, ideal_gas=True,
+    settings = config_class(relative_error=1E-12, ideal_gas=True,
                             n_steps=1, relative_jump=0.04, loss_model='Aungier',
                             chain_mode=False, iter_limit=2000, max_trend_changes=6)
 
