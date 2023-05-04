@@ -169,6 +169,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
             rel_error = None
             p_out_iter = None
             f_a = f_b = None
+            reduced_error = False
 
             while rel_error is None or rel_error > cfg.relative_error:  # Applying Regula Falsi
                 iter_count += 1
@@ -178,7 +179,8 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                     f_b = (p_out_iter_b*(1+rel_error))-p_out
                 diff_value = (f_b * (C_inx_b - C_inx_a) / (f_b - f_a))
                 C_inx = C_inx_b - diff_value
-                solver_relative_error = 0.1*rel_error
+                if not reduced_error:
+                    solver_relative_error = 0.1 * rel_error
                 try:
                     ps_list = inner_funtion_from_problem_solver(C_inx, solver_relative_error)
                 except NonConvergenceError:
@@ -193,12 +195,12 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                     pre_C_inx_b, pre_C_inx_a = C_inx_b, C_inx_a  # Previous values are stored
                     p_out_iter = read_ps_list()
                     f_c = [(p_out_iter * (1+(sign*solver_relative_error))) - p_out for sign in [-1, 1]]
-                    if f_c[0] * f_b <= 0:  # Most restrictive value of f_c
+                    if f_c[0] * f_b < 0:  # Most restrictive value of f_c
                         f_c = f_a = p_out_iter - p_out
                         C_inx_a = C_inx
                         p_out_iter_a = p_out_iter
                         rel_error = fabs(f_c) / p_out
-                    elif f_c[1] * f_a <= 0:  # Most restrictive value of f_c
+                    elif f_c[1] * f_a < 0:  # Most restrictive value of f_c
                         f_c = f_b = p_out_iter - p_out
                         C_inx_b = C_inx
                         p_out_iter_b = p_out_iter
@@ -207,20 +209,28 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                         record.warning('Decisión no efectuable. Se continúa el cálculo con un error reducido.')
                         reducing_error = True
                         while reducing_error:
-                            solver_relative_error = 0.1*rel_error
+                            solver_relative_error = 0.1*solver_relative_error
                             pre_C_inx_b, pre_C_inx_a = C_inx_b, C_inx_a
                             if p_out > p_out_iter:
-                                C_inx = C_inx_b = C_inx*(1+solver_relative_error)
+                                C_inx_b = C_inx*(1+solver_relative_error)
                             else:
-                                C_inx = C_inx_a = C_inx*(1-solver_relative_error)
+                                C_inx_a = C_inx*(1-solver_relative_error)
                             try:
                                 ps_list = inner_funtion_from_problem_solver(C_inx, solver_relative_error)
                             except NonConvergenceError:
                                 C_inx_b, C_inx_a = pre_C_inx_b, pre_C_inx_a
-                                solver_relative_error = 0.1 * solver_relative_error
+                                if p_out > p_out_iter:
+                                    C_inx_b = C_inx / ((1 + solver_relative_error)**2)
+                                else:
+                                    C_inx_a = C_inx / ((1 - solver_relative_error)**2)
+                                solver_relative_error = 10*solver_relative_error
                             except GasLibraryAdaptedException:
                                 C_inx_b, C_inx_a = pre_C_inx_b, pre_C_inx_a
-                                solver_relative_error = 0.1 * solver_relative_error
+                                if p_out > p_out_iter:
+                                    C_inx_b = C_inx / ((1 + solver_relative_error)**2)
+                                else:
+                                    C_inx_a = C_inx / ((1 - solver_relative_error)**2)
+                                solver_relative_error = 10*solver_relative_error
                             else:
                                 if p_out > p_out_iter:
                                     p_out_iter_b = read_ps_list()
@@ -230,6 +240,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                                     p_out_iter_a = read_ps_list()
                                     if p_out_iter_a*(1-solver_relative_error) > p_out_iter:
                                         reducing_error = False
+                                reduced_error = True
 
                         # f_ad = fabs((p_out_iter_b - p_out_iter_a)/(C_inx_b - C_inx_a))*C_inx_a/p_out
 
