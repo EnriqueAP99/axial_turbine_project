@@ -107,12 +107,12 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                 try:
                     if start:
                         pre_p_out_iter_a = p_out_iter_a
-                        ps_list = inner_funtion_from_problem_solver(C_inx_a)
+                        ps_list = inner_funtion_from_problem_solver(C_inx_a, solver_relative_error)
                         p_out_iter_a = read_ps_list()
-                        ps_list = inner_funtion_from_problem_solver(C_inx_b)
+                        ps_list = inner_funtion_from_problem_solver(C_inx_b, solver_relative_error)
                         p_out_iter_b = read_ps_list()
                     else:
-                        ps_list = inner_funtion_from_problem_solver(C_inx)
+                        ps_list = inner_funtion_from_problem_solver(C_inx, solver_relative_error)
                 except NonConvergenceError:
                     if first_iter:
                         first_iter_exception_task()
@@ -151,10 +151,8 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                         record.info('The solution has been found.')
                         break
                     elif (P_B[0]-p_out)*(P_A[1]-p_out) <= 0:  # Less restrictive option
-                        record.warning('Relative error might be too big to discern how to proceed.')
-                        # If this solution is not effective then the relative error has not been chosen correctly.
-                        f_ad = fabs((p_out_iter_b - p_out_iter_a)/(C_inx_b - C_inx_a))*C_inx_a/p_out
-                        C_inx_b, C_inx_a = C_inx_b*(1+(delta/f_ad)), C_inx_a*(1-(delta/f_ad))
+                        record.warning('Relative error might be too big to discern how to proceed. Recalculating.')
+                        solver_relative_error *= 0.1
                         start = False  # Reset required
                     else:
                         C_in_algorithm()
@@ -178,7 +176,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                 if solver_relative_error < cfg.relative_error:
                     solver_relative_error = cfg.relative_error
                 try:
-                    ps_list = inner_funtion_from_problem_solver(C_inx, True, solver_relative_error)
+                    ps_list = inner_funtion_from_problem_solver(C_inx, solver_relative_error)
                 except NonConvergenceError:
                     # This event will most likely only happen because of the light deviation or when iter counter
                     # limit is not high enough.
@@ -210,9 +208,9 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                         while reducing_error:
                             try:
                                 pre_p_out_iter_a = p_out_iter_a
-                                ps_list = inner_funtion_from_problem_solver(C_inx_a, True, solver_relative_error)
+                                ps_list = inner_funtion_from_problem_solver(C_inx_a, solver_relative_error)
                                 p_out_iter_a = read_ps_list()
-                                ps_list = inner_funtion_from_problem_solver(C_inx_b, True, solver_relative_error)
+                                ps_list = inner_funtion_from_problem_solver(C_inx_b, solver_relative_error)
                                 p_out_iter_b = read_ps_list()
                             except NonConvergenceError:
                                 p_out_iter_a = pre_p_out_iter_a
@@ -487,7 +485,7 @@ class solver_object:
         relative_error = self.cfg.relative_error
         record.debug('El error relativo establecido en el solver es: %s', relative_error)
 
-        passage_control = [True, True]
+        passage_control = True
 
         if m_dot is None and C_inx is None:
             if p_out is None:
@@ -511,25 +509,16 @@ class solver_object:
             m_dot = rho_in * self.cfg.geom['areas'][0] * C_inx
 
         @solver_decorator(self.cfg, p_out, self.C_inx_register)
-        def inner_solver(var_C_inx=None, last_calls=False, mid_process_relative_error=relative_error):
+        def inner_solver(var_C_inx=None, solver_relative_error=None):
             nonlocal m_dot, C_inx, ps_list, passage_control
 
             if not self.cfg.accurate_approach:
-                if not last_calls:
-                    if passage_control[0]:
-                        record.info('Para acelerar la aproximación a la solución se modifica el error relativo.')
-                        self.cfg.edit_cfg_prop('relative_error', 1E-4)
-                        self.prd.modify_relative_error(1E-4)
-                        passage_control[0] = False
-                else:
-                    if mid_process_relative_error > relative_error:
-                        self.cfg.edit_cfg_prop('relative_error', mid_process_relative_error)
-                        self.prd.modify_relative_error(mid_process_relative_error)
-                    elif passage_control[1]:
-                        record.info('Se reestablecen los valores de precisión deseados.')
-                        self.cfg.edit_cfg_prop('relative_error', relative_error)
-                        self.prd.modify_relative_error(relative_error)
-                        passage_control[1] = False
+                if passage_control:
+                    record.info('Para acelerar la aproximación a la solución se modifica el error relativo.')
+                    passage_control = False
+            if solver_relative_error is not None:
+                self.cfg.edit_cfg_prop('relative_error', solver_relative_error)
+                self.prd.modify_relative_error(solver_relative_error)
 
             self.step_iter_mode = self.step_iter_end = False
             self.step_counter = 0
