@@ -22,7 +22,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
         p_out: Pressure at the turbine outlet (Pa).
         C_inx_estimated: Estimated inlet velocity to be received when the outlet pressure is set (m/s).
     """
-
+    # Hacer delta dimensional
     def solver_inner_decorator(inner_funtion_from_problem_solver):
         """ Inner decorator that manages the internal function of the problem_solver method from solver_class.
 
@@ -37,18 +37,18 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
 
             def read_ps_list():
                 if cfg.chain_mode:
-                    new_p_out = ps_list.copy()[1]
+                    new_p_out = ps_list[1]
                 else:
-                    new_p_out = copy.deepcopy(ps_list)[-2][1]
+                    new_p_out = ps_list[-2][1]
                 return new_p_out
 
             iter_count = 0
             from_b = from_a = False
             start = first_iter = True
             # Points "a" and "b" such that C_inx_b > C_inx_a.
-            delta = cfg.relative_jump
-            C_inx_b = C_inx
-            C_inx_a = C_inx*(1 - (0.1*delta))
+            delta = cfg.jump
+            C_inx_a = C_inx
+            C_inx_b = C_inx + delta
             pre_C_inx_a, pre_C_inx_b = C_inx_b, C_inx_a
             p_out_iter_b = p_out_iter_a = pre_p_out_iter_a = None
 
@@ -59,13 +59,13 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                 if p_out_iter_b > p_out:
                     # Here goes the level to increase velocity at point "b".
                     C_inx_a = C_inx_b
-                    C_inx_b = C_inx_b * (1 + delta)
+                    C_inx_b = C_inx_b + delta
                     from_b = True  # To indicate where does the process flow come from
                     C_inx = C_inx_b
                 elif p_out_iter_a < p_out:
                     # Here goes the level to decrease velocity at point "a".
                     C_inx_b = C_inx_a
-                    C_inx_a = C_inx_a * (1 - delta)
+                    C_inx_a = C_inx_a - delta
                     from_a = True
                     C_inx = C_inx_a
 
@@ -159,8 +159,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                 try:
                     ps_list = inner_funtion_from_problem_solver(C_inx)
                 except NonConvergenceError:
-                    # This event will most likely only happen because of the light deviation or when iter counter
-                    # limit is not high enough.
+                    # This event will most likely only happen when iter counter limit is not high enough.
                     C_inx_b, C_inx_a = pre_C_inx_b, pre_C_inx_a
                 except GasLibraryAdaptedException:
                     C_inx_b, C_inx_a = pre_C_inx_b, pre_C_inx_a
@@ -183,7 +182,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                             'Valor objetivo: %.2f Pa', rel_error, p_out_iter, p_out)
 
                 if iter_count > cfg.iter_limit:
-                    record.critical('Does not converge.')
+                    record.critical('Recursive calculation does not reach convergence.')
                     raise NonConvergenceError
 
             return
@@ -195,7 +194,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
 
             t_1 = time()
             if p_out is None:
-                _ = inner_funtion_from_problem_solver(None, True)
+                _ = inner_funtion_from_problem_solver()
             else:
                 iterate_ps()
             t_2 = (time() - t_1).__round__(0)
@@ -247,13 +246,13 @@ def step_decorator(cfg: config_class, step_corrector_memory):
             bolz_c = 1.0
 
             if step_corrector_memory is not None:
-                xi_e1 = step_corrector_memory[0] * (1 - cfg.relative_jump)
-                xi_e2 = step_corrector_memory[0] * (1 + cfg.relative_jump)
+                xi_e1 = step_corrector_memory[0] * (1 - cfg.jump)
+                xi_e2 = step_corrector_memory[0] * (1 + cfg.jump)
                 rho_seed_1 = rho_seed_2 = rho_seed_c = step_corrector_memory[1]
             else:
                 xi_e0 = xi_est * (Re ** (-1 / 5)) / (200_000 ** (-1 / 5))
-                xi_e1 = xi_e0 * (1 - cfg.relative_jump)
-                xi_e2 = xi_e0 * (1 + cfg.relative_jump)
+                xi_e1 = xi_e0 * (1 - cfg.jump)
+                xi_e2 = xi_e0 * (1 + cfg.jump)
                 rho_seed_1 = rho_seed_2 = rho_seed_c = rho_seed
 
             while bolz_c > 0:
@@ -278,9 +277,9 @@ def step_decorator(cfg: config_class, step_corrector_memory):
                     pass
                 else:
                     if f1 < 0:
-                        xi_e1 *= (1 - cfg.relative_jump)
+                        xi_e1 *= (1 - cfg.jump)
                     elif f2 > 0:
-                        xi_e2 *= (1 + cfg.relative_jump)
+                        xi_e2 *= (1 + cfg.jump)
 
             record.info('Corrección iniciada.')
 
@@ -961,7 +960,7 @@ class solver_object:
 
 def main():
     chain_mode = False
-    settings = config_class(relative_error=1E-12, n_steps=1, relative_jump=0.005, loss_model='Aungier',
+    settings = config_class(relative_error=1E-12, n_steps=1, jump=0.05, loss_model='Aungier',
                             ideal_gas=True, chain_mode=chain_mode, iter_limit=1200)
 
     # Geometría procedente de: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf

@@ -24,8 +24,7 @@ class config_class:
     ideal_gas: bool  # True cuando se establece hipótesis de gas ideal
     geom: dict = None  # Diccionario para almacenar parámetros geométricos de la turbina
     iter_limit: int = 600  # Límite de iteraciones que se establece
-    relative_jump: float = 0.1  # Salto relativo durante la búsqueda cuando se conoce la presión a la salida
-    accurate_approach: bool = False  # Opción recomendable cuando el salto de presión es alto.
+    jump: float = 0.05  # Salto efectuado durante la búsqueda cuando se conoce la presión a la salida
     max_trend_changes: int = 5  # Número máximo de fluctuaciones a partir de las que no se considera que no converge
     # Al comenzar la ejecución se genera una función a partir de interpolación por splines que va a permitir fijar
     # la presión a la salida como parámetro de entrada.

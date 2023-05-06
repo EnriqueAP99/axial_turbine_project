@@ -171,12 +171,10 @@ def problem_data_viewer(solver: solver_object, req_vars=None) -> None:
     return
 
 
-def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_sweep: str,
+def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_sweep: str, C_inx=None,
                  m_dot=None, p_out=None, C_inx_ref=None, resolution: float | int = None, req_vars: list = None):
     """ El rango debe ser creciente. """
     k = 0
-    just_once = [True, True]
-    rel_jump = solver.cfg.relative_jump
     sweep_data = {}
     lista_df_a, lista_df_b, lista_df_c = [], [], []
 
@@ -192,13 +190,15 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
     elif var_to_sweep == 'p_out':
         sweep_data[var_to_sweep] = p_out
         sweep_data['units'] = 'Pa'
-        sweep_data['acc_approach'] = solver.cfg.accurate_approach
     elif var_to_sweep == 'm_dot':
         sweep_data[var_to_sweep] = m_dot
         sweep_data['units'] = 'kg'
+    elif var_to_sweep == 'C_inx':
+        sweep_data[var_to_sweep] = C_inx
+        sweep_data['units'] = 'm/s'
 
     def set_value(value):
-        nonlocal T_in, p_in, n_rpm, p_out, m_dot
+        nonlocal T_in, p_in, n_rpm, p_out, m_dot, C_inx
         if var_to_sweep == 'T_in':
             T_in = value
         elif var_to_sweep == 'p_in':
@@ -206,17 +206,11 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
         elif var_to_sweep == 'n_rpm':
             n_rpm = value
         elif var_to_sweep == 'p_out':
-            if value < (0.15*sweep_data[var_to_sweep][1]) + (0.85*sweep_data[var_to_sweep][0]):
-                if just_once[0]:
-                    just_once[0] = False
-                    solver.cfg.edit_cfg_prop('relative_jump', 0.1*rel_jump)
-            else:
-                if just_once[1]:
-                    just_once[1] = False
-                    solver.cfg.edit_cfg_prop('relative_jump', rel_jump)
             p_out = value
         elif var_to_sweep == 'm_dot':
             m_dot = value
+        elif var_to_sweep == 'C_inx':
+            C_inx = value
 
     if resolution is None:
         resolution = 200
@@ -227,7 +221,8 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
         set_value(value_k)
 
         try:
-            solver.problem_solver(T_in=T_in, p_in=p_in, n=n_rpm, m_dot=m_dot, p_out=p_out, C_inx_ref=C_inx_ref)
+            solver.problem_solver(T_in=T_in, p_in=p_in, n=n_rpm, m_dot=m_dot, C_inx=C_inx, p_out=p_out,
+                                  C_inx_ref=C_inx_ref)
             new_data = True
         except GasLibraryAdaptedException:
             new_data = False
@@ -249,7 +244,7 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
 
 def main_1(fast_mode, action):
     if action == 'procesar_y_guardar':
-        settings = config_class(relative_error=1E-12, n_steps=1, relative_jump=0.004, loss_model='Aungier',
+        settings = config_class(relative_error=1E-12, n_steps=1, jump=0.004, loss_model='Aungier',
                                 ideal_gas=True, chain_mode=fast_mode, iter_limit=800)
 
         Rm = 0.1429
@@ -302,8 +297,7 @@ def main_1(fast_mode, action):
 
 
 def main_2():
-    settings = config_class(relative_error=1E-12, ideal_gas=True,
-                            n_steps=1, relative_jump=0.04, loss_model='Aungier',
+    settings = config_class(relative_error=1E-12, ideal_gas=True, n_steps=1, jump=0.5, loss_model='Aungier',
                             chain_mode=False, iter_limit=2000, max_trend_changes=6)
 
     Rm = 0.1429
@@ -328,15 +322,16 @@ def main_2():
     gas_model = gas_model_to_solver(thermo_mode="ig")
     solver = solver_object(settings, gas_model)
 
-    df_a, df_b, df_c = var_sweeping(solver, T_in=1100, p_in=400_000, n_rpm=17_000, var_to_sweep='p_out',
-                                    C_inx_ref=140, p_out=[203_000, 400_000], resolution=200)
+    df_a, df_b, df_c = var_sweeping(solver, T_in=1100, p_in=400_000, n_rpm=17_000, C_inx_ref=140,
+                                    p_out=[203000, 399999], var_to_sweep='p_out', resolution=200)
 
-    df_a.to_csv('df_a.csv')
-    df_b.to_csv('df_b.csv')
-    df_c.to_csv('df_c.csv')
+    df_a.to_csv('df_a_2.csv')
+    df_b.to_csv('df_b_2.csv')
+    df_c.to_csv('df_c_2.csv')
 
 
 def main_3():
+
     df_c = pd.read_csv('df_c.csv', index_col='m_dot (kg/s)')
     eta_s = df_c['eta_maq (-)']
     Potencia = df_c['P_total (kW)']
@@ -361,11 +356,42 @@ def main_3():
 
     df_a = pd.read_csv('df_a.csv', index_col='Aux_Index')
     df_a_pt_3 = df_a[df_a['Spec_Index'] == 'Step_1_pt_3']
+    df_a_pt_1 = df_a[df_a['Spec_Index'] == 'Step_1_pt_1']
     p_out_m_dot = pd.DataFrame((df_a_pt_3['p (Pa)']/1000).values.tolist(), columns=['p'], index=df_c.index)
+    p_out_C_inx = pd.DataFrame((df_a_pt_3['p (Pa)']/1000).values.tolist(), columns=['p'], index=df_a_pt_1['C (m/s)'])
+    p_out_h0 = pd.DataFrame((df_a_pt_3['p (Pa)']/1000).values.tolist(), columns=['p'], index=df_a_pt_1['h0 (kJ/kg)'])
+    p_out_T0 = pd.DataFrame((df_a_pt_3['p (Pa)']/1000).values.tolist(), columns=['p'], index=df_a_pt_1['T0 (K)'])
     p_out = p_out_m_dot['p']
     plt.plot(p_out)
     plt.title('Presión a la salida - Flujo másico')
     plt.xlabel(r'$\dot{m}$ (kg/s)')
+    plt.ylabel(r'$p_{out}$ (kPa)')
+    plt.minorticks_on()
+    plt.grid(which='both')
+    plt.show()
+
+    p_out = p_out_C_inx['p']
+    plt.plot(p_out)
+    plt.title('Presión a la salida - Velocidad a la entrada')
+    plt.xlabel(r'$\dot{C}_{in}$ (m/s)')
+    plt.ylabel(r'$p_{out}$ (kPa)')
+    plt.minorticks_on()
+    plt.grid(which='both')
+    plt.show()
+
+    p_out = p_out_h0['p']
+    plt.plot(p_out)
+    plt.title('Presión a la salida - Entalpía de remanso a la entrada')
+    plt.xlabel(r'$h_{0in}$ (kJ/kg)')
+    plt.ylabel(r'$p_{out}$ (kPa)')
+    plt.minorticks_on()
+    plt.grid(which='both')
+    plt.show()
+
+    p_out = p_out_T0['p']
+    plt.plot(p_out)
+    plt.title('Presión a la salida - Temperatura de remanso a la entrada')
+    plt.xlabel(r'$T_{0in}$ (K)')
     plt.ylabel(r'$p_{out}$ (kPa)')
     plt.minorticks_on()
     plt.grid(which='both')
