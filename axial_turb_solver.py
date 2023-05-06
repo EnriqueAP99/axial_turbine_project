@@ -59,7 +59,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                 if p_out_iter_b > p_out:
                     # Here goes the level to increase velocity at point "b".
                     C_inx_a = C_inx_b
-                    C_inx_b = C_inx_b + delta
+                    C_inx_b += delta
                     from_b = True  # To indicate where does the process flow come from
                     C_inx = C_inx_b
                 elif p_out_iter_a < p_out:
@@ -68,12 +68,13 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                     C_inx_a = C_inx_a - delta
                     from_a = True
                     C_inx = C_inx_a
+                return
 
             def first_iter_exception_task():
                 nonlocal C_inx_a, C_inx_b
-                record.critical('An error has occurred. It is recommended to modify the speed estimation at the '
-                                'inlet or to modify the configuration.')
-                raise NonConvergenceError
+                C_inx_b -= delta
+                C_inx_a -= delta
+                return
 
             def post_exception_tasks():
                 record.warning('An exception was caught.')
