@@ -150,9 +150,9 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
 
             def get_C_inx():
                 nonlocal diff_value, C_inx
-                diff_value = ((p_out_iter_b-p_out) * (C_inx_b - C_inx_a) / (p_out_iter_b - p_out_iter_a))
-                C_inx = C_inx_b - diff_value
-                if C_inx < C_inx_a or diff_value < solver_relative_error*C_inx_a:
+                diff_value = (p_out-p_out_iter_b) * (C_inx_b - C_inx_a) / (p_out_iter_b - p_out_iter_a)
+                C_inx = C_inx_b + diff_value
+                if C_inx < ((C_inx_a*0.95)+(C_inx_b*0.05)) or C_inx > ((C_inx_b*0.95)+(C_inx_a*0.05)):
                     C_inx = (C_inx_b + C_inx_a)/2
 
             while rel_error is None or rel_error >= cfg.relative_error:  # Applying Regula Falsi
@@ -195,7 +195,6 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                         p_out_iter_b = p_out_iter
                         rel_error = fabs(f_c) / p_out
                         get_C_inx()
-
 
                 record.info('Error de presión a la salida: %.10f  ...  Valor actual: %.2f Pa ...  '
                             'Valor objetivo: %.2f Pa', rel_error, p_out_iter, p_out)
