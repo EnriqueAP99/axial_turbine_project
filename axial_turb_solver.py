@@ -51,6 +51,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
             C_inx_b = C_inx + (0.5*delta)
             pre_C_inx_a = pre_C_inx_b = C_inx
             p_out_iter_b = p_out_iter_a = None
+            ps_list_a = ps_list_b = None
 
             def C_in_algorithm():
                 nonlocal C_inx_a, C_inx_b, from_a, from_b, C_inx, pre_C_inx_a, pre_C_inx_b
@@ -91,10 +92,8 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
             while True:
                 try:
                     if start:
-                        ps_list = inner_funtion_from_problem_solver(C_inx_a)
-                        p_out_iter_a = read_ps_list()
-                        ps_list = inner_funtion_from_problem_solver(C_inx_b)
-                        p_out_iter_b = read_ps_list()
+                        ps_list_a = inner_funtion_from_problem_solver(C_inx_a)
+                        ps_list_b = inner_funtion_from_problem_solver(C_inx_b)
                     else:
                         ps_list = inner_funtion_from_problem_solver(C_inx)
                 except NonConvergenceError:
@@ -111,6 +110,10 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                     # Saving previous values before doing changes, these are required in case of exceptions.
                     pre_C_inx_a, pre_C_inx_b = C_inx_a, C_inx_b
                     if start:
+                        ps_list = ps_list_a
+                        p_out_iter_a = read_ps_list()
+                        ps_list = ps_list_b
+                        p_out_iter_b = read_ps_list()
                         start = False
                     else:
                         p_out_iter = read_ps_list()
@@ -137,9 +140,8 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                 finally:
                     if not start:
                         C_in_algorithm()
-
-                record.info('Current range: [%.2f, %.2f]  ...  Target value: %.2f',
-                            p_out_iter_a, p_out_iter_b, p_out)
+                        record.info('Current range: [%.2f, %.2f]  ...  Target value: %.2f',
+                                    p_out_iter_a, p_out_iter_b, p_out)
 
             rel_error = None
             p_out_iter = None
