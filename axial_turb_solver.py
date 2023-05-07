@@ -146,16 +146,18 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
             rel_error = None
             p_out_iter = None
             f_a = f_b = None
-            added_value = None
+            diff_value = None
             pre_p_out_iter_a = pre_p_out_iter_b = None
             limit_error = None
 
             def update_C_inx():
-                nonlocal added_value, C_inx
-                added_value = (p_out-p_out_iter_b) * (C_inx_b - C_inx_a) / (p_out_iter_b - p_out_iter_a)
-                C_inx = C_inx_b + added_value
-                if C_inx < C_inx_a or C_inx > C_inx_b:
-                    C_inx = (C_inx_a + C_inx_b)/2
+                nonlocal diff_value, C_inx
+                diff_value = (p_out_iter_b-p_out) * (C_inx_b - C_inx_a) / (p_out_iter_b - p_out_iter_a)
+                if diff_value > 0.9*(C_inx_b - C_inx_a):
+                    diff_value = 0.9*(C_inx_b - C_inx_a)
+                elif diff_value < 0.1*(C_inx_b - C_inx_a):
+                    diff_value = 0.1 * (C_inx_b - C_inx_a)
+                C_inx = C_inx_b - diff_value
 
             while rel_error is None or rel_error >= cfg.relative_error:  # Applying Regula Falsi
                 iter_count += 1
@@ -191,24 +193,27 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                         update_C_inx()
 
                 # The next block applies in cases affected by discontinuity.
-                if fabs(pre_p_out_iter_a - p_out_iter_a)/p_out <= solver_relative_error or \
-                        fabs(pre_p_out_iter_b - p_out_iter_b)/p_out <= solver_relative_error:
-                    record.warning('Function is not continuous, returned performance point is aproximated by the '
-                                   'closest limit.')
-                    if limit_error is None:
-                        limit_error = {}
-                    if p_out_iter_b*(1-solver_relative_error) <= p_out_iter <= p_out_iter_b*(1+solver_relative_error):
-                        limit_error['b'] = rel_error
-                        if 'a' in limit_error:
-                            if limit_error['b'] < limit_error['a']:
-                                if fabs(pre_p_out_iter_b - p_out_iter_b)/p_out <= solver_relative_error:
-                                    break
-                    elif p_out_iter_a*(1-solver_relative_error) <= p_out_iter <= p_out_iter_a*(1+solver_relative_error):
-                        limit_error['a'] = rel_error
-                        if 'b' in limit_error:
-                            if limit_error['a'] < limit_error['b']:
-                                if fabs(pre_p_out_iter_a - p_out_iter_a)/p_out <= solver_relative_error:
-                                    break
+                if pre_p_out_iter_a is not None and pre_p_out_iter_b is not None:
+                    if fabs(pre_p_out_iter_a - p_out_iter_a)/p_out <= solver_relative_error or \
+                            fabs(pre_p_out_iter_b - p_out_iter_b)/p_out <= solver_relative_error:
+                        record.warning('Function is not continuous, returned performance point is aproximated by the '
+                                       'closest limit.')
+                        if limit_error is None:
+                            limit_error = {}
+                        p_a = [p_out_iter_a*(1+(sign*solver_relative_error)) for sign in [-1, 1]]
+                        p_b = [p_out_iter_b*(1+(sign*solver_relative_error)) for sign in [-1, 1]]
+                        if p_b[0] <= p_out_iter <= p_b[1]:
+                            limit_error['b'] = rel_error
+                            if 'a' in limit_error:
+                                if limit_error['b'] < limit_error['a']:
+                                    if fabs(pre_p_out_iter_b - p_out_iter_b)/p_out <= solver_relative_error:
+                                        break
+                        elif p_a[0] <= p_out_iter <= p_a[1]:
+                            limit_error['a'] = rel_error
+                            if 'b' in limit_error:
+                                if limit_error['a'] < limit_error['b']:
+                                    if fabs(pre_p_out_iter_a - p_out_iter_a)/p_out <= solver_relative_error:
+                                        break
 
                 record.info('Error de presión a la salida: %.10f  ...  Valor actual: %.2f Pa ...  '
                             'Valor objetivo: %.2f Pa', rel_error, p_out_iter, p_out)
