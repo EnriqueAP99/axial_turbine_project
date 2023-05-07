@@ -47,14 +47,13 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
             start = True
             # Points "a" and "b" such that C_inx_b > C_inx_a.
             delta = cfg.jump
-            C_inx_a = C_inx
-            C_inx_b = C_inx + delta
-            pre_C_inx_a, pre_C_inx_b = C_inx_b, C_inx_a
+            C_inx_a = C_inx - (0.5*delta)
+            C_inx_b = C_inx + (0.5*delta)
+            pre_C_inx_a = pre_C_inx_b = C_inx
             p_out_iter_b = p_out_iter_a = None
 
             def C_in_algorithm():
                 nonlocal C_inx_a, C_inx_b, from_a, from_b, C_inx, pre_C_inx_a, pre_C_inx_b
-                # Saving previous values before doing changes, these are required in case of exceptions.
                 if p_out_iter_b > p_out:
                     # Here goes the level to increase velocity at point "b".
                     C_inx_a = C_inx_b
@@ -71,8 +70,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
 
             def first_iter_exception_task():
                 nonlocal C_inx_a, C_inx_b
-                C_inx_b -= delta
-                C_inx_a -= delta
+                C_inx_b = C_inx_a = C_inx
                 return
 
             def post_exception_tasks():
@@ -110,6 +108,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                     else:
                         post_exception_tasks()
                 else:
+                    # Saving previous values before doing changes, these are required in case of exceptions.
                     pre_C_inx_a, pre_C_inx_b = C_inx_a, C_inx_b
                     if start:
                         start = False
