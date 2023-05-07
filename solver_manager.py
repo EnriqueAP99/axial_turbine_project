@@ -297,8 +297,8 @@ def main_1(fast_mode, action):
 
 
 def main_2():
-    settings = config_class(relative_error=1E-12, ideal_gas=True, n_steps=1, jump=0.5, loss_model='Aungier',
-                            chain_mode=False, iter_limit=2000, max_trend_changes=6)
+    settings = config_class(relative_error=1E-11, ideal_gas=True, n_steps=1, jump=0.5, loss_model='Aungier',
+                            chain_mode=False, iter_limit=2000, max_trend_changes=30)
 
     Rm = 0.1429
     heights = [0.0445 for _ in range(3)]
