@@ -44,18 +44,17 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
 
             iter_count = 0
             from_b = from_a = False
-            start = first_iter = True
+            start = True
             # Points "a" and "b" such that C_inx_b > C_inx_a.
             delta = cfg.jump
             C_inx_a = C_inx
             C_inx_b = C_inx + delta
             pre_C_inx_a, pre_C_inx_b = C_inx_b, C_inx_a
-            p_out_iter_b = p_out_iter_a = pre_p_out_iter_a = None
+            p_out_iter_b = p_out_iter_a = None
 
             def C_in_algorithm():
                 nonlocal C_inx_a, C_inx_b, from_a, from_b, C_inx, pre_C_inx_a, pre_C_inx_b
                 # Saving previous values before doing changes, these are required in case of exceptions.
-                pre_C_inx_a, pre_C_inx_b = C_inx_a, C_inx_b
                 if p_out_iter_b > p_out:
                     # Here goes the level to increase velocity at point "b".
                     C_inx_a = C_inx_b
@@ -78,13 +77,11 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
 
             def post_exception_tasks():
                 record.warning('An exception was caught.')
-                nonlocal C_inx_a, C_inx_b, delta, p_out_iter_a
+                nonlocal C_inx_a, C_inx_b, delta
                 # Returning to previous values.
                 C_inx_a, C_inx_b = pre_C_inx_a, pre_C_inx_b
                 # Then, reducing the relative jump.
                 delta /= 2.5
-                if start:
-                    p_out_iter_a = pre_p_out_iter_a
                 return
 
             solver_relative_error = cfg.relative_error
@@ -96,7 +93,6 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
             while True:
                 try:
                     if start:
-                        pre_p_out_iter_a = p_out_iter_a
                         ps_list = inner_funtion_from_problem_solver(C_inx_a)
                         p_out_iter_a = read_ps_list()
                         ps_list = inner_funtion_from_problem_solver(C_inx_b)
@@ -104,20 +100,19 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                     else:
                         ps_list = inner_funtion_from_problem_solver(C_inx)
                 except NonConvergenceError:
-                    if first_iter:
+                    if start:
                         first_iter_exception_task()
                     else:
                         post_exception_tasks()
                 except GasLibraryAdaptedException:
-                    if first_iter:
+                    if start:
                         first_iter_exception_task()
                     else:
                         post_exception_tasks()
                 else:
+                    pre_C_inx_a, pre_C_inx_b = C_inx_a, C_inx_b
                     if start:
                         start = False
-                        if first_iter:
-                            first_iter = False
                     else:
                         p_out_iter = read_ps_list()
                         if from_b:
@@ -133,12 +128,14 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                         else:
                             record.critical('Something went wrong.')
                             sys.exit()
-                finally:
+
                     # It is evaluated whether the new range contains the solution.
                     if (p_out_iter_b-p_out)*(p_out_iter_a-p_out) < 0:
                         record.info('Operation point has been located.')
                         break
-                    else:
+
+                finally:
+                    if not start:
                         C_in_algorithm()
 
                 record.info('Current range: [%.2f, %.2f]  ...  Target value: %.2f',
@@ -688,7 +685,6 @@ class solver_object:
                 M_1 = C_1 / a_1
                 a_3 = self.prd.get_sound_speed(T=T_3, p=p_3)
                 M_3 = C_3 / a_3
-                record.info('El Mach a la salida es %.2f', M_3)
                 Pot_esc = w_esc * m_dot
                 GR = (h_2 - h_3) / w_esc
                 PSI = w_esc / (U**2)
