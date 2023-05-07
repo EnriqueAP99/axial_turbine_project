@@ -155,6 +155,8 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                     f_b = p_out_iter_b-p_out
                     diff_value = ((p_out_iter_b-p_out) * (C_inx_b - C_inx_a) / (p_out_iter_b - p_out_iter_a))
                     C_inx = C_inx_b - diff_value
+                    if C_inx < C_inx_a or diff_value < solver_relative_error:
+                        C_inx = (C_inx_b + C_inx_a)/2
                 try:
                     ps_list = inner_funtion_from_problem_solver(C_inx)
                 except NonConvergenceError:
@@ -168,12 +170,12 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                     f_c = p_out_iter - p_out
                     if f_a < 0:
                         C_inx_a = C_inx
-                        C_inx_a *= (1-rel_error)
+                        C_inx_a *= (1-solver_relative_error)
                         C_inx = C_inx_a
                         p_out_iter_a = p_out_iter
                     elif f_b > 0:
                         C_inx_b = C_inx
-                        C_inx_b *= (1+rel_error)
+                        C_inx_b *= (1+solver_relative_error)
                         C_inx = C_inx_b
                         p_out_iter_b = p_out_iter
                     elif f_c > 0:  # f_c * f_b < 0
