@@ -131,6 +131,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                     # It is evaluated whether the new range contains the solution.
                     if (p_out_iter_b-p_out)*(p_out_iter_a-p_out) < 0:
                         record.info('Operation point has been located.')
+                        start = True
                         break
 
                 finally:
@@ -144,19 +145,18 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
             p_out_iter = None
             f_a = f_b = None
 
-            while rel_error is None or rel_error > cfg.relative_error:  # Applying Regula Falsi
+            while rel_error is None or rel_error >= cfg.relative_error:  # Applying Regula Falsi
                 iter_count += 1
                 if rel_error is None:
                     rel_error = solver_relative_error
                     f_a = p_out_iter_a-p_out
                     f_b = p_out_iter_b-p_out
-                    solver_relative_error = cfg.relative_error
-                diff_value = ((p_out_iter_b-p_out) * (C_inx_b - C_inx_a) / (p_out_iter_b - p_out_iter_a))
-                C_inx = C_inx_b - diff_value
+                    diff_value = ((p_out_iter_b-p_out) * (C_inx_b - C_inx_a) / (p_out_iter_b - p_out_iter_a))
+                    C_inx = C_inx_b - diff_value
                 try:
                     ps_list = inner_funtion_from_problem_solver(C_inx)
                 except NonConvergenceError:
-                    # This event will most likely only happen when iter counter limit is not high enough.
+                    # This event will most likely only happen when limits are not high enough.
                     C_inx_b, C_inx_a = pre_C_inx_b, pre_C_inx_a
                 except GasLibraryAdaptedException:
                     C_inx_b, C_inx_a = pre_C_inx_b, pre_C_inx_a
@@ -164,16 +164,30 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                     pre_C_inx_b, pre_C_inx_a = C_inx_b, C_inx_a  # Old values are stored
                     p_out_iter = read_ps_list()
                     f_c = p_out_iter - p_out
-                    if f_c * f_b < 0:
+                    if f_a < 0:
+                        C_inx_a = C_inx
+                        C_inx_a *= (1-rel_error)
+                        C_inx = C_inx_a
+                        p_out_iter_a = p_out_iter
+                    elif f_b > 0:
+                        C_inx_b = C_inx
+                        C_inx_b *= (1+rel_error)
+                        C_inx = C_inx_b
+                        p_out_iter_b = p_out_iter
+                    elif f_c > 0:  # f_c * f_b < 0
                         f_c = f_a = p_out_iter - p_out
                         C_inx_a = C_inx
                         p_out_iter_a = p_out_iter
                         rel_error = fabs(f_c) / p_out
-                    elif f_c * f_a < 0:
+                        diff_value = ((p_out_iter_b-p_out) * (C_inx_b - C_inx_a) / (p_out_iter_b - p_out_iter_a))
+                        C_inx = C_inx_b - diff_value
+                    elif f_c < 0:  # f_c * f_a < 0
                         f_c = f_b = p_out_iter - p_out
                         C_inx_b = C_inx
                         p_out_iter_b = p_out_iter
                         rel_error = fabs(f_c) / p_out
+                        diff_value = ((p_out_iter_b-p_out) * (C_inx_b - C_inx_a) / (p_out_iter_b - p_out_iter_a))
+                        C_inx = C_inx_b - diff_value
 
                 record.info('Error de presión a la salida: %.10f  ...  Valor actual: %.2f Pa ...  '
                             'Valor objetivo: %.2f Pa', rel_error, p_out_iter, p_out)
