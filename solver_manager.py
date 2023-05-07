@@ -323,7 +323,7 @@ def main_2():
     solver = solver_object(settings, gas_model)
 
     df_a, df_b, df_c = var_sweeping(solver, T_in=1100, p_in=400_000, n_rpm=17_000, C_inx_ref=140,
-                                    p_out=[203000, 399999], var_to_sweep='p_out', resolution=200)
+                                    p_out=[203000, 399999], var_to_sweep='p_out', resolution=60)
 
     df_a.to_csv('df_a_2.csv')
     df_b.to_csv('df_b_2.csv')
