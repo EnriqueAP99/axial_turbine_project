@@ -147,13 +147,13 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
             p_out_iter = None
             f_a = f_b = None
             diff_value = None
+            pre_p_out_iter_a = pre_p_out_iter_b = None
+            limit_error = None
 
             def get_C_inx():
                 nonlocal diff_value, C_inx
                 diff_value = (p_out-p_out_iter_b) * (C_inx_b - C_inx_a) / (p_out_iter_b - p_out_iter_a)
                 C_inx = C_inx_b + diff_value
-                if C_inx < ((C_inx_a*0.95)+(C_inx_b*0.05)) or C_inx > ((C_inx_b*0.95)+(C_inx_a*0.05)):
-                    C_inx = (C_inx_b + C_inx_a)/2
 
             while rel_error is None or rel_error >= cfg.relative_error:  # Applying Regula Falsi
                 iter_count += 1
@@ -173,28 +173,37 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                     pre_C_inx_b, pre_C_inx_a = C_inx_b, C_inx_a  # Old values are stored
                     p_out_iter = read_ps_list()
                     f_c = p_out_iter - p_out
-                    if f_a < 0:
-                        C_inx_a = C_inx
-                        C_inx_a *= (1-solver_relative_error)
-                        C_inx = C_inx_a
-                        p_out_iter_a = p_out_iter
-                    elif f_b > 0:
-                        C_inx_b = C_inx
-                        C_inx_b *= (1+solver_relative_error)
-                        C_inx = C_inx_b
-                        p_out_iter_b = p_out_iter
-                    elif f_c > 0:  # f_c * f_b < 0
+                    if f_c * f_b < 0:
                         f_c = f_a = p_out_iter - p_out
                         C_inx_a = C_inx
+                        pre_p_out_iter_a = p_out_iter_a
                         p_out_iter_a = p_out_iter
                         rel_error = fabs(f_c) / p_out
                         get_C_inx()
-                    elif f_c < 0:  # f_c * f_a < 0
+                    elif f_c * f_a < 0:
                         f_c = f_b = p_out_iter - p_out
                         C_inx_b = C_inx
+                        pre_p_out_iter_b = p_out_iter_b
                         p_out_iter_b = p_out_iter
                         rel_error = fabs(f_c) / p_out
                         get_C_inx()
+
+                if fabs(pre_p_out_iter_a - p_out_iter_a)/p_out <= solver_relative_error and \
+                        fabs(pre_p_out_iter_b - p_out_iter_b)/p_out <= solver_relative_error:
+                    record.warning('Function is not continuous, returned performance point is aproximated by the '
+                                   'closest limit.')
+                    if limit_error is None:
+                        limit_error = {}
+                    if p_out_iter_b*(1-solver_relative_error) <= p_out_iter <= p_out_iter_b*(1+solver_relative_error):
+                        limit_error['b'] = rel_error
+                        if 'a' in limit_error:
+                            if limit_error['b'] < limit_error['a']:
+                                break
+                    elif p_out_iter_a*(1-solver_relative_error) <= p_out_iter <= p_out_iter_a*(1+solver_relative_error):
+                        limit_error['a'] = rel_error
+                        if 'b' in limit_error:
+                            if limit_error['a'] < limit_error['b']:
+                                break
 
                 record.info('Error de presión a la salida: %.10f  ...  Valor actual: %.2f Pa ...  '
                             'Valor objetivo: %.2f Pa', rel_error, p_out_iter, p_out)
