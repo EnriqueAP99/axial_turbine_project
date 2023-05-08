@@ -208,11 +208,19 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                                 if limit_error['b'] < limit_error['a']:
                                     if fabs(pre_p_out_iter_b - p_out_iter_b)/p_out <= solver_relative_error:
                                         break
+                                else:
+                                    if fabs(pre_p_out_iter_a - p_out_iter_a)/p_out <= solver_relative_error:
+                                        ps_list = inner_funtion_from_problem_solver(C_inx_a)
+                                        break
                         elif p_a[0] <= p_out_iter <= p_a[1]:
                             limit_error['a'] = rel_error
                             if 'b' in limit_error:
                                 if limit_error['a'] < limit_error['b']:
                                     if fabs(pre_p_out_iter_a - p_out_iter_a)/p_out <= solver_relative_error:
+                                        break
+                                else:
+                                    if fabs(pre_p_out_iter_b - p_out_iter_b)/p_out <= solver_relative_error:
+                                        ps_list = inner_funtion_from_problem_solver(C_inx_b)
                                         break
 
                 record.info('Error de presión a la salida: %.10f  ...  Valor actual: %.2f Pa ...  '
