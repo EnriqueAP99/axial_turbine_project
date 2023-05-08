@@ -153,9 +153,9 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
             def update_C_inx():
                 nonlocal diff_value, C_inx
                 diff_value = (p_out_iter_b-p_out) * (C_inx_b - C_inx_a) / (p_out_iter_b - p_out_iter_a)
-                if diff_value > 0.9*(C_inx_b - C_inx_a):
-                    diff_value = 0.9*(C_inx_b - C_inx_a)
-                elif diff_value < 0.1*(C_inx_b - C_inx_a):
+                if diff_value > 0.9 * (C_inx_b - C_inx_a):
+                    diff_value = 0.9 * (C_inx_b - C_inx_a)
+                elif diff_value < 0.1 * (C_inx_b - C_inx_a):
                     diff_value = 0.1 * (C_inx_b - C_inx_a)
                 C_inx = C_inx_b - diff_value
 
@@ -200,24 +200,20 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                                        'closest limit.')
                         if limit_error is None:
                             limit_error = {}
-                        p_a = [p_out_iter_a*(1+(sign*solver_relative_error)) for sign in [-1, 1]]
-                        p_b = [p_out_iter_b*(1+(sign*solver_relative_error)) for sign in [-1, 1]]
-                        if p_b[0] <= p_out_iter <= p_b[1]:
+                        if fabs(p_out_iter - p_out_iter_b)/p_out <= solver_relative_error:
                             limit_error['b'] = rel_error
                             if 'a' in limit_error:
                                 if limit_error['b'] < limit_error['a']:
-                                    if fabs(pre_p_out_iter_b - p_out_iter_b)/p_out <= solver_relative_error:
-                                        break
+                                    break
                                 else:
                                     if fabs(pre_p_out_iter_a - p_out_iter_a)/p_out <= solver_relative_error:
                                         ps_list = inner_funtion_from_problem_solver(C_inx_a)
                                         break
-                        elif p_a[0] <= p_out_iter <= p_a[1]:
+                        elif fabs(p_out_iter - p_out_iter_a)/p_out <= solver_relative_error:
                             limit_error['a'] = rel_error
                             if 'b' in limit_error:
                                 if limit_error['a'] < limit_error['b']:
-                                    if fabs(pre_p_out_iter_a - p_out_iter_a)/p_out <= solver_relative_error:
-                                        break
+                                    break
                                 else:
                                     if fabs(pre_p_out_iter_b - p_out_iter_b)/p_out <= solver_relative_error:
                                         ps_list = inner_funtion_from_problem_solver(C_inx_b)
