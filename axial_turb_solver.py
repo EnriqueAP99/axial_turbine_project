@@ -64,7 +64,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                 elif p_out_iter_a < p_out:
                     # Here goes the level to decrease velocity at point "a".
                     C_inx_b = C_inx_a
-                    C_inx_a = C_inx_a - delta
+                    C_inx_a -= delta
                     from_a = True
                     C_inx = C_inx_a
                 return
@@ -143,20 +143,19 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                         record.info('Current range: [%.2f, %.2f]  ...  Target value: %.2f',
                                     p_out_iter_a, p_out_iter_b, p_out)
 
-            rel_error = None
+            rel_error = pre_rel_error = None
             p_out_iter = None
             f_a = f_b = None
             diff_value = None
-            pre_p_out_iter_a = pre_p_out_iter_b = None
             limit_error = None
 
             def update_C_inx():
                 nonlocal diff_value, C_inx
                 diff_value = (p_out_iter_b-p_out) * (C_inx_b - C_inx_a) / (p_out_iter_b - p_out_iter_a)
-                if diff_value > 0.9 * (C_inx_b - C_inx_a):
-                    diff_value = 0.9 * (C_inx_b - C_inx_a)
-                elif diff_value < 0.1 * (C_inx_b - C_inx_a):
-                    diff_value = 0.1 * (C_inx_b - C_inx_a)
+                if diff_value > 0.75 * (C_inx_b - C_inx_a):
+                    diff_value = 0.75 * (C_inx_b - C_inx_a)
+                elif diff_value < 0.25 * (C_inx_b - C_inx_a):
+                    diff_value = 0.25 * (C_inx_b - C_inx_a)
                 C_inx = C_inx_b - diff_value
 
             while rel_error is None or rel_error >= cfg.relative_error:  # Applying Regula Falsi
@@ -177,27 +176,23 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                     pre_C_inx_b, pre_C_inx_a = C_inx_b, C_inx_a  # Old values are stored
                     p_out_iter = read_ps_list()
                     f_c = p_out_iter - p_out
+                    pre_rel_error = rel_error
                     if f_b * f_c < 0:
                         f_c = f_a = p_out_iter - p_out
                         C_inx_a = C_inx
-                        pre_p_out_iter_a = p_out_iter_a
                         p_out_iter_a = p_out_iter
                         rel_error = fabs(f_c) / p_out
                         update_C_inx()
                     elif f_a * f_c < 0:
                         f_c = f_b = p_out_iter - p_out
                         C_inx_b = C_inx
-                        pre_p_out_iter_b = p_out_iter_b
                         p_out_iter_b = p_out_iter
                         rel_error = fabs(f_c) / p_out
                         update_C_inx()
 
                 # The next block applies in cases affected by discontinuity.
-                if pre_p_out_iter_a is not None and pre_p_out_iter_b is not None:
-                    if fabs(pre_p_out_iter_a - p_out_iter_a)/p_out <= solver_relative_error or \
-                            fabs(pre_p_out_iter_b - p_out_iter_b)/p_out <= solver_relative_error:
-                        record.warning('Function is not continuous, returned performance point is aproximated by the '
-                                       'closest limit.')
+                if pre_rel_error is not None:
+                    if pre_rel_error*0.999 < rel_error < pre_rel_error*1.001:
                         if limit_error is None:
                             limit_error = {}
                         if fabs(p_out_iter - p_out_iter_b)/p_out <= solver_relative_error:
@@ -206,18 +201,16 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                                 if limit_error['b'] < limit_error['a']:
                                     break
                                 else:
-                                    if fabs(pre_p_out_iter_a - p_out_iter_a)/p_out <= solver_relative_error:
-                                        ps_list = inner_funtion_from_problem_solver(C_inx_a)
-                                        break
+                                    ps_list = inner_funtion_from_problem_solver(C_inx_a)
+                                    break
                         elif fabs(p_out_iter - p_out_iter_a)/p_out <= solver_relative_error:
                             limit_error['a'] = rel_error
                             if 'b' in limit_error:
                                 if limit_error['a'] < limit_error['b']:
                                     break
                                 else:
-                                    if fabs(pre_p_out_iter_b - p_out_iter_b)/p_out <= solver_relative_error:
-                                        ps_list = inner_funtion_from_problem_solver(C_inx_b)
-                                        break
+                                    ps_list = inner_funtion_from_problem_solver(C_inx_b)
+                                    break
 
                 record.info('Error de presión a la salida: %.10f  ...  Valor actual: %.2f Pa ...  '
                             'Valor objetivo: %.2f Pa', rel_error, p_out_iter, p_out)
