@@ -412,7 +412,7 @@ class solver_object:
             for key in ['e', 'o', 't_max', 'r_r', 'r_c', 't_e', 'k']:
                 if key not in self.cfg.geom:
                     record.critical('Para emplear el modelo de pérdidas se debe introducir "%s"', key)
-                    sys.exit()
+                    sys.exit()  # Cambiar por error
             self.AM_object = Ainley_and_Mathieson_Loss_Model(config)
             self.AM_object.AM_diameter_def()
 
@@ -420,7 +420,7 @@ class solver_object:
             for key in ['e', 'o', 't_max', 'r_r', 'r_c', 't_e', 'k', 'roughness_ptv', 'b_z', 'delta']:
                 if key not in self.cfg.geom:
                     record.critical('Para emplear el modelo de pérdidas se debe introducir "%s"', key)
-                    sys.exit()
+                    sys.exit()  # Cambiar por error
             self.AUNGIER_object = Aungier_Loss_Model(config)
 
         if self.cfg.automatic_preloading_for_small_input_deviations:
@@ -428,7 +428,36 @@ class solver_object:
 
     def data_saver_for_small_input_deviations(self):
         record.debug('Almacenando parámetros para relacionar la presión a la salida con la velocidad a la entrada...')
-        np.zeros(self.cfg.resolution_for_small_input_deviations)
+        resolution = self.cfg.resolution_for_small_input_deviations
+        C_in_range = self.cfg.inlet_velocity_range
+        jump = (C_in_range[1]-C_in_range[0])/(resolution-1)
+
+        def velocity_sweeper(T_inlet, p_inlet, n_rpm):
+            k = 0
+            output_pressures = np.zeros(resolution)
+            while k < resolution:
+                C_inlet = C_in_range[0] + (k * jump)
+                try:
+                    if self.cfg.chain_mode:
+                        _, p_outlet, _, _ = self.problem_solver(T_in=T_inlet, p_in=p_inlet, n=n_rpm, C_inx=C_inlet)
+                    else:
+                        self.problem_solver(T_in=T_inlet, p_in=p_inlet, n=n_rpm, C_inx=C_inlet)
+                        p_outlet = self.vmmr[-2][1]
+                except GasLibraryAdaptedException:
+                    record.warning('Se ha capturado un error inesperado, se omite esta evaluación.')
+                except NonConvergenceError:
+                    record.warning('Se ha capturado un error inesperado, se omite esta evaluación.')
+                else:
+                    output_pressures[k] = p_outlet
+            return output_pressures
+
+        ref_inputs = velocity_sweeper(self.cfg.T_reference, self.cfg.p_reference, self.cfg.n_rpm_reference)
+        T_deviation = velocity_sweeper(self.cfg.T_reference*(1+(10*self.cfg.relative_error)), self.cfg.p_reference,
+                                       self.cfg.n_rpm_reference)
+        p_deviation = velocity_sweeper(self.cfg.T_reference, self.cfg.p_reference*(1+(10*self.cfg.relative_error)),
+                                       self.cfg.n_rpm_reference)
+        n_deviation = velocity_sweeper(self.cfg.T_reference, self.cfg.p_reference,
+                                       self.cfg.n_rpm_reference*(1+(10*self.cfg.relative_error)))
 
         self.small_input_deviation_data = None
         pass

@@ -60,12 +60,12 @@ class config_class:
     p_reference = None
     T_reference = None
     n_rpm_reference = None
-    input_velocity_range = None
+    inlet_velocity_range = None
     if automatic_preloading_for_small_input_deviations is True:
         if p_reference is None or T_reference is None or n_rpm_reference is None:
             record.critical('Se deben indicar las variables de entrada correspondientes al punto referencia.')
             sys.exit()  # Cambiar por error
-        if input_velocity_range is None:
+        if inlet_velocity_range is None:
             record.critical('Se debe indicar el rango evaluable de valores de velocidad a la entrada.')
             sys.exit()  # Cambiar por error
 

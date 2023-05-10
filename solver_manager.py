@@ -223,21 +223,20 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
         try:
             solver.problem_solver(T_in=T_in, p_in=p_in, n=n_rpm, m_dot=m_dot, C_inx=C_inx, p_out=p_out,
                                   C_inx_ref=C_inx_ref)
-            new_data = True
         except GasLibraryAdaptedException:
-            new_data = False
+            pass
         except NonConvergenceError:
-            new_data = False
-        if new_data:
+            pass
+        else:
             df_a, df_b, df_c = data_to_df(solver, req_vars)
             lista_df_a.append(copy.deepcopy(df_a))
             lista_df_b.append(copy.deepcopy(df_b))
             lista_df_c.append(copy.deepcopy(df_c))
         k += 1
 
-    df_a_packg = pd.concat([*lista_df_a], keys=[f'{k}' for k in range(resolution)], names=['Aux_Index', 'Spec_Index'])
-    df_b_packg = pd.concat([*lista_df_b], keys=[f'{k}' for k in range(resolution)], names=['Aux_Index', 'Spec_Index'])
-    df_c_packg = pd.concat([*lista_df_c], keys=[f'{k}' for k in range(resolution)], names=['Aux_Index', 'Spec_Index'])
+    df_a_packg = pd.concat([*lista_df_a], keys=[f'{v}' for v in range(resolution)], names=['Aux_Index', 'Spec_Index'])
+    df_b_packg = pd.concat([*lista_df_b], keys=[f'{v}' for v in range(resolution)], names=['Aux_Index', 'Spec_Index'])
+    df_c_packg = pd.concat([*lista_df_c], keys=[f'{v}' for v in range(resolution)], names=['Aux_Index', 'Spec_Index'])
 
     return df_a_packg, df_b_packg, df_c_packg
 
