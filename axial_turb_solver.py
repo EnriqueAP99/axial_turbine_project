@@ -388,7 +388,7 @@ class solver_object:
         """ :param config: Objeto que agrupa lo relativo a la configuración establecida para la ejecución del solver."""
 
         self.vmmr = []  # Almacena ciertas variables, para facilitar la comunicación de sus valores
-        self.spline_function = None
+        self.small_input_deviation_data = None
         self.cfg = config  # Objeto que contiene los parámetros de interés para la ejecución del solver.
         self.rho_seed_list = None  # Para aligerar los cálculos para variaciones pequeñas de las variables de entrada
         self.prd = productos  # Modela el comportamiento termodinámico de los productos de la combustión
@@ -423,13 +423,14 @@ class solver_object:
                     sys.exit()
             self.AUNGIER_object = Aungier_Loss_Model(config)
 
-        if self.cfg.spline_automatic_preloading:
-            self.function_generator_from_spline_interpolation()
+        if self.cfg.automatic_preloading_for_small_input_deviations:
+            self.data_saver_for_small_input_deviations()
 
-    def function_generator_from_spline_interpolation(self):
-        # In process...
-        record.debug('Creando la función para relacionar la presión a la salida con la velocidad a la entrada...')
-        self.spline_function = None
+    def data_saver_for_small_input_deviations(self):
+        record.debug('Almacenando parámetros para relacionar la presión a la salida con la velocidad a la entrada...')
+        np.zeros(self.cfg.resolution_for_small_input_deviations)
+
+        self.small_input_deviation_data = None
         pass
 
     def problem_solver(self, T_in: float, p_in: float, n: float, C_inx=None, m_dot=None,
@@ -1020,13 +1021,13 @@ def main():
     solver = solver_object(settings, gas_model)
 
     if chain_mode:
-        output = solver.problem_solver(T_in=1100, p_in=400_000, n=20_000, p_out=250_000, C_inx_ref=160)
+        output = solver.problem_solver(T_in=1100, p_in=400_000, n=17_000, p_out=120_000, C_inx_ref=140)
         T_salida, p_salida, C_salida, alfa_salida = output
         print(' T_out =', T_salida, '\n', 'P_out =', p_salida,
               '\n', 'C_out =', C_salida, '\n', 'alfa_out =', alfa_salida)
 
     else:
-        solver.problem_solver(T_in=1500, p_in=400_000, n=20_000,  p_out=250_000, C_inx_ref=160)
+        solver.problem_solver(T_in=1100, p_in=400_000, n=17_000, p_out=120_000, C_inx_ref=140)
 
 
 if __name__ == '__main__':

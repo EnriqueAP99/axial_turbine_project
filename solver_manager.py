@@ -84,7 +84,7 @@ def data_to_df(process_object: solver_object, req_vars=None) -> [pd.DataFrame | 
 
     lista_a = ['M', 'C', 'Cx', 'Cu', 'omega', 'omegax', 'omegau', 'alfa', 'beta', 'h', 'h0', 'T', 'T0',
                'p', 'p0', 'rho', ]
-    lista_b = ['GR', 'w_esc', 'w_s_esc', 'w_ss_esc', 'eta_TT', 'Y_est', 'Y_rot', 'Y_esc', 'U']
+    lista_b = ['GR', 'w_esc', 'w_s_esc', 'w_ss_esc', 'eta_TT', 'eta_TE', 'Y_est', 'Y_rot', 'U']
     lista_c = ['w_total', 'w_ss_total', 'eta_maq', 'P_total', 'r_turbina', 'm_dot', ]
 
     if req_vars is None:
@@ -297,8 +297,9 @@ def main_1(fast_mode, action):
 
 
 def main_2():
-    settings = config_class(relative_error=1E-11, ideal_gas=True, n_steps=1, jump=0.5, loss_model='Aungier',
-                            chain_mode=False, iter_limit=2000, max_trend_changes=30)
+    settings = config_class(relative_error=1E-11, ideal_gas=True, n_steps=1, jump=0.5,
+                            loss_model='Ainley_and_Mathieson', chain_mode=False,
+                            iter_limit=2000, max_trend_changes=30)
 
     Rm = 0.1429
     heights = [0.0445 for _ in range(3)]
@@ -322,12 +323,12 @@ def main_2():
     gas_model = gas_model_to_solver(thermo_mode="ig")
     solver = solver_object(settings, gas_model)
 
-    df_a, df_b, df_c = var_sweeping(solver, T_in=1100, p_in=400_000, n_rpm=17_000, C_inx_ref=140,
-                                    p_out=[203000, 399999], var_to_sweep='p_out', resolution=60)
+    df_a, df_b, df_c = var_sweeping(solver, T_in=1100, p_in=400_000, n_rpm=17_000, C_inx=[0.01, 180],
+                                    var_to_sweep='C_inx', resolution=1000)
 
-    df_a.to_csv('df_a_2.csv')
-    df_b.to_csv('df_b_2.csv')
-    df_c.to_csv('df_c_2.csv')
+    df_a.to_csv('df_a_AM.csv')
+    df_b.to_csv('df_b_AM.csv')
+    df_c.to_csv('df_c_AM.csv')
 
 
 def main_3():
@@ -356,6 +357,7 @@ def main_3():
 
     df_a = pd.read_csv('df_a.csv', index_col='Aux_Index')
     df_a_pt_3 = df_a[df_a['Spec_Index'] == 'Step_1_pt_3']
+    df_a_pt_2 = df_a[df_a['Spec_Index'] == 'Step_1_pt_2']
     df_a_pt_1 = df_a[df_a['Spec_Index'] == 'Step_1_pt_1']
     p_out_m_dot = pd.DataFrame((df_a_pt_3['p (Pa)']/1000).values.tolist(), columns=['p'], index=df_c.index)
     p_out_C_inx = pd.DataFrame((df_a_pt_3['p (Pa)']/1000).values.tolist(), columns=['p'], index=df_a_pt_1['C (m/s)'])
@@ -393,6 +395,23 @@ def main_3():
     plt.title('Presión a la salida - Temperatura de remanso a la entrada')
     plt.xlabel(r'$T_{0in}$ (K)')
     plt.ylabel(r'$p_{out}$ (kPa)')
+    plt.minorticks_on()
+    plt.grid(which='both')
+    plt.show()
+
+    df_b = pd.read_csv('df_b.csv')
+    eta_TT_m_dot = pd.DataFrame((df_b['eta_TT (-)']).values.tolist(), columns=['eta_TT'], index=df_c.index)
+    eta_TE_m_dot = pd.DataFrame((df_b['eta_TE (-)']).values.tolist(), columns=['eta_TE'], index=df_c.index)
+    xi_est_m_dot = pd.DataFrame((df_b['Y_est (kJ/kg)']/(0.0005*(df_a_pt_2['C (m/s)'] *
+                                                                df_a_pt_2['C (m/s)']))).values.tolist(),
+                                columns=['xi_est'], index=df_c.index)
+    xi_rot_m_dot = pd.DataFrame((df_b['Y_rot (kJ/kg)']/(0.0005*(df_a_pt_3['omega (m/s)'] *
+                                                                df_a_pt_3['omega (m/s)']))).values.tolist(),
+                                columns=['xi_rot'], index=df_c.index)
+    plt.plot(eta_TT_m_dot['eta_TT'], label='Rendimiento total a total')
+    plt.plot(eta_TE_m_dot['eta_TE'], label='Rendimiento total a estático')
+    plt.plot(xi_est_m_dot['xi_est'], label='Coeficiente adimensional de pérdidas en estátor')
+    plt.plot(xi_rot_m_dot['xi_rot'], label='Coeficiente adimensional de pérdidas en rótor')
     plt.minorticks_on()
     plt.grid(which='both')
     plt.show()

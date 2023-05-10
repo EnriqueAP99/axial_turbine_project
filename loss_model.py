@@ -379,7 +379,7 @@ class Aungier_Loss_Model(Ainley_and_Mathieson_Loss_Model):
             pass
         else:
             X_delta = (2*Mout) - 1
-            delta_0 = delta_0*(1-(10*(X_delta**3)) + (15*(X_delta**4)) - (6*(X_delta**5)))
+            delta_0 = delta_0*(1 - (10*(X_delta**3)) + (15*(X_delta**4)) - (6*(X_delta**5)))
 
         taud_1, taud_2 = degrees(tau_1), 90 - (beta_g + delta_0)
         if fabs(taud_2) < self.cfg.relative_error:

@@ -12,6 +12,33 @@ import sys
 from math import pi, radians, cos, tan
 from dataclasses import dataclass
 
+# Las líneas del comienzo son orientadas a la customización del mensaje de salida.
+# Para omitir estos mensajes, establecer el argumento level en un nivel superior al tipo de mensaje a omitir.
+# https://youtu.be/KSQ4KxCtsf8
+FMT = "[{levelname}]:  ...  {message}  ...  [FILE: {filename}   FUNC: {funcName}   LINE: {lineno}]"
+
+FORMATS = {
+    logging.DEBUG: f"\33[36m{FMT}\33[0m",
+    logging.INFO: f"\33[92m{FMT}\33[0m",
+    logging.WARNING: f"\33[33m{FMT}\33[0m",
+    logging.ERROR: f"\33[31m{FMT}\33[0m",
+    logging.CRITICAL: f"\33[1m\33[31m{FMT}\33[0m",
+}
+
+
+class CustomFormatter(logging.Formatter):
+    def format(self, record_) -> str:
+        log_fmt = FORMATS[record_.levelno]
+        formatter = logging.Formatter(log_fmt, style="{")
+        return formatter.format(record_)
+
+
+handler = logging.StreamHandler()
+handler.setFormatter(CustomFormatter())
+logging.basicConfig(level=logging.DEBUG, handlers=[handler])
+
+record = logging.getLogger("coloured-record")
+
 
 @dataclass(frozen=True)
 class config_class:
@@ -28,7 +55,19 @@ class config_class:
     max_trend_changes: int = 5  # Número máximo de fluctuaciones a partir de las que no se considera que no converge
     # Al comenzar la ejecución se genera una función a partir de interpolación por splines que va a permitir fijar
     # la presión a la salida como parámetro de entrada.
-    spline_automatic_preloading = False
+    automatic_preloading_for_small_input_deviations = False
+    resolution_for_small_input_deviations = 200
+    p_reference = None
+    T_reference = None
+    n_rpm_reference = None
+    input_velocity_range = None
+    if automatic_preloading_for_small_input_deviations is True:
+        if p_reference is None or T_reference is None or n_rpm_reference is None:
+            record.critical('Se deben indicar las variables de entrada correspondientes al punto referencia.')
+            sys.exit()  # Cambiar por error
+        if input_velocity_range is None:
+            record.critical('Se debe indicar el rango evaluable de valores de velocidad a la entrada.')
+            sys.exit()  # Cambiar por error
 
     def __post_init__(self):
         if self.loss_model not in ['Aungier', 'Ainley_and_Mathieson']:
@@ -238,31 +277,3 @@ class gas_model_to_solver:
             _, _, self._gamma = self.gas_model.get_coeffs(T, p)
         self._memory = [T, p].copy()
         return self._gamma
-
-
-# Las líneas que siguen son orientadas a la customización del mensaje de salida.
-# Para omitir estos mensajes, establecer el argumento level en un nivel superior al tipo de mensaje a omitir.
-# https://youtu.be/KSQ4KxCtsf8
-FMT = "[{levelname}]:  ...  {message}  ...  [FILE: {filename}   FUNC: {funcName}   LINE: {lineno}]"
-
-FORMATS = {
-    logging.DEBUG: f"\33[36m{FMT}\33[0m",
-    logging.INFO: f"\33[92m{FMT}\33[0m",
-    logging.WARNING: f"\33[33m{FMT}\33[0m",
-    logging.ERROR: f"\33[31m{FMT}\33[0m",
-    logging.CRITICAL: f"\33[1m\33[31m{FMT}\33[0m",
-}
-
-
-class CustomFormatter(logging.Formatter):
-    def format(self, record_) -> str:
-        log_fmt = FORMATS[record_.levelno]
-        formatter = logging.Formatter(log_fmt, style="{")
-        return formatter.format(record_)
-
-
-handler = logging.StreamHandler()
-handler.setFormatter(CustomFormatter())
-logging.basicConfig(level=logging.DEBUG, handlers=[handler])
-
-record = logging.getLogger("coloured-record")
