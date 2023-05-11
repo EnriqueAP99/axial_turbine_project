@@ -22,7 +22,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
         cfg: This is an object containing the configuration set.
         p_out: Pressure at the turbine outlet (Pa).
         C_inx_estimated: Estimated inlet velocity to be received when the outlet pressure is set (m/s).
-        small_deviations_data: When variable is not None, it consists on a list of velocity values evaluated,
+        small_deviations_data: When this variable is not None, it consists on a list of velocity values evaluated,
         a numpy array with outlet pressures resulting and arrays with partial derivatives at each velocity evaluated.
     """
 
@@ -334,13 +334,14 @@ def step_decorator(cfg: config_class, step_corrector_memory):
             record.info('Corrección iniciada.')
 
             rel_error_eta_TT = 1.0
-            fc = xi_ec = None
+            xi_ec = None
 
             while fabs(rel_error_eta_TT) > cfg.relative_error:
                 if xi_ec is None:
                     xi_ec = xi_e2 - (f2 * (xi_e2 - xi_e1) / (f2 - f1))
                     sifc = get_sif_output(True, False, xi_ec, rho_seed_c)
                     eta_TT_c, rho_seed_c = sifc[1], sifc[3]
+                    fc = eta_TT_c - target_efficiency
                 else:
                     sif1 = get_sif_output(True, False, xi_e1, rho_seed_1)
                     f1, rho_seed_1 = sif1[1] - target_efficiency, sif1[3]
@@ -350,9 +351,9 @@ def step_decorator(cfg: config_class, step_corrector_memory):
                     sifc = get_sif_output(True, False, xi_ec, rho_seed_c)
                     fc, rho_seed_c = sifc[1]-target_efficiency, sifc[3]
                 if fc * f2 <= 0:
-                    xi_e1, rho_seed_1 = xi_ec, rho_seed_c
+                    xi_e1, rho_seed_1, f1 = xi_ec, rho_seed_c, fc
                 elif fc * f1 <= 0:
-                    xi_e2, rho_seed_2 = xi_ec, rho_seed_c
+                    xi_e2, rho_seed_2, f2 = xi_ec, rho_seed_c, fc
 
                 rel_error_eta_TT = fc / target_efficiency
                 record.info('Corrección en proceso  ...  eta_TT: %.4f  ...  Error: %.4f', sifc[1], rel_error_eta_TT)
