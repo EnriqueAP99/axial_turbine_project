@@ -221,7 +221,7 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
         set_value(value_k)
 
         try:
-            solver.problem_solver(T_in=T_in, p_in=p_in, n=n_rpm, m_dot=m_dot, C_inx=C_inx, p_out=p_out,
+            solver.problem_solver(T_in=T_in, p_in=p_in, n_rpm=n_rpm, m_dot=m_dot, C_inx=C_inx, p_out=p_out,
                                   C_inx_ref=C_inx_ref)
         except GasLibraryAdaptedException:
             pass
@@ -270,11 +270,11 @@ def main_1(fast_mode, action):
         solver = solver_object(settings, gas_model)
 
         if fast_mode:
-            output = solver.problem_solver(T_in=1100, p_in=600_000, n=20_000, p_out=120_000, C_inx_ref=110)
+            output = solver.problem_solver(T_in=1100, p_in=600_000, n_rpm=20_000, p_out=120_000, C_inx_ref=110)
             T_salida, p_salida, C_salida, alfa_salida = output
             print(' T_out', T_salida, '\n', 'P_out', p_salida, '\n', 'C_out', C_salida, '\n', 'alfa_out', alfa_salida)
         else:
-            solver.problem_solver(T_in=1100, p_in=600_000, n=20_000, p_out=120_000, C_inx_ref=110)
+            solver.problem_solver(T_in=1100, p_in=600_000, n_rpm=20_000, p_out=120_000, C_inx_ref=110)
             solver_data_saver('process_object.pkl', solver)
 
     elif action == 'cargar_y_visualizar':
@@ -290,7 +290,7 @@ def main_1(fast_mode, action):
                                 t_max=0.006, r_r=0.003, r_c=0.002, t_e=0.004, k=0.001, delta=0.001,
                                 roughness_ptv=0.00001, holgura_radial=False)
 
-        solver.problem_solver(T_in=1800, p_in=1_000_000, n=6_000, m_dot=18.0)
+        solver.problem_solver(T_in=1800, p_in=1_000_000, n_rpm=6_000, m_dot=18.0)
         solver_data_saver('process_object.pkl', solver)
         problem_data_viewer(solver)
 

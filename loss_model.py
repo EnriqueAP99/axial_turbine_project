@@ -31,7 +31,7 @@ def Reynolds(num: int, rho_2: float, C_2: float, T_2: float, config: config_clas
         c_len = config.geom['b'][num]
 
     mu = productos.get_din_visc(T_2)
-    Re = int(rho_2 * C_2 * c_len / mu)
+    Re = int((rho_2 * C_2 * c_len / mu).__round__(0))
     return Re
 
 

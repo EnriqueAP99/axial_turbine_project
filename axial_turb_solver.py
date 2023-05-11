@@ -12,7 +12,8 @@ from time import time
 from loss_model import *
 
 
-def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: float | None):
+def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: float | None,
+                     small_deviations_data: list | None):
     """
     Outer decorator of solver's main method in order to define the necessary arguments to handle it and allow
     to determine the operating conditions given the pressure at the outlet.
@@ -21,6 +22,8 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
         cfg: This is an object containing the configuration set.
         p_out: Pressure at the turbine outlet (Pa).
         C_inx_estimated: Estimated inlet velocity to be received when the outlet pressure is set (m/s).
+        small_deviations_data: When variable is not None, it consists on a list of velocity values evaluated,
+        a numpy array with outlet pressures resulting and arrays with partial derivatives at each velocity evaluated.
     """
 
     def solver_inner_decorator(inner_funtion_from_problem_solver):
@@ -29,6 +32,16 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
         Args:
             inner_funtion_from_problem_solver: Funtion to be decorated.
         """
+
+        def corrector_for_small_deviations():
+            C_in_eval_list, p_out_vref, dpout_dTin, dpout_dpin, dpout_dn, T_in, p_in, n_rev = small_deviations_data
+            Tin_ref, pin_ref, nrev_ref = cfg.T_reference, cfg.p_reference, cfg.n_rpm_reference
+            resolution = cfg.resolution_for_small_input_deviations
+
+            p_out_vref += (((T_in-Tin_ref)*dpout_dTin)+((p_in-pin_ref)*dpout_dpin)+((n_rev-nrev_ref)*dpout_dn))
+            spline_function = f_sp([float(p_out_vref[i]) for i in range(resolution)], C_in_eval_list, 3)
+            C_in_resulting = float(spline_function(p_out))
+            return C_in_resulting
 
         def iterate_ps():
             """ Function to be used whenever the spline attribute of the solver is not set. """
@@ -222,15 +235,18 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
             return
 
         def wrapper_s():
-            """ Se evalúa cuánto tiempo se tarda en determinar la condición de funcionamiento.
-                                    :returns: Se devuelve o se almacena el output de la función decorada, según el
-                                                modo de funcionamiento que aplique. """
+            """ Se evalúa cuánto tiempo se tarda en determinar la condición de funcionamiento, que se obtendrá de
+            manera directa o indirecta según corresponda."""
 
             t_1 = time()
             if p_out is None:
                 _ = inner_funtion_from_problem_solver()
             else:
-                iterate_ps()
+                if small_deviations_data is None:
+                    iterate_ps()
+                else:
+                    C_in = corrector_for_small_deviations()
+                    inner_funtion_from_problem_solver(C_in)
             t_2 = (time() - t_1).__round__(0)
 
             m, s = divmod(t_2, 60)
@@ -388,7 +404,7 @@ class solver_object:
         """ :param config: Objeto que agrupa lo relativo a la configuración establecida para la ejecución del solver."""
 
         self.vmmr = []  # Almacena ciertas variables, para facilitar la comunicación de sus valores
-        self.small_input_deviation_data = None
+        self.small_input_deviation_data: None | list = None
         self.cfg = config  # Objeto que contiene los parámetros de interés para la ejecución del solver.
         self.rho_seed_list = None  # Para aligerar los cálculos para variaciones pequeñas de las variables de entrada
         self.prd = productos  # Modela el comportamiento termodinámico de los productos de la combustión
@@ -424,45 +440,52 @@ class solver_object:
             self.AUNGIER_object = Aungier_Loss_Model(config)
 
         if self.cfg.automatic_preloading_for_small_input_deviations:
-            self.data_saver_for_small_input_deviations()
+            self.data_collector_for_small_input_deviations()
 
-    def data_saver_for_small_input_deviations(self):
+    def data_collector_for_small_input_deviations(self):
         record.debug('Almacenando parámetros para relacionar la presión a la salida con la velocidad a la entrada...')
         resolution = self.cfg.resolution_for_small_input_deviations
         C_in_range = self.cfg.inlet_velocity_range
-        jump = (C_in_range[1]-C_in_range[0])/(resolution-1)
+        jump = (C_in_range[1] - C_in_range[0]) / (resolution - 1)
+        C_in = [C_in_range[0] + (k * jump) for k in range(resolution)]
 
         def velocity_sweeper(T_inlet, p_inlet, n_rpm):
             k = 0
             output_pressures = np.zeros(resolution)
             while k < resolution:
-                C_inlet = C_in_range[0] + (k * jump)
+                C_inlet = C_in[k]
                 try:
                     if self.cfg.chain_mode:
-                        _, p_outlet, _, _ = self.problem_solver(T_in=T_inlet, p_in=p_inlet, n=n_rpm, C_inx=C_inlet)
+                        _, p_outlet, _, _ = self.problem_solver(T_in=T_inlet, p_in=p_inlet, n_rpm=n_rpm, C_inx=C_inlet)
                     else:
-                        self.problem_solver(T_in=T_inlet, p_in=p_inlet, n=n_rpm, C_inx=C_inlet)
+                        self.problem_solver(T_in=T_inlet, p_in=p_inlet, n_rpm=n_rpm, C_inx=C_inlet)
                         p_outlet = self.vmmr[-2][1]
                 except GasLibraryAdaptedException:
+                    output_pressures[k] = np.NAN
                     record.warning('Se ha capturado un error inesperado, se omite esta evaluación.')
                 except NonConvergenceError:
+                    output_pressures[k] = np.NAN
                     record.warning('Se ha capturado un error inesperado, se omite esta evaluación.')
                 else:
                     output_pressures[k] = p_outlet
             return output_pressures
 
-        ref_inputs = velocity_sweeper(self.cfg.T_reference, self.cfg.p_reference, self.cfg.n_rpm_reference)
-        T_deviation = velocity_sweeper(self.cfg.T_reference*(1+(10*self.cfg.relative_error)), self.cfg.p_reference,
-                                       self.cfg.n_rpm_reference)
-        p_deviation = velocity_sweeper(self.cfg.T_reference, self.cfg.p_reference*(1+(10*self.cfg.relative_error)),
-                                       self.cfg.n_rpm_reference)
-        n_deviation = velocity_sweeper(self.cfg.T_reference, self.cfg.p_reference,
-                                       self.cfg.n_rpm_reference*(1+(10*self.cfg.relative_error)))
+        pressures_ref_inputs = velocity_sweeper(self.cfg.T_reference, self.cfg.p_reference, self.cfg.n_rpm_reference)
+        pressures_T_in_deviated = velocity_sweeper(self.cfg.T_reference*(1 + 0.0001), self.cfg.p_reference,
+                                                   self.cfg.n_rpm_reference)
+        pressures_p_in_deviated = velocity_sweeper(self.cfg.T_reference, self.cfg.p_reference*(1 + 0.0000001),
+                                                   self.cfg.n_rpm_reference)
+        pressures_rpm_deviated = velocity_sweeper(self.cfg.T_reference, self.cfg.p_reference,
+                                                  self.cfg.n_rpm_reference*(1 + 0.00001))
+        d_pout_d_Tin = (pressures_T_in_deviated - pressures_ref_inputs) / (self.cfg.T_reference * 0.0001)
+        d_pout_d_pin = (pressures_p_in_deviated - pressures_ref_inputs) / (self.cfg.p_reference * 0.0000001)
+        d_pout_d_rpm = (pressures_rpm_deviated - pressures_ref_inputs) / (self.cfg.n_rpm_reference * 0.0000001)
 
-        self.small_input_deviation_data = None
-        pass
+        self.small_input_deviation_data = [C_in, pressures_ref_inputs, d_pout_d_Tin, d_pout_d_pin, d_pout_d_rpm]
 
-    def problem_solver(self, T_in: float, p_in: float, n: float, C_inx=None, m_dot=None,
+        return
+
+    def problem_solver(self, T_in: float, p_in: float, n_rpm: float, C_inx=None, m_dot=None,
                        p_out=None, C_inx_ref=None) -> None | tuple[float, float, float, float]:
         """Esta función inicia la resolución del problema definido por la geometría configurada y las variables
         requeridas como argumento. (Main method)
@@ -472,7 +495,7 @@ class solver_object:
                 :param p_in: Presión a la entrada de la turbina (Pa).
                 :param C_inx: Velocidad a la entrada de la turbina (Supuesta completamente axial) (m/s).
                 :param C_inx_ref: Valor de referencia que debe aproximarse a C_inx.
-                :param n: Velocidad de giro (rpm).
+                :param n_rpm: Velocidad de giro (rpm).
                         :return: Si chain_mode se devuelven los valores a la salida de temperatura (K), presión (Pa),
                                 velocidad (m/s) y ángulo del flujo con la dirección axial (degrees), en caso contrario
                                 no se devuelve nada."""
@@ -504,7 +527,10 @@ class solver_object:
         else:
             m_dot = rho_in * self.cfg.geom['areas'][0] * C_inx
 
-        @solver_decorator(self.cfg, p_out, self.C_inx_register)
+        if self.small_input_deviation_data is not None:
+            self.small_input_deviation_data += [T_in, p_in, n_rpm]
+
+        @solver_decorator(self.cfg, p_out, self.C_inx_register, self.small_input_deviation_data)
         def inner_solver(var_C_inx=None):
             nonlocal m_dot, C_inx, ps_list
 
@@ -523,7 +549,7 @@ class solver_object:
             ps_list = [T_in, p_in, rho_in, s_in, h_in, h_0in, C_inx]
             for i in range(self.cfg.n_steps):
                 list_i = ps_list[i-1] if i > 0 and not self.cfg.chain_mode else ps_list
-                args = list_i[0], list_i[1], list_i[6], list_i[3], list_i[4], list_i[5], m_dot, n, list_i[2]
+                args = list_i[0], list_i[1], list_i[6], list_i[3], list_i[4], list_i[5], m_dot, n_rpm, list_i[2]
 
                 if self.cfg.chain_mode:
                     ps_list = self.step_block(*args)
@@ -1050,13 +1076,13 @@ def main():
     solver = solver_object(settings, gas_model)
 
     if chain_mode:
-        output = solver.problem_solver(T_in=1100, p_in=400_000, n=17_000, p_out=120_000, C_inx_ref=140)
+        output = solver.problem_solver(T_in=1100, p_in=400_000, n_rpm=17_000, p_out=120_000, C_inx_ref=140)
         T_salida, p_salida, C_salida, alfa_salida = output
         print(' T_out =', T_salida, '\n', 'P_out =', p_salida,
               '\n', 'C_out =', C_salida, '\n', 'alfa_out =', alfa_salida)
 
     else:
-        solver.problem_solver(T_in=1100, p_in=400_000, n=17_000, p_out=120_000, C_inx_ref=140)
+        solver.problem_solver(T_in=1100, p_in=400_000, n_rpm=17_000, p_out=120_000, C_inx_ref=140)
 
 
 if __name__ == '__main__':
