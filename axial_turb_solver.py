@@ -295,7 +295,7 @@ def step_decorator(cfg: config_class, step_corrector_memory):
 
             nonlocal relative_error
             target_efficiency = 1 - (((1 - eta_TT) / (200_000 ** (-1 / 5))) * (Re ** (-1 / 5)))
-            f1 = f2 = None
+            f1 = f2 = fpu = None
             bolz_c = None
 
             xi_e0 = xi_est * (Re ** (-1 / 5)) / (200_000 ** (-1 / 5))
@@ -309,8 +309,11 @@ def step_decorator(cfg: config_class, step_corrector_memory):
                     f1, rho_seed_1 = sif1[1] - target_efficiency, sif1[3]
                     f2, rho_seed_2 = sif2[1] - target_efficiency, sif2[3]
                 else:
-                    fp = (f2 - f1) / (xi_e2 - xi_e1)
-                    fpu = fp/fabs(fp)
+                    if fpu is None:
+                        fpu = -1
+                    else:
+                        fp = (f2 - f1) / (xi_e2 - xi_e1)
+                        fpu = fp/fabs(fp)
                     if f1*fpu > 0:
                         xi_e1 *= 0.95
                         sif1 = get_sif_output(True, False, xi_e1, rho_seed_1)
