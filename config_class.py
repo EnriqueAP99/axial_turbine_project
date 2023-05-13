@@ -258,6 +258,9 @@ class gas_model_to_solver:
         except pm.utility.PMParamError:
             record.error('Ha sucedido un error proveniente del módulo del cálculo de propiedades.')
             raise GasLibraryAdaptedException
+        except ValueError:
+            record.error('Ha sucedido un error proveniente del módulo del cálculo de propiedades.')
+            raise GasLibraryAdaptedException
         return output_value
 
     def get_din_visc(self, T: float):   # Se emplea solo en el cálculo del número de Reynolds.

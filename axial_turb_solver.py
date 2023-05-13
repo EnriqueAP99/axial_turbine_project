@@ -315,18 +315,15 @@ def step_decorator(cfg: config_class, step_corrector_memory):
                         fp = (f2 - f1) / (xi_e2 - xi_e1)
                         fpu = fp/fabs(fp)
                     if f1*fpu > 0:
+                        f2, rho_seed_2, xi_e2 = f1, rho_seed_1, xi_e1
                         xi_e1 *= 0.98
                         sif1 = get_sif_output(True, False, xi_e1, rho_seed_1)
-                        f2, rho_seed_2, xi_e2 = f1, rho_seed_1, xi_e1
                         f1, rho_seed_1 = sif1[1] - target_efficiency, sif1[3]
                     elif f2*fpu < 0:
+                        f1, rho_seed_1, xi_e1 = f2, rho_seed_2, xi_e2
                         xi_e2 *= 1.02
                         sif2 = get_sif_output(True, False, xi_e2, rho_seed_2)
-                        f1, rho_seed_1, xi_e1 = f2, rho_seed_2, xi_e2
                         f2, rho_seed_2 = sif2[1] - target_efficiency, sif2[3]
-                    else:
-                        # Maximum or minimum locally near and value in between.
-                        break
                 bolz_c = f1 * f2
 
             record.info('Corrección iniciada.')

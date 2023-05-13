@@ -202,24 +202,56 @@ class mixpm:
             k_a, v_a, k_b, v_b = k_1, v_1, k_0, v_0
 
         fvg = fabs(2 * v_a * self.rel_error)
-        k_g, v_g, vp_g, bolz = list(init_guess.keys())[0], list(init_guess.values())[0], 0.0, 1.0
-        v_g1, v_g2, start, f1, f2 = v_g, v_g*1.05, True, 0.0, 0.0
+        k_g, v_g, vp_g, bolz = list(init_guess.keys())[0], list(init_guess.values())[0], 0.0, None
+        v_g1, v_g2, start, f1, f2, fpu = v_g*0.999, v_g*1.001, True, 0.0, 0.0, 0.0
 
         # Este bloque while es para que se verifique la condición del tma. de Bolzano
-        while bolz > 0:
+        while bolz is None or bolz > 0:
             iter_counter += 1
-            if iter_counter > 500:
+            if iter_counter > 1000:
                 raise ValueError('Se ha alcanzado el número máximo de iteraciones.')
             if 'T' in init_guess and k_a == 'h' and self.mode == "ig":
-                f1 = self.get_props_by_Tpd({k_g: v_g1}, k_a) - v_a
-                f2 = self.get_props_by_Tpd({k_g: v_g2}, k_a) - v_a
+                if bolz is None:
+                    f1 = self.get_props_by_Tpd({k_g: v_g1}, k_a) - v_a
+                    f2 = self.get_props_by_Tpd({k_g: v_g2}, k_a) - v_a
+                else:
+                    if fabs(f1-f2) < self.rel_error*fabs(f1):
+                        fpu = -1
+                    else:
+                        fp = (f2 - f1) / (v_g2 - v_g1)
+                        fpu = fp/fabs(fp)
+                    if f1*fpu > 0:
+                        v_g2 = v_g1
+                        f2 = f1
+                        v_g1 = v_g1 * 0.99
+                        f1 = self.get_props_by_Tpd({k_g: v_g1}, k_a) - v_a
+                    elif f2*fpu < 0:
+                        v_g1 = v_g2
+                        f1 = f2
+                        v_g2 = v_g2 * 1.01
+                        f2 = self.get_props_by_Tpd({k_g: v_g2}, k_a) - v_a
             else:
-                f1 = self.get_props_by_Tpd({k_g: v_g1, k_b: v_b}, k_a) - v_a
-                f2 = self.get_props_by_Tpd({k_g: v_g2, k_b: v_b}, k_a) - v_a
+                if bolz is None:
+                    f1 = self.get_props_by_Tpd({k_g: v_g1, k_b: v_b}, k_a) - v_a
+                    f2 = self.get_props_by_Tpd({k_g: v_g2, k_b: v_b}, k_a) - v_a
+                else:
+                    if fabs(f1-f2) < self.rel_error*fabs(f1):
+                        fpu = -1
+                    else:
+                        fp = (f2 - f1) / (v_g2 - v_g1)
+                        fpu = fp/fabs(fp)
+                    if f1*fpu > 0:
+                        v_g2 = v_g1
+                        f2 = f1
+                        v_g1 = v_g1 * 0.99
+                        f1 = self.get_props_by_Tpd({k_g: v_g1, k_b: v_b}, k_a) - v_a
+                    elif f2*fpu < 0:
+                        v_g1 = v_g2
+                        f1 = f2
+                        v_g2 = v_g2 * 1.01
+                        f2 = self.get_props_by_Tpd({k_g: v_g2, k_b: v_b}, k_a) - v_a
             bolz = f1 * f2
-            if bolz > 0:
-                v_g1 = v_g1 * 0.999
-                v_g2 = v_g2 * 1.001
+
         c = float(v_g2 - (f2 * (v_g2 - v_g1) / (f2 - f1)))
         if len(known_props) == 2:
             fc = self.get_props_by_Tpd({k_g: c, k_b: v_b}, k_a) - v_a
@@ -230,25 +262,23 @@ class mixpm:
 
         while fvg > self.rel_error:
             iter_counter += 1
-            if iter_counter > 500:
+            if iter_counter > 1000:
                 raise ValueError('Se ha alcanzado el número máximo de iteraciones.')
             if not start:
                 if 'T' in init_guess and k_a == 'h' and self.mode == "ig":
-                    f1 = self.get_props_by_Tpd({k_g: v_g1}, k_a) - v_a
-                    f2 = self.get_props_by_Tpd({k_g: v_g2}, k_a) - v_a
                     c = float(v_g2 - (f2 * (v_g2 - v_g1) / (f2 - f1)))
                     fc = self.get_props_by_Tpd({k_g: c}, k_a) - v_a
                 else:
-                    f1 = self.get_props_by_Tpd({k_g: v_g1, k_b: v_b}, k_a) - v_a
-                    f2 = self.get_props_by_Tpd({k_g: v_g2, k_b: v_b}, k_a) - v_a
                     c = float(v_g2 - (f2 * (v_g2 - v_g1) / (f2 - f1)))
                     fc = self.get_props_by_Tpd({k_g: c, k_b: v_b}, k_a) - v_a
             else:
                 start = False
-            if fc * f2 < 0:
+            if fc * f2 <= 0:
                 v_g1 = c
-            elif fc * f1 < 0:
+                f1 = fc
+            elif fc * f1 <= 0:
                 v_g2 = c
+                f2 = fc
             fvg = fabs(fc / v_a)
 
         return c
