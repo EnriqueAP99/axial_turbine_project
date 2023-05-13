@@ -338,14 +338,14 @@ def step_decorator(cfg: config_class, step_corrector_memory):
 
             while fabs(rel_error_eta_TT) > cfg.relative_error:
                 xi_ec = xi_e2 - (f2 * (xi_e2 - xi_e1) / (f2 - f1))
-                if fabs(pre_rel_error_eta_TT) > fabs(rel_error_eta_TT) * 1.005:
+                if fabs(pre_rel_error_eta_TT-rel_error_eta_TT) > relative_error*fabs(rel_error_eta_TT):
                     if xi_ec < (0.8*xi_e1) + (0.2*xi_e2):
                         xi_ec = (0.8*xi_e1) + (0.2*xi_e2)
                     elif xi_ec > (0.8*xi_e2) + (0.2*xi_e1):
                         xi_ec = (0.8*xi_e2) + (0.2*xi_e1)
                 else:
                     jam_counter += 1
-                    if jam_counter > 10:
+                    if jam_counter > 15:
                         record.error("Couldn't reach convergence.")
                         raise NonConvergenceError
                 sifc = get_sif_output(True, False, xi_ec, rho_seed_c)
