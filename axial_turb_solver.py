@@ -272,7 +272,7 @@ def step_decorator(cfg: config_class, step_corrector_memory):
                     :param step_inner_function: Función que se decora.
                                 :return: Se devuelve el wrapper_r. """
 
-        step_relative_error = cfg.relative_error
+        relative_error = cfg.relative_error
 
         def get_sif_output(iter_mode: bool = None, iter_end: bool = None, xi=None, rho_seed: list = None, Re=None):
             """ Se hace deepcopy de la salida y se devuelve. """
@@ -290,46 +290,39 @@ def step_decorator(cfg: config_class, step_corrector_memory):
                             :return: Se devuelve la lista de variables que corresponda según el modo de
                                     funcionamiento que se defina."""
 
-            nonlocal step_relative_error
+            nonlocal relative_error
             target_efficiency = 1 - (((1 - eta_TT) / (200_000 ** (-1 / 5))) * (Re ** (-1 / 5)))
             f1 = f2 = None
-            bolz_c = 1.0
+            bolz_c = None
 
             if step_corrector_memory is not None:
-                xi_e1 = step_corrector_memory[0] * (1 - cfg.jump)
-                xi_e2 = step_corrector_memory[0] * (1 + cfg.jump)
+                xi_e1 = step_corrector_memory[0]
+                xi_e2 = step_corrector_memory[0]
                 rho_seed_1 = rho_seed_2 = rho_seed_c = step_corrector_memory[1]
             else:
                 xi_e0 = xi_est * (Re ** (-1 / 5)) / (200_000 ** (-1 / 5))
-                xi_e1 = xi_e0 * (1 - cfg.jump)
-                xi_e2 = xi_e0 * (1 + cfg.jump)
+                xi_e1 = xi_e0
+                xi_e2 = xi_e0
                 rho_seed_1 = rho_seed_2 = rho_seed_c = rho_seed
 
-            while bolz_c > 0:
+            while bolz_c is None or bolz_c > 0:
                 record.info('Buscando el rango que garantice encontrar la solución.')
-                # En la redacción quizás sea conveniente plotear rendimiento frente a xi para
-                # justificar/contrastar la tendencia supuesta o al menos razonarlo. (Decreciente con xi)
-                if (f1 is None and f2 is None) or step_corrector_memory is not None:
-                    sif1 = get_sif_output(True, False, xi_e1, rho_seed_1)
+                if bolz_c is None:
+                    sif1 = sif2 = get_sif_output(True, False, xi_e1, rho_seed_1)
                     f1, rho_seed_1 = sif1[1] - target_efficiency, sif1[3]
-                    sif2 = get_sif_output(True, False, xi_e2, rho_seed_2)
                     f2, rho_seed_2 = sif2[1] - target_efficiency, sif2[3]
-                elif f1 < 0:
-                    sif1 = get_sif_output(True, False, xi_e1, rho_seed_1)
-                    f1, rho_seed_1 = sif1[1] - target_efficiency, sif1[3]
                 else:
-                    sif2 = get_sif_output(True, False, xi_e2, rho_seed_2)
-                    f2, rho_seed_2 = sif2[1] - target_efficiency, sif2[3]
-
+                    if f1 > 0:
+                        xi_e1 *= 0.99
+                        sif1 = get_sif_output(True, False, xi_e1, rho_seed_1)
+                        f2, rho_seed_2, xi_e2 = f1, rho_seed_1, xi_e1
+                        f1, rho_seed_1 = sif1[1] - target_efficiency, sif1[3]
+                    elif f2 < 0:
+                        xi_e2 *= 1.01
+                        sif2 = get_sif_output(True, False, xi_e2, rho_seed_2)
+                        f1, rho_seed_1, xi_e1 = f2, rho_seed_2, xi_e2
+                        f2, rho_seed_2 = sif2[1] - target_efficiency, sif2[3]
                 bolz_c = f1 * f2
-
-                if bolz_c < 0:
-                    pass
-                else:
-                    if f1 < 0:
-                        xi_e1 *= (1 - cfg.jump)
-                    elif f2 > 0:
-                        xi_e2 *= (1 + cfg.jump)
 
             record.info('Corrección iniciada.')
 
@@ -337,30 +330,22 @@ def step_decorator(cfg: config_class, step_corrector_memory):
             xi_ec = None
 
             while fabs(rel_error_eta_TT) > cfg.relative_error:
-                if xi_ec is None:
-                    xi_ec = xi_e2 - (f2 * (xi_e2 - xi_e1) / (f2 - f1))
-                    sifc = get_sif_output(True, False, xi_ec, rho_seed_c)
-                    eta_TT_c, rho_seed_c = sifc[1], sifc[3]
-                    fc = eta_TT_c - target_efficiency
-                else:
-                    sif1 = get_sif_output(True, False, xi_e1, rho_seed_1)
-                    f1, rho_seed_1 = sif1[1] - target_efficiency, sif1[3]
-                    sif2 = get_sif_output(True, False, xi_e2, rho_seed_2)
-                    f2, rho_seed_2 = sif2[1] - target_efficiency, sif2[3]
-                    xi_ec = xi_e2 - (f2 * (xi_e2 - xi_e1) / (f2 - f1))
-                    sifc = get_sif_output(True, False, xi_ec, rho_seed_c)
-                    fc, rho_seed_c = sifc[1]-target_efficiency, sifc[3]
+                xi_ec = xi_e2 - (f2 * (xi_e2 - xi_e1) / (f2 - f1))
+                if xi_ec < 0.8*xi_e1 + 0.2*xi_e2:
+                    xi_ec = 0.8*xi_e1 + 0.2*xi_e2
+                elif xi_ec > 0.8*xi_e2 + 0.2*xi_e1:
+                    xi_ec = 0.8*xi_e2 + 0.2*xi_e1
+                sifc = get_sif_output(True, False, xi_ec, rho_seed_c)
+                fc, rho_seed_c = sifc[1]-target_efficiency, sifc[3]
                 if fc * f2 <= 0:
                     xi_e1, rho_seed_1, f1 = xi_ec, rho_seed_c, fc
                 elif fc * f1 <= 0:
                     xi_e2, rho_seed_2, f2 = xi_ec, rho_seed_c, fc
-
                 rel_error_eta_TT = fc / target_efficiency
                 record.info('Corrección en proceso  ...  eta_TT: %.4f  ...  Error: %.4f', sifc[1], rel_error_eta_TT)
 
             _, _, _, _, ll_1 = get_sif_output(True, True, xi_ec, rho_seed_c)
             record.info('Corrección finalizada.')
-
             return ll_1
 
         def AU_corrector():
@@ -370,7 +355,7 @@ def step_decorator(cfg: config_class, step_corrector_memory):
                 Re, rho_seed = step_corrector_memory[0], step_corrector_memory[1]
             rel_error = None
             iter_counter = 0
-            while rel_error is None or rel_error > step_relative_error:
+            while rel_error is None or rel_error > relative_error:
                 iter_counter += 1
                 if iter_counter > cfg.iter_limit:
                     record.critical('No converge.')
@@ -563,6 +548,7 @@ class solver_object:
                 self.Re_corrector_counter = 0
                 self.step_counter += 1
 
+            # NOTA: Quizás convenga omitir los cálculos que siguen durante la iteración !!!
             if not self.cfg.chain_mode:  # Los subindices A y B indican, resp., los pts. inicio y fin de la turbina.
                 p_B, s_B, h_B, h_0B = [ps_list[-1][1]] + ps_list[-1][3:6]
                 h_in = self.prd.get_prop(known_props={'T': T_in, 'p': p_in}, req_prop='h')
@@ -630,7 +616,7 @@ class solver_object:
                                 :param rho_seed: Densidad que se emplea como valor semilla en blade_outlet_calculator
                                                  (kg/m^3).
                     :param xi_est: Valor opcional que permite al decorador aplicar recursividad para efectuar la
-                                  corrección por dependencia de Reynolds.
+                                  corrección por dependencia de Reynolds usando el modelo AM.
                     :param iter_mode: Permite diferenciar si se está aplicando recursividad para la corrección por
                                  dependencia de Reynolds y así conocer las instrucciones más convenientes.
                     :param iter_end: Permite omitir cálculos innecesarios durante la corrección por dependencia de
@@ -661,6 +647,9 @@ class solver_object:
                 pass
             else:
                 self.Re_corrector_counter += 1
+                if self.Re_corrector_counter > self.cfg.iter_limit:
+                    record.error('Iter limit has been reached.')
+                    raise NonConvergenceError
             record.info('Modo de repetición: %s  ...  Llamadas: %s', iter_mode, self.Re_corrector_counter)
 
             if count > 0:
@@ -726,7 +715,7 @@ class solver_object:
             local_list_1 = [T_3, p_3, rho_3, s_3, h_3, h_03, C_3, alfa_3]
 
             if h_02 - h_03 < 0:
-                record.error('No se extrae energía del fluido.')
+                record.warning('No se extrae energía del fluido.')
 
             if self.cfg.loss_model == 'Ainley_and_Mathieson':
                 # Media aritmética de Re a la entrada y a la salida recomendada por AM para la corrección.
@@ -896,6 +885,9 @@ class solver_object:
         # p: iteración previa .... b: estado que se quiere conocer, a la salida del álabe
         while fabs(rel_diff) > relative_error:
             iter_count += 1
+            if rho_b < 0.2:
+                record.error('It was not possible to reach convengence. Density is too low.')
+                raise NonConvergenceError
 
             if iter_count > self.cfg.iter_limit:
                 record.error('Iteración aboratada, no se cumple el criterio de convergencia.')

@@ -298,7 +298,7 @@ def main_1(fast_mode, action):
 def main_2():
     settings = config_class(relative_error=1E-11, ideal_gas=True, n_steps=1, jump=0.5,
                             loss_model='Ainley_and_Mathieson', chain_mode=False,
-                            iter_limit=2000, max_trend_changes=30)
+                            iter_limit=600, max_trend_changes=30)
 
     Rm = 0.1429
     heights = [0.0445 for _ in range(3)]
@@ -323,7 +323,7 @@ def main_2():
     solver = solver_object(settings, gas_model)
 
     df_a, df_b, df_c = var_sweeping(solver, T_in=1100, p_in=400_000, n_rpm=17_000, C_inx=[0.01, 180],
-                                    var_to_sweep='C_inx', resolution=1000)
+                                    var_to_sweep='C_inx', resolution=200)
 
     df_a.to_csv('df_a_AM.csv')
     df_b.to_csv('df_b_AM.csv')
