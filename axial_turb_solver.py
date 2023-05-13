@@ -105,10 +105,10 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
             while True:
                 try:
                     if start:
-                        ps_list_a = inner_funtion_from_problem_solver(C_inx_a)
-                        ps_list_b = inner_funtion_from_problem_solver(C_inx_b)
+                        ps_list_a = inner_funtion_from_problem_solver(C_inx_a, True)
+                        ps_list_b = inner_funtion_from_problem_solver(C_inx_b, True)
                     else:
-                        ps_list = inner_funtion_from_problem_solver(C_inx)
+                        ps_list = inner_funtion_from_problem_solver(C_inx, True)
                 except NonConvergenceError:
                     if start:
                         first_iter_exception_task()
@@ -179,7 +179,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                     f_b = p_out_iter_b-p_out
                     update_C_inx()
                 try:
-                    ps_list = inner_funtion_from_problem_solver(C_inx)
+                    ps_list = inner_funtion_from_problem_solver(C_inx, True)
                 except NonConvergenceError:
                     # This event will most likely only happen when limits are not high enough.
                     C_inx_b, C_inx_a = pre_C_inx_b, pre_C_inx_a
@@ -214,7 +214,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                                 if limit_error['b'] < limit_error['a']:
                                     break
                                 else:
-                                    ps_list = inner_funtion_from_problem_solver(C_inx_a)
+                                    ps_list = inner_funtion_from_problem_solver(C_inx_a, True)
                                     break
                         elif fabs(p_out_iter - p_out_iter_a)/p_out <= solver_relative_error:
                             limit_error['a'] = rel_error
@@ -222,7 +222,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                                 if limit_error['a'] < limit_error['b']:
                                     break
                                 else:
-                                    ps_list = inner_funtion_from_problem_solver(C_inx_b)
+                                    ps_list = inner_funtion_from_problem_solver(C_inx_b, True)
                                     break
 
                 record.info('Error de presión a la salida: %.10f  ...  Valor actual: %.2f Pa ...  '
@@ -231,6 +231,9 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                 if iter_count > cfg.iter_limit:
                     record.critical('Recursive calculation does not reach convergence.')
                     raise NonConvergenceError
+
+            if not cfg.chain_mode:
+                ps_list = inner_funtion_from_problem_solver(C_inx, False)
 
             return
 
@@ -263,7 +266,7 @@ def step_decorator(cfg: config_class, step_corrector_memory):
     """ Decorador del decorador real, permite referenciar los parámetros necesarios para manipular la salida de la
     función decorada.
                 :param cfg: Objeto que contiene datos sobre la configuración que se ha establecido.
-                :param step_corrector_memory: Lista con las variables xi_ec y rho_seed_c de la ejecución previa.
+                :param step_corrector_memory: Lista con las variables de la ejecución previa.
                             :return: Se devuelve el decorador real. """
 
     def Reynolds_corrector(step_inner_function):
@@ -295,15 +298,9 @@ def step_decorator(cfg: config_class, step_corrector_memory):
             f1 = f2 = None
             bolz_c = None
 
-            if step_corrector_memory is not None:
-                xi_e1 = step_corrector_memory[0]
-                xi_e2 = step_corrector_memory[0]
-                rho_seed_1 = rho_seed_2 = rho_seed_c = step_corrector_memory[1]
-            else:
-                xi_e0 = xi_est * (Re ** (-1 / 5)) / (200_000 ** (-1 / 5))
-                xi_e1 = xi_e0
-                xi_e2 = xi_e0
-                rho_seed_1 = rho_seed_2 = rho_seed_c = rho_seed
+            xi_e0 = xi_est * (Re ** (-1 / 5)) / (200_000 ** (-1 / 5))
+            xi_e1 = xi_e2 = xi_e0
+            rho_seed_1 = rho_seed_2 = rho_seed_c = rho_seed
 
             while bolz_c is None or bolz_c > 0:
                 record.info('Buscando el rango que garantice encontrar la solución.')
@@ -312,13 +309,15 @@ def step_decorator(cfg: config_class, step_corrector_memory):
                     f1, rho_seed_1 = sif1[1] - target_efficiency, sif1[3]
                     f2, rho_seed_2 = sif2[1] - target_efficiency, sif2[3]
                 else:
-                    if f1 > 0:
-                        xi_e1 *= 0.99
+                    fp = (f2 - f1) / (xi_e2 - xi_e1)
+                    fpu = fp/fabs(fp)
+                    if f1*fpu < 0:
+                        xi_e1 *= (1+(0.05*fpu))
                         sif1 = get_sif_output(True, False, xi_e1, rho_seed_1)
                         f2, rho_seed_2, xi_e2 = f1, rho_seed_1, xi_e1
                         f1, rho_seed_1 = sif1[1] - target_efficiency, sif1[3]
-                    elif f2 < 0:
-                        xi_e2 *= 1.01
+                    elif f2*fpu > 0:
+                        xi_e2 *= (1-(0.05*fpu))
                         sif2 = get_sif_output(True, False, xi_e2, rho_seed_2)
                         f1, rho_seed_1, xi_e1 = f2, rho_seed_2, xi_e2
                         f2, rho_seed_2 = sif2[1] - target_efficiency, sif2[3]
@@ -326,21 +325,31 @@ def step_decorator(cfg: config_class, step_corrector_memory):
 
             record.info('Corrección iniciada.')
 
+            pre_rel_error_eta_TT = 2.0
             rel_error_eta_TT = 1.0
             xi_ec = None
+            jam_counter = 0
 
             while fabs(rel_error_eta_TT) > cfg.relative_error:
                 xi_ec = xi_e2 - (f2 * (xi_e2 - xi_e1) / (f2 - f1))
-                if xi_ec < 0.8*xi_e1 + 0.2*xi_e2:
-                    xi_ec = 0.8*xi_e1 + 0.2*xi_e2
-                elif xi_ec > 0.8*xi_e2 + 0.2*xi_e1:
-                    xi_ec = 0.8*xi_e2 + 0.2*xi_e1
+                if fabs(pre_rel_error_eta_TT) > fabs(rel_error_eta_TT) * 1.005:
+                    if xi_ec < (0.8*xi_e1) + (0.2*xi_e2):
+                        xi_ec = (0.8*xi_e1) + (0.2*xi_e2)
+                    elif xi_ec > (0.8*xi_e2) + (0.2*xi_e1):
+                        xi_ec = (0.8*xi_e2) + (0.2*xi_e1)
+                else:
+                    jam_counter += 1
+                    if jam_counter > 10:
+                        record.error("Couldn't reach convergence.")
+                        raise NonConvergenceError
                 sifc = get_sif_output(True, False, xi_ec, rho_seed_c)
                 fc, rho_seed_c = sifc[1]-target_efficiency, sifc[3]
                 if fc * f2 <= 0:
                     xi_e1, rho_seed_1, f1 = xi_ec, rho_seed_c, fc
                 elif fc * f1 <= 0:
                     xi_e2, rho_seed_2, f2 = xi_ec, rho_seed_c, fc
+
+                pre_rel_error_eta_TT = rel_error_eta_TT
                 rel_error_eta_TT = fc / target_efficiency
                 record.info('Corrección en proceso  ...  eta_TT: %.4f  ...  Error: %.4f', sifc[1], rel_error_eta_TT)
 
@@ -372,7 +381,7 @@ def step_decorator(cfg: config_class, step_corrector_memory):
                             :return: Se devuelve la lista de variables que se procesan, según el modo que se defina. """
 
             if cfg.loss_model == 'Ainley_and_Mathieson':
-                Re, eta_TT, xi_est, rho_seed, _ = get_sif_output()
+                Re, eta_TT, xi_est, rho_seed, _ = get_sif_output(rho_seed=step_corrector_memory)
                 ll_1 = AM_corrector(eta_TT, Re, xi_est, rho_seed)
             else:
                 ll_1 = AU_corrector()
@@ -517,7 +526,7 @@ class solver_object:
             self.small_input_deviation_data += [T_in, p_in, n_rpm]
 
         @solver_decorator(self.cfg, p_out, self.C_inx_register, self.small_input_deviation_data)
-        def inner_solver(var_C_inx=None):
+        def inner_solver(var_C_inx=None, solverdec_search_mode=False):
             nonlocal m_dot, C_inx, ps_list
 
             self.step_iter_mode = self.step_iter_end = False
@@ -548,8 +557,8 @@ class solver_object:
                 self.Re_corrector_counter = 0
                 self.step_counter += 1
 
-            # NOTA: Quizás convenga omitir los cálculos que siguen durante la iteración !!!
-            if not self.cfg.chain_mode:  # Los subindices A y B indican, resp., los pts. inicio y fin de la turbina.
+            if not self.cfg.chain_mode and not solverdec_search_mode:
+                # Los subindices A y B indican, resp., los pts. inicio y fin de la turbina.
                 p_B, s_B, h_B, h_0B = [ps_list[-1][1]] + ps_list[-1][3:6]
                 h_in = self.prd.get_prop(known_props={'T': T_in, 'p': p_in}, req_prop='h')
                 h_0A = h_0in
@@ -744,12 +753,12 @@ class solver_object:
             if iter_end:
                 if len(self.corrector_seed) < self.cfg.n_steps:
                     if self.cfg.loss_model == 'Ainley_and_Mathieson':
-                        self.corrector_seed.append(copy.deepcopy([xi_est, [rho_2, rho_3]]))
+                        self.corrector_seed.append([rho_2, rho_3].copy())
                     else:
                         self.corrector_seed.append(copy.deepcopy([Re_23, [rho_2, rho_3]]))
                 else:
                     if self.cfg.loss_model == 'Ainley_and_Mathieson':
-                        self.corrector_seed[count] = copy.deepcopy([xi_est, [rho_2, rho_3]])
+                        self.corrector_seed[count] = [rho_2, rho_3].copy()
                     else:
                         self.corrector_seed[count] = copy.deepcopy([Re_23, [rho_2, rho_3]])
 

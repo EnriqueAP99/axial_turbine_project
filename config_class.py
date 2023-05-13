@@ -51,7 +51,7 @@ class config_class:
     ideal_gas: bool  # True cuando se establece hipótesis de gas ideal
     geom: dict = None  # Diccionario para almacenar parámetros geométricos de la turbina
     iter_limit: int = 600  # Límite de iteraciones que se establece
-    jump: float = 0.05  # Salto efectuado durante la búsqueda cuando se conoce la presión a la salida
+    jump: float = 0.5  # Salto de velocidad efectuado durante la búsqueda cuando se conoce la presión a la salida
     max_trend_changes: int = 5  # Número máximo de fluctuaciones a partir de las que no se considera que no converge
     # Al comenzar la ejecución se genera una función a partir de interpolación por splines que va a permitir fijar
     # la presión a la salida como parámetro de entrada.
@@ -198,8 +198,8 @@ class config_class:
         object.__setattr__(self, 'geom', geom)
         return
 
-    def edit_cfg_prop(self, key, new_tol):
-        object.__setattr__(self, key, new_tol)
+    def edit_cfg_prop(self, key, new_value):
+        object.__setattr__(self, key, new_value)
 
 
 class GasLibraryAdaptedException(Exception):
@@ -256,6 +256,7 @@ class gas_model_to_solver:
             else:
                 output_value = self.gas_model.get_props_by_Tpd(known_props, req_prop)
         except pm.utility.PMParamError:
+            record.error('Ha sucedido un error proveniente del módulo del cálculo de propiedades.')
             raise GasLibraryAdaptedException
         return output_value
 
