@@ -309,7 +309,7 @@ def step_decorator(cfg: config_class, step_corrector_memory):
                     f1, rho_seed_1 = sif1[1] - target_efficiency, sif1[3]
                     f2, rho_seed_2 = sif2[1] - target_efficiency, sif2[3]
                 else:
-                    if fpu is None:
+                    if fpu is None or fabs(f1-f2) < relative_error*fabs(f1):
                         fpu = -1
                     else:
                         fp = (f2 - f1) / (xi_e2 - xi_e1)
