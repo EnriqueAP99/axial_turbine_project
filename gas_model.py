@@ -188,6 +188,7 @@ class mixpm:
 
         k_0, v_0, k_1, v_1 = list(known_props.keys())[0], list(known_props.values())[0], '', 0.0
         k_a, k_b, v_a, v_b = '', '', 0.0, 0.0
+        iter_counter = 0
 
         if len(known_props) == 2:
             k_1 = list(known_props.keys())[1]
@@ -206,6 +207,9 @@ class mixpm:
 
         # Este bloque while es para que se verifique la condición del tma. de Bolzano
         while bolz > 0:
+            iter_counter += 1
+            if iter_counter > 500:
+                raise ValueError('Se ha alcanzado el número máximo de iteraciones.')
             if 'T' in init_guess and k_a == 'h' and self.mode == "ig":
                 f1 = self.get_props_by_Tpd({k_g: v_g1}, k_a) - v_a
                 f2 = self.get_props_by_Tpd({k_g: v_g2}, k_a) - v_a
