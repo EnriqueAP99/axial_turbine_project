@@ -311,13 +311,13 @@ def step_decorator(cfg: config_class, step_corrector_memory):
                 else:
                     fp = (f2 - f1) / (xi_e2 - xi_e1)
                     fpu = fp/fabs(fp)
-                    if f1*fpu < 0:
-                        xi_e1 *= (1+(0.05*fpu))
+                    if f1*fpu > 0:
+                        xi_e1 *= 0.95
                         sif1 = get_sif_output(True, False, xi_e1, rho_seed_1)
                         f2, rho_seed_2, xi_e2 = f1, rho_seed_1, xi_e1
                         f1, rho_seed_1 = sif1[1] - target_efficiency, sif1[3]
-                    elif f2*fpu > 0:
-                        xi_e2 *= (1-(0.05*fpu))
+                    elif f2*fpu < 0:
+                        xi_e2 *= 1.05
                         sif2 = get_sif_output(True, False, xi_e2, rho_seed_2)
                         f1, rho_seed_1, xi_e1 = f2, rho_seed_2, xi_e2
                         f2, rho_seed_2 = sif2[1] - target_efficiency, sif2[3]
