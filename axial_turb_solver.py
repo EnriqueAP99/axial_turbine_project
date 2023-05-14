@@ -36,26 +36,25 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
         def corrector_for_small_deviations():
             C_in_eval_list, p_out_vref, dpout_dTin, dpout_dpin, dpout_dn, T_in, p_in, n_rev = small_deviations_data
             Tin_ref, pin_ref, nrev_ref = cfg.T_nominal, cfg.p_nominal, cfg.n_rpm_nominal
-            resolution = cfg.resolution_for_small_input_deviations
-
             p_out_vref += ((T_in-Tin_ref)*dpout_dTin)+((p_in-pin_ref)*dpout_dpin)+((n_rev-nrev_ref)*dpout_dn)
-            for point in range(cfg.resolution_for_small_input_deviations):
-                pass
             p_out_vref, C_in_eval_list = p_out_vref[::-1], C_in_eval_list[::-1]
-            spline_function = f_sp([float(p_out_vref[i]) for i in range(resolution)], C_in_eval_list, 3)
-            C_in_resulting = float(spline_function(p_out))
+            C_in_resulting = lineal_interpolation(x_target=p_out, x=p_out_vref, y=C_in_eval_list)
             return C_in_resulting
 
         def iterate_ps():
             """ Function to be used whenever the spline attribute of the solver is not set. """
             C_inx = C_inx_estimated
             ps_list = None
+            solver_iter = True
 
             def read_ps_list():
                 if cfg.chain_mode:
                     new_p_out = ps_list[1]
                 else:
-                    new_p_out = ps_list[-2][1]
+                    if solver_iter:
+                        new_p_out = ps_list[-1][1]
+                    else:
+                        new_p_out = ps_list[-2][1]
                 return new_p_out
 
             iter_count = 0
@@ -236,6 +235,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                     raise NonConvergenceError
 
             if not cfg.chain_mode:
+                solver_iter = False
                 ps_list = inner_funtion_from_problem_solver(C_inx, False)
 
             return
@@ -245,7 +245,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
             manera directa o indirecta según corresponda."""
 
             t_1 = time()
-            if p_out is None:
+            if p_out is None and small_deviations_data is None:
                 _ = inner_funtion_from_problem_solver()
             else:
                 if small_deviations_data is None:
@@ -512,12 +512,12 @@ class solver_object:
             if p_out is None:
                 record.critical('Debe indicarse un valor de referencia de velocidad a la entrada si se desea fijar '
                                 'la presión a la salida de la turbina.')
-                sys.exit()  # Quizas convenga cambiar esto por raise y algún error para datos insuficientes
-            elif C_inx_ref is None and not self.cfg.resolution_for_small_input_deviations:
+                sys.exit()  # Quizás convenga cambiar esto por raise y algún error para datos insuficientes
+            elif C_inx_ref is None and self.small_input_deviation_data is None:
                 record.critical('Se debe establecer uno de los parámetros opcionales "p_outlet", "Cinlet" ó '
                                 '"mass_flow".')
                 sys.exit()
-            elif not self.cfg.resolution_for_small_input_deviations:
+            elif self.small_input_deviation_data is None:
                 if self.C_inx_register is None:
                     C_inx = self.C_inx_register = C_inx_ref
                 else:

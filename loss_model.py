@@ -43,28 +43,34 @@ def f_sp(x_list: list, y_list: list, order: int):
     return InterpolatedUnivariateSpline(x_list, y_list, k=order)
 
 
-def interpola_series_en_x(param, x, series):
+def lineal_interpolation(x_target=None, x=None, series=None, y=None):
     # Interpolación lineal
-    f_param = None
-    serie_parameter = [parameter for _, _, parameter in series]
-    serie_y = [float(funcion(x)) for _, funcion, _ in series]
-    if serie_parameter[0] <= param <= serie_parameter[-2]:
-        for number, xparam in enumerate(serie_parameter):
-            if number < len(serie_parameter) - 1:
-                xnparam = serie_parameter[number + 1]
-                if xparam < param < xnparam:
-                    diff = (param - xparam)*(serie_y[number+1]-serie_y[number])/(xnparam - xparam)
-                    f_param = serie_y[number] + diff
-                    break
-    elif serie_parameter[0] > param:
-        xparam, xnparam = serie_parameter[0], serie_parameter[1]
-        diff = (param - xparam)*(serie_y[1]-serie_y[0])/(xnparam - xparam)
-        f_param = serie_y[0] + diff
-    elif serie_parameter[-2] < param:
-        xparam, xnparam = serie_parameter[-2], serie_parameter[-1]
-        diff = (param - xparam)*(serie_y[-1]-serie_y[-2])/(xnparam - xparam)
-        f_param = serie_y[-2] + diff
-    return f_param
+    output = None
+    if y is None:
+        serie_x = [parameter for _, _, parameter in series]
+        serie_y = [float(funcion(x)) for _, funcion, _ in series]
+    else:
+        serie_x, serie_y = x, y
+    if serie_x[0] < x_target < serie_x[-1]:
+        n_1, n_2 = 0, len(serie_x)-1
+        while n_2 - n_1 != 1:
+            n_c = int((n_2 + n_1)//2)
+            if x_target < serie_x[n_c]:
+                n_2 = n_c
+            else:
+                n_1 = n_c
+        xparam, xnparam = serie_x[n_1], serie_x[n_2]
+        diff = (x_target - xparam) * (serie_y[n_2] - serie_y[n_1]) / (xnparam - xparam)
+        output = serie_y[n_1] + diff
+    elif serie_x[0] > x_target:
+        xparam, xnparam = serie_x[0], serie_x[1]
+        diff = (x_target - xparam) * (serie_y[1] - serie_y[0]) / (xnparam - xparam)
+        output = serie_y[0] + diff
+    elif serie_x[-2] < x_target:
+        xparam, xnparam = serie_x[-2], serie_x[-1]
+        diff = (x_target - xparam) * (serie_y[-1] - serie_y[-2]) / (xnparam - xparam)
+        output = serie_y[-2] + diff
+    return output
 
 
 class Ainley_and_Mathieson_Loss_Model:  # Ver paper: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf
@@ -214,8 +220,8 @@ class Ainley_and_Mathieson_Loss_Model:  # Ver paper: https://apps.dtic.mil/sti/p
                                'El valor es %.2f y los límites son [-1.1, 1].', alfap_1 / alpha_2_sc075)
                 self.limit_mssg[0] = False
 
-        is_sc075 = interpola_series_en_x(param=alpha_2_sc075, x=alfap_1/alpha_2_sc075, series=self.is_b1a2_sc_075)
-        delta_is = interpola_series_en_x(param=tau_2, x=s/b, series=self.d_i_s_s_c)
+        is_sc075 = lineal_interpolation(x_target=alpha_2_sc075, x=alfap_1 / alpha_2_sc075, series=self.is_b1a2_sc_075)
+        delta_is = lineal_interpolation(x_target=tau_2, x=s / b, series=self.d_i_s_s_c)
         i_s = delta_is + is_sc075
         i_is = (tau_1 - alfap_1) / i_s
 
@@ -240,8 +246,8 @@ class Ainley_and_Mathieson_Loss_Model:  # Ver paper: https://apps.dtic.mil/sti/p
         i_is = self.calculating_incidence_stall_incidence_fraction(tau_1, tau_2)
 
         yp_f = self.yp_f_i_f[1](i_is)
-        Yp_i0_b1kn = interpola_series_en_x(param=tau_2, x=s/b, series=self.yp_s_c_b1kn)
-        Yp_i0_b1kb2k = interpola_series_en_x(param=tau_2, x=s/b, series=self.yp_s_c_b1kb2k)
+        Yp_i0_b1kn = lineal_interpolation(x_target=tau_2, x=s / b, series=self.yp_s_c_b1kn)
+        Yp_i0_b1kb2k = lineal_interpolation(x_target=tau_2, x=s / b, series=self.yp_s_c_b1kb2k)
 
         t_max_b = t_max / b
 
@@ -406,7 +412,7 @@ class Aungier_Loss_Model(Ainley_and_Mathieson_Loss_Model):
         i_is = self.calculating_incidence_stall_incidence_fraction(taud_1, taud_2)
         k_inc = self.yp_f_i_f[1](i_is)
 
-        k_m = 1 if (s_j / e_j) < 0.105 or Mout < 0.6 else interpola_series_en_x(Mout, s_j / e_j, self.km_series)
+        k_m = 1 if (s_j / e_j) < 0.105 or Mout < 0.6 else lineal_interpolation(Mout, s_j / e_j, self.km_series)
 
         Minmod = (Min + 0.566 - fabs(0.566 - Min))/2
         Moutmod = (Mout + 1 - fabs(Mout - 1))/2
@@ -430,8 +436,8 @@ class Aungier_Loss_Model(Ainley_and_Mathieson_Loss_Model):
             else:
                 k_Re = ((log10(500_000))/((log10(Re_r))**2.58))
 
-        Yp1 = interpola_series_en_x(taud_2, s_j/b_j, self.yp_s_c_b1kn)
-        Yp2 = interpola_series_en_x(taud_2, s_j/b_j, self.yp_s_c_b1kb2k)
+        Yp1 = lineal_interpolation(taud_2, s_j / b_j, self.yp_s_c_b1kn)
+        Yp2 = lineal_interpolation(taud_2, s_j / b_j, self.yp_s_c_b1kb2k)
         ksi = self.ap_1[num]/taud_2
 
         Y_TE_002s = (0.02*s_j/((s_j*sin(radians(beta_g)))-(0.02*s_j)))**2

@@ -244,14 +244,10 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
     return df_a_packg, df_b_packg, df_c_packg
 
 
-# def main_1(chain_mode, action):
 def main_1(chain_mode, action):
     if action == 'procesar_y_guardar':
-        settings = config_class(relative_error=1E-11, ideal_gas=True, n_steps=1, jump=0.5, chain_mode=False,
-                                loss_model='Aungier', iter_limit=1000, max_trend_changes=30, T_nominal=1_100,
-                                automatic_preloading_for_small_input_deviations=True, p_nominal=600_000,
-                                resolution_for_small_input_deviations=500, inlet_velocity_range=[0.01, 140.69],
-                                n_rpm_nominal=20_000)
+        settings = config_class(relative_error=1E-11, ideal_gas=True, n_steps=1, jump=0.5, loss_model='Aungier',
+                                chain_mode=False, iter_limit=1000, max_trend_changes=30)
 
         Rm = 0.1429
         heights = [0.0445 for _ in range(3)]
@@ -277,28 +273,28 @@ def main_1(chain_mode, action):
         solver = solver_object(settings, gas_model)
 
         if chain_mode:
-            output = solver.problem_solver(T_in=1102, p_in=600_005, n_rpm=20_003, p_out=120_000)
+            output = solver.problem_solver(T_in=1102, p_in=600_100, n_rpm=20_003, p_out=450_000, C_inx_ref=130)
             T_salida, p_salida, C_salida, alfa_salida = output
             print(' T_out', T_salida, '\n', 'P_out', p_salida, '\n', 'C_out', C_salida, '\n', 'alfa_out', alfa_salida)
         else:
-            solver.problem_solver(T_in=1102, p_in=600_005, n_rpm=20_003, p_out=120_000)
-            solver_data_saver('process_object.pkl', solver)
+            solver.problem_solver(T_in=1102, p_in=600_100, n_rpm=20_003, p_out=450_000, C_inx_ref=130)
+            solver_data_saver('process_object1.pkl', solver)
 
     elif action == 'cargar_y_visualizar':
-        solver = solver_data_reader('process_object.pkl')
+        solver = solver_data_reader('process_object1.pkl')
         problem_data_viewer(solver)
 
     elif action == 'cargar_reprocesar_y_guardar':
         # Se usan semillas de la ejecución anterior. Se leen, se guardan y se visualizan los datos.
         # Esta ejecución es más rápida que la ejecución normal, ya que se aprovechan las semillas del objeto cargado.
-        solver = solver_data_reader('process_object.pkl')
+        solver = solver_data_reader('process_object1.pkl')
         solver.cfg.set_geometry(B_A_est=[0, 5], theta_est=[70, 75], B_A_rot=[55, 55], theta_rot=[105, 105], b_z=0.027,
                                 cuerda=0.03, radio_medio=0.30, H=[0.030, 0.035, 0.041, 0.048, 0.052], e=0.015, o=0.015,
                                 t_max=0.006, r_r=0.003, r_c=0.002, t_e=0.004, k=0.001, delta=0.001,
                                 roughness_ptv=0.00001, holgura_radial=False)
 
         solver.problem_solver(T_in=1800, p_in=1_000_000, n_rpm=6_000, m_dot=18.0)
-        solver_data_saver('process_object.pkl', solver)
+        solver_data_saver('process_object1.pkl', solver)
         problem_data_viewer(solver)
 
 
@@ -457,12 +453,25 @@ def main_4(action):
         solver = solver_object(settings, gas_model)
         solver_data_saver('process_object.pkl', solver)
 
-    elif action == 'cargar_y_visualizar':
-        pass
+    elif action == 'leer_corrección':
+        solver = solver_data_reader('process_object.pkl')
+        cfg = solver.cfg
+        small_input_deviation_data = solver.small_input_deviation_data
+        C_in_eval_list, p_out_vref, dpout_dTin, dpout_dpin, dpout_dn = small_input_deviation_data
+        T_in, p_in, n_rev = 1102, 600_005, 20_003
+        Tin_ref, pin_ref, nrev_ref = cfg.T_nominal, cfg.p_nominal, cfg.n_rpm_nominal
+        p_out_vref += ((T_in-Tin_ref)*dpout_dTin)+((p_in-pin_ref)*dpout_dpin)+((n_rev-nrev_ref)*dpout_dn)
+        plt.plot(p_out_vref, C_in_eval_list)
+        plt.show()
 
-    elif action == 'cargar_reprocesar_y_guardar':
+    elif action == 'calcular_con_p_out_modificado':
+        solver = solver_data_reader('process_object.pkl')
+        solver.problem_solver(T_in=1102, p_in=600_100, n_rpm=20_003, p_out=450_000)
+
+    elif action == 'calcular_con_p_out_modificado':
         pass
 
 
 if __name__ == '__main__':
-    main_4('procesar_y_guardar')
+    main_1(False, 'procesar_y_guardar')
+    # main_4('calcular_con_p_out_modificado')
