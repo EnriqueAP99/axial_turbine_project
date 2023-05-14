@@ -241,10 +241,12 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
     return df_a_packg, df_b_packg, df_c_packg
 
 
-def main_1(fast_mode, action):
+def main_1(chain_mode, action):
     if action == 'procesar_y_guardar':
-        settings = config_class(relative_error=1E-12, n_steps=1, jump=0.004, loss_model='Aungier',
-                                ideal_gas=True, chain_mode=fast_mode, iter_limit=800)
+        settings = config_class(relative_error=1E-11, ideal_gas=True, n_steps=1, jump=0.5, chain_mode=False,
+                                loss_model='Aungier', iter_limit=1000, max_trend_changes=30, T_reference=1_100,
+                                automatic_preloading_for_small_input_deviations=True, p_reference=600_000,
+                                inlet_velocity_range=[0.01, 140.69], n_rpm_reference=20_000)
 
         Rm = 0.1429
         heights = [0.0445 for _ in range(3)]
@@ -269,12 +271,12 @@ def main_1(fast_mode, action):
 
         solver = solver_object(settings, gas_model)
 
-        if fast_mode:
-            output = solver.problem_solver(T_in=1100, p_in=600_000, n_rpm=20_000, p_out=120_000, C_inx_ref=110)
+        if chain_mode:
+            output = solver.problem_solver(T_in=1102, p_in=600_005, n_rpm=20_003, p_out=120_000)
             T_salida, p_salida, C_salida, alfa_salida = output
             print(' T_out', T_salida, '\n', 'P_out', p_salida, '\n', 'C_out', C_salida, '\n', 'alfa_out', alfa_salida)
         else:
-            solver.problem_solver(T_in=1100, p_in=600_000, n_rpm=20_000, p_out=120_000, C_inx_ref=110)
+            solver.problem_solver(T_in=1102, p_in=600_005, n_rpm=20_003, p_out=120_000)
             solver_data_saver('process_object.pkl', solver)
 
     elif action == 'cargar_y_visualizar':
@@ -297,8 +299,8 @@ def main_1(fast_mode, action):
 
 def main_2():
     settings = config_class(relative_error=1E-11, ideal_gas=True, n_steps=1, jump=0.5,
-                            loss_model='Ainley_and_Mathieson', chain_mode=False,
-                            iter_limit=600, max_trend_changes=30)
+                            loss_model='Aungier', chain_mode=False,
+                            iter_limit=1000, max_trend_changes=30)
 
     Rm = 0.1429
     heights = [0.0445 for _ in range(3)]
@@ -322,17 +324,17 @@ def main_2():
     gas_model = gas_model_to_solver(thermo_mode="ig")
     solver = solver_object(settings, gas_model)
 
-    df_a, df_b, df_c = var_sweeping(solver, T_in=1100, p_in=400_000, n_rpm=17_000, C_inx=[0.01, 180],
+    df_a, df_b, df_c = var_sweeping(solver, T_in=1100, p_in=400_000, n_rpm=17_000, C_inx=[40, 180],
                                     var_to_sweep='C_inx', resolution=200)
 
-    df_a.to_csv('df_a_AM.csv')
-    df_b.to_csv('df_b_AM.csv')
-    df_c.to_csv('df_c_AM.csv')
+    df_a.to_csv('df_a_4.csv')
+    df_b.to_csv('df_b_4.csv')
+    df_c.to_csv('df_c_4.csv')
 
 
 def main_3():
 
-    df_c = pd.read_csv('df_c.csv', index_col='m_dot (kg/s)')
+    df_c = pd.read_csv('df_c_AM.csv', index_col='m_dot (kg/s)')
     eta_s = df_c['eta_maq (-)']
     Potencia = df_c['P_total (kW)']
     Potencia_ss = df_c['w_ss_total (kJ/kg)'] * df_c.index
@@ -354,7 +356,7 @@ def main_3():
     plt.grid(which='both')
     plt.show()
 
-    df_a = pd.read_csv('df_a.csv', index_col='Aux_Index')
+    df_a = pd.read_csv('df_a_AM.csv', index_col='Aux_Index')
     df_a_pt_3 = df_a[df_a['Spec_Index'] == 'Step_1_pt_3']
     df_a_pt_2 = df_a[df_a['Spec_Index'] == 'Step_1_pt_2']
     df_a_pt_1 = df_a[df_a['Spec_Index'] == 'Step_1_pt_1']
@@ -398,7 +400,7 @@ def main_3():
     plt.grid(which='both')
     plt.show()
 
-    df_b = pd.read_csv('df_b.csv')
+    df_b = pd.read_csv('df_b_AM.csv')
     eta_TT_m_dot = pd.DataFrame((df_b['eta_TT (-)']).values.tolist(), columns=['eta_TT'], index=df_c.index)
     eta_TE_m_dot = pd.DataFrame((df_b['eta_TE (-)']).values.tolist(), columns=['eta_TE'], index=df_c.index)
     xi_est_m_dot = pd.DataFrame((df_b['Y_est (kJ/kg)']/(0.0005*(df_a_pt_2['C (m/s)'] *
@@ -419,4 +421,4 @@ def main_3():
 
 
 if __name__ == '__main__':
-    main_2()
+    main_1(False, 'procesar_y_guardar')

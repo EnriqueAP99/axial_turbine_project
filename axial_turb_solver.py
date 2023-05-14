@@ -466,6 +466,7 @@ class solver_object:
                     record.warning('Se ha capturado un error inesperado, se omite esta evaluación.')
                 else:
                     output_pressures[k] = p_outlet
+                k += 1
             return output_pressures
 
         pressures_ref_inputs = velocity_sweeper(self.cfg.T_reference, self.cfg.p_reference, self.cfg.n_rpm_reference)
@@ -509,11 +510,11 @@ class solver_object:
                 record.critical('Debe indicarse un valor de referencia de velocidad a la entrada si se desea fijar '
                                 'la presión a la salida de la turbina.')
                 sys.exit()  # Quizas convenga cambiar esto por raise y algún error para datos insuficientes
-            elif C_inx_ref is None:
+            elif C_inx_ref is None and not self.cfg.resolution_for_small_input_deviations:
                 record.critical('Se debe establecer uno de los parámetros opcionales "p_outlet", "Cinlet" ó '
                                 '"mass_flow".')
                 sys.exit()
-            else:
+            elif not self.cfg.resolution_for_small_input_deviations:
                 if self.C_inx_register is None:
                     C_inx = self.C_inx_register = C_inx_ref
                 else:
@@ -522,11 +523,16 @@ class solver_object:
         rho_in = self.prd.get_prop(known_props={'T': T_in, 'p': p_in}, req_prop='d')
         if m_dot is not None:
             C_inx = m_dot / (rho_in * self.cfg.geom['areas'][0])
-        else:
+        elif C_inx is not None:
             m_dot = rho_in * self.cfg.geom['areas'][0] * C_inx
 
         if self.small_input_deviation_data is not None:
-            self.small_input_deviation_data += [T_in, p_in, n_rpm]
+            if len(self.small_input_deviation_data) == 5:
+                self.small_input_deviation_data += [T_in, p_in, n_rpm]
+            else:
+                self.small_input_deviation_data[5] = T_in
+                self.small_input_deviation_data[6] = p_in
+                self.small_input_deviation_data[7] = n_rpm
 
         @solver_decorator(self.cfg, p_out, self.C_inx_register, self.small_input_deviation_data)
         def inner_solver(var_C_inx=None, solverdec_search_mode=False):
