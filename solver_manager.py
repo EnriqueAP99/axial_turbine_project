@@ -245,7 +245,7 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
 
 
 # def main_1(chain_mode, action):
-def main_1(action):
+def main_1(chain_mode, action):
     if action == 'procesar_y_guardar':
         settings = config_class(relative_error=1E-11, ideal_gas=True, n_steps=1, jump=0.5, chain_mode=False,
                                 loss_model='Aungier', iter_limit=1000, max_trend_changes=30, T_nominal=1_100,
@@ -276,15 +276,13 @@ def main_1(action):
 
         solver = solver_object(settings, gas_model)
 
-        # if chain_mode:
-        #     output = solver.problem_solver(T_in=1102, p_in=600_005, n_rpm=20_003, p_out=120_000)
-        #     T_salida, p_salida, C_salida, alfa_salida = output
-        #     print(' T_out', T_salida, '\n', 'P_out', p_salida, '\n', 'C_out', C_salida, '\n', 'alfa_out', alfa_salida)
-        # else:
-        #     solver.problem_solver(T_in=1102, p_in=600_005, n_rpm=20_003, p_out=120_000)
-        #     solver_data_saver('process_object.pkl', solver)
-
-        solver_data_saver('process_object.pkl', solver)
+        if chain_mode:
+            output = solver.problem_solver(T_in=1102, p_in=600_005, n_rpm=20_003, p_out=120_000)
+            T_salida, p_salida, C_salida, alfa_salida = output
+            print(' T_out', T_salida, '\n', 'P_out', p_salida, '\n', 'C_out', C_salida, '\n', 'alfa_out', alfa_salida)
+        else:
+            solver.problem_solver(T_in=1102, p_in=600_005, n_rpm=20_003, p_out=120_000)
+            solver_data_saver('process_object.pkl', solver)
 
     elif action == 'cargar_y_visualizar':
         solver = solver_data_reader('process_object.pkl')
@@ -427,5 +425,44 @@ def main_3():
     return
 
 
+def main_4(action):
+    if action == 'procesar_y_guardar':
+        settings = config_class(relative_error=1E-11, ideal_gas=True, n_steps=1, jump=0.5, chain_mode=False,
+                                loss_model='Aungier', iter_limit=1000, max_trend_changes=30, T_nominal=1_100,
+                                automatic_preloading_for_small_input_deviations=True, p_nominal=600_000,
+                                resolution_for_small_input_deviations=500, inlet_velocity_range=[0.01, 140.69],
+                                n_rpm_nominal=20_000)
+
+        Rm = 0.1429
+        heights = [0.0445 for _ in range(3)]
+        areas = [0.0399 for _ in range(3)]
+        chord = [0.0338, 0.0241]
+        t_max = [0.2 * chord[0], 0.15 * chord[1]]
+        pitch = [0.0249, 0.0196]
+        t_e = [0.01 * s for s in pitch]
+        blade_opening = [0.01090, 0.01354]
+        e_param = [0.0893, 0.01135]
+        tip_clearance = [0.0004, 0.0008]
+        # 'wire_diameter' 'lashing_wires'
+        chord_proj_z = [0.9 * b for b in chord]
+        blade_roughness_peak_to_valley = [0.00001 for _ in chord]
+
+        settings.set_geometry(B_A_est=0, theta_est=70, B_A_rot=55, theta_rot=105, areas=areas, cuerda=chord,
+                              radio_medio=Rm, e=e_param, o=blade_opening, s=pitch, H=heights, b_z=chord_proj_z,
+                              t_max=t_max, r_r=0.002, r_c=0.001, t_e=t_e, k=tip_clearance, delta=tip_clearance,
+                              roughness_ptv=blade_roughness_peak_to_valley, holgura_radial=False)
+
+        gas_model = gas_model_to_solver(thermo_mode="ig")
+
+        solver = solver_object(settings, gas_model)
+        solver_data_saver('process_object.pkl', solver)
+
+    elif action == 'cargar_y_visualizar':
+        pass
+
+    elif action == 'cargar_reprocesar_y_guardar':
+        pass
+
+
 if __name__ == '__main__':
-    main_1('procesar_y_guardar')
+    main_4('procesar_y_guardar')
