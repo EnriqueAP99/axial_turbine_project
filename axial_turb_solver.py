@@ -39,6 +39,8 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
             resolution = cfg.resolution_for_small_input_deviations
 
             p_out_vref += ((T_in-Tin_ref)*dpout_dTin)+((p_in-pin_ref)*dpout_dpin)+((n_rev-nrev_ref)*dpout_dn)
+            for point in range(cfg.resolution_for_small_input_deviations):
+                pass
             p_out_vref, C_in_eval_list = p_out_vref[::-1], C_in_eval_list[::-1]
             spline_function = f_sp([float(p_out_vref[i]) for i in range(resolution)], C_in_eval_list, 3)
             C_in_resulting = float(spline_function(p_out))

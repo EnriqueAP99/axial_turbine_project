@@ -44,10 +44,27 @@ def f_sp(x_list: list, y_list: list, order: int):
 
 
 def interpola_series_en_x(param, x, series):
+    # Interpolación lineal
+    f_param = None
     serie_parameter = [parameter for _, _, parameter in series]
     serie_y = [float(funcion(x)) for _, funcion, _ in series]
-    f_param = InterpolatedUnivariateSpline(serie_parameter, serie_y, k=2)
-    return f_param(param)
+    if serie_parameter[0] <= param <= serie_parameter[-2]:
+        for number, xparam in enumerate(serie_parameter):
+            if number < len(serie_parameter) - 1:
+                xnparam = serie_parameter[number + 1]
+                if xparam < param < xnparam:
+                    diff = (param - xparam)*(serie_y[number+1]-serie_y[number])/(xnparam - xparam)
+                    f_param = serie_y[number] + diff
+                    break
+    elif serie_parameter[0] > param:
+        xparam, xnparam = serie_parameter[0], serie_parameter[1]
+        diff = (param - xparam)*(serie_y[1]-serie_y[0])/(xnparam - xparam)
+        f_param = serie_y[0] + diff
+    elif serie_parameter[-2] < param:
+        xparam, xnparam = serie_parameter[-2], serie_parameter[-1]
+        diff = (param - xparam)*(serie_y[-1]-serie_y[-2])/(xnparam - xparam)
+        f_param = serie_y[-2] + diff
+    return f_param
 
 
 class Ainley_and_Mathieson_Loss_Model:  # Ver paper: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf
