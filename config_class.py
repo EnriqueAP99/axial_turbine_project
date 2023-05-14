@@ -57,12 +57,12 @@ class config_class:
     # la presión a la salida como parámetro de entrada.
     automatic_preloading_for_small_input_deviations: bool = False
     resolution_for_small_input_deviations: int = 200
-    p_reference: float | int = None
-    T_reference: float | int = None
-    n_rpm_reference: float | int = None
+    p_nominal: float | int = None
+    T_nominal: float | int = None
+    n_rpm_nominal: float | int = None
     inlet_velocity_range: list[float | int, float | int] = None
     if automatic_preloading_for_small_input_deviations is True:
-        if p_reference is None or T_reference is None or n_rpm_reference is None:
+        if p_nominal is None or T_nominal is None or n_rpm_nominal is None:
             record.critical('Se deben indicar las variables de entrada correspondientes al punto referencia.')
             sys.exit()  # Cambiar por error
         if inlet_velocity_range is None:

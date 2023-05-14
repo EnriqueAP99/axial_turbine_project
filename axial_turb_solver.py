@@ -35,7 +35,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
 
         def corrector_for_small_deviations():
             C_in_eval_list, p_out_vref, dpout_dTin, dpout_dpin, dpout_dn, T_in, p_in, n_rev = small_deviations_data
-            Tin_ref, pin_ref, nrev_ref = cfg.T_reference, cfg.p_reference, cfg.n_rpm_reference
+            Tin_ref, pin_ref, nrev_ref = cfg.T_nominal, cfg.p_nominal, cfg.n_rpm_nominal
             resolution = cfg.resolution_for_small_input_deviations
 
             p_out_vref += (((T_in-Tin_ref)*dpout_dTin)+((p_in-pin_ref)*dpout_dpin)+((n_rev-nrev_ref)*dpout_dn))
@@ -469,16 +469,16 @@ class solver_object:
                 k += 1
             return output_pressures
 
-        pressures_ref_inputs = velocity_sweeper(self.cfg.T_reference, self.cfg.p_reference, self.cfg.n_rpm_reference)
-        pressures_T_in_deviated = velocity_sweeper(self.cfg.T_reference*(1 + 0.0001), self.cfg.p_reference,
-                                                   self.cfg.n_rpm_reference)
-        pressures_p_in_deviated = velocity_sweeper(self.cfg.T_reference, self.cfg.p_reference*(1 + 0.0000001),
-                                                   self.cfg.n_rpm_reference)
-        pressures_rpm_deviated = velocity_sweeper(self.cfg.T_reference, self.cfg.p_reference,
-                                                  self.cfg.n_rpm_reference*(1 + 0.00001))
-        d_pout_d_Tin = (pressures_T_in_deviated - pressures_ref_inputs) / (self.cfg.T_reference * 0.0001)
-        d_pout_d_pin = (pressures_p_in_deviated - pressures_ref_inputs) / (self.cfg.p_reference * 0.0000001)
-        d_pout_d_rpm = (pressures_rpm_deviated - pressures_ref_inputs) / (self.cfg.n_rpm_reference * 0.0000001)
+        pressures_ref_inputs = velocity_sweeper(self.cfg.T_nominal, self.cfg.p_nominal, self.cfg.n_rpm_nominal)
+        pressures_T_in_deviated = velocity_sweeper(self.cfg.T_nominal * (1 + 0.0001), self.cfg.p_nominal,
+                                                   self.cfg.n_rpm_nominal)
+        pressures_p_in_deviated = velocity_sweeper(self.cfg.T_nominal, self.cfg.p_nominal * (1 + 0.0000001),
+                                                   self.cfg.n_rpm_nominal)
+        pressures_rpm_deviated = velocity_sweeper(self.cfg.T_nominal, self.cfg.p_nominal,
+                                                  self.cfg.n_rpm_nominal * (1 + 0.00001))
+        d_pout_d_Tin = (pressures_T_in_deviated - pressures_ref_inputs) / (self.cfg.T_nominal * 0.0001)
+        d_pout_d_pin = (pressures_p_in_deviated - pressures_ref_inputs) / (self.cfg.p_nominal * 0.0000001)
+        d_pout_d_rpm = (pressures_rpm_deviated - pressures_ref_inputs) / (self.cfg.n_rpm_nominal * 0.0000001)
 
         self.small_input_deviation_data = [C_in, pressures_ref_inputs, d_pout_d_Tin, d_pout_d_pin, d_pout_d_rpm]
 

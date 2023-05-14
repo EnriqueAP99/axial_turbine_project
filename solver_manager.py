@@ -221,8 +221,11 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
         set_value(value_k)
 
         try:
-            solver.problem_solver(T_in=T_in, p_in=p_in, n_rpm=n_rpm, m_dot=m_dot, C_inx=C_inx, p_out=p_out,
-                                  C_inx_ref=C_inx_ref)
+            if not solver.cfg.resolution_for_small_input_deviations:
+                solver.problem_solver(T_in=T_in, p_in=p_in, n_rpm=n_rpm, m_dot=m_dot, C_inx=C_inx, p_out=p_out,
+                                      C_inx_ref=C_inx_ref)
+            else:
+                solver.problem_solver(T_in=T_in, p_in=p_in, n_rpm=n_rpm, m_dot=m_dot, C_inx=C_inx, p_out=p_out)
         except GasLibraryAdaptedException:
             pass
         except NonConvergenceError:
@@ -244,9 +247,10 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
 def main_1(chain_mode, action):
     if action == 'procesar_y_guardar':
         settings = config_class(relative_error=1E-11, ideal_gas=True, n_steps=1, jump=0.5, chain_mode=False,
-                                loss_model='Aungier', iter_limit=1000, max_trend_changes=30, T_reference=1_100,
-                                automatic_preloading_for_small_input_deviations=True, p_reference=600_000,
-                                inlet_velocity_range=[0.01, 140.69], n_rpm_reference=20_000)
+                                loss_model='Aungier', iter_limit=1000, max_trend_changes=30, T_nominal=1_100,
+                                automatic_preloading_for_small_input_deviations=True, p_nominal=600_000,
+                                resolution_for_small_input_deviations=300, inlet_velocity_range=[0.01, 140.69],
+                                n_rpm_nominal=20_000)
 
         Rm = 0.1429
         heights = [0.0445 for _ in range(3)]
