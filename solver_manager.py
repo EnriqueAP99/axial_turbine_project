@@ -244,7 +244,8 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
     return df_a_packg, df_b_packg, df_c_packg
 
 
-def main_1(chain_mode, action):
+# def main_1(chain_mode, action):
+def main_1(action):
     if action == 'procesar_y_guardar':
         settings = config_class(relative_error=1E-11, ideal_gas=True, n_steps=1, jump=0.5, chain_mode=False,
                                 loss_model='Aungier', iter_limit=1000, max_trend_changes=30, T_nominal=1_100,
@@ -427,4 +428,4 @@ def main_3():
 
 
 if __name__ == '__main__':
-    main_1(False, 'procesar_y_guardar')
+    main_1('procesar_y_guardar')
