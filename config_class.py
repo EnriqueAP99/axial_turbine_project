@@ -8,7 +8,6 @@ clase que facilita el intercambio del módulo "gas_model.py" por otro similar.
 import logging  # https://docs.python.org/es/3/howto/logging.html
 from gas_model import mixpm
 import pyromat as pm
-import sys
 from math import pi, radians, cos, tan
 from dataclasses import dataclass
 
@@ -24,6 +23,27 @@ FORMATS = {
     logging.ERROR: f"\33[31m{FMT}\33[0m",
     logging.CRITICAL: f"\33[1m\33[31m{FMT}\33[0m",
 }
+
+
+class GasLibraryAdaptedException(Exception):
+    """ Excepción creada para identificar errores provenientes del módulo para modelar el gas."""
+    def __init__(self, msg="Error proveniente de la librería que modela las propiedades."):
+        self.msg = msg
+        super().__init__(self.msg)
+
+
+class NonConvergenceError(Exception):
+    """ Excepción creada para identificar errores de no convergencia."""
+    def __init__(self, msg="Error de no convergencia."):
+        self.msg = msg
+        super().__init__(self.msg)
+
+
+class InputDataError(Exception):
+    """ Excepción para cuando no se ha definido una variable que debía ser definida."""
+    def __init__(self, msg="Variable no definida."):
+        self.msg = msg
+        super().__init__(self.msg)
 
 
 class CustomFormatter(logging.Formatter):
@@ -63,17 +83,14 @@ class config_class:
     inlet_velocity_range: list[float | int, float | int] = None
     if automatic_preloading_for_small_input_deviations is True:
         if p_nominal is None or T_nominal is None or n_rpm_nominal is None:
-            record.critical('Se deben indicar las variables de entrada correspondientes al punto referencia.')
-            sys.exit()  # Cambiar por error
+            raise InputDataError('Se deben indicar las variables de entrada correspondientes al punto referencia.')
         if inlet_velocity_range is None:
-            record.critical('Se debe indicar el rango evaluable de valores de velocidad a la entrada.')
-            sys.exit()  # Cambiar por error
+            raise InputDataError('Se debe indicar el rango evaluable de valores de velocidad a la entrada.')
 
     def __post_init__(self):
         if self.loss_model not in ['Aungier', 'Ainley_and_Mathieson']:
-            logging.critical('Los identificadores de los modelos de pérdidas disponibles son "Aungier" y '
-                             '"Ainley_and_Mathieson".')
-            sys.exit()
+            raise InputDataError('Los identificadores de los modelos de pérdidas disponibles son "Aungier" y '
+                                 '"Ainley_and_Mathieson".')
 
     def set_geometry(self, B_A_est: int | float | list, B_A_rot: int | float | list, cuerda: int | float | list,
                      radio_medio: int | float | list, B_S_est: int | float | list = None,
@@ -122,8 +139,7 @@ class config_class:
             elif theta_rot is not None:
                 local_dict1[theta_name] = theta
             else:
-                record.critical('Se precisa definir de alguna manera la deflexión de cada álabe.')
-                sys.exit()
+                raise InputDataError('Se precisa definir de alguna manera la deflexión de cada álabe.')
 
         list_items2, local_dict2 = ['t_max', 'r_r', 'r_c', 't_e', ], {}
         for key in ['roughness_ptv', 'lashing_wires', 'wire_diameter', 'b_z', 'delta', 'k', ]:
@@ -168,8 +184,7 @@ class config_class:
         for num, h in enumerate(geom['H']):   # h: 0 1 2 3 4 ... Rm: 0 0 1 2 3
             num2 = num - 1 if num > 0 else 0
             if (2*Rm[num2]-h)/(2*Rm[num2]-h) > 1.4:
-                record.critical('No se verifica la hipótesis de bidimensionalidad.')
-                sys.exit()
+                raise InputDataError('No se verifica la hipótesis de bidimensionalidad.')
 
         if s == 0.0:
             ap_i_est, ap_i_rot, cuerda = geom['alfap_i_est'], geom['alfap_i_rot'], geom['b']
@@ -202,20 +217,6 @@ class config_class:
         object.__setattr__(self, key, new_value)
 
 
-class GasLibraryAdaptedException(Exception):
-    """ Excepción creada para identificar errores provenientes del módulo para modelar el gas."""
-    def __init__(self, msg="Error proveniente de la librería que modela las propiedades."):
-        self.msg = msg
-        super().__init__(self.msg)
-
-
-class NonConvergenceError(Exception):
-    """ Excepción creada para identificar errores de no convergencia."""
-    def __init__(self, msg="Error de no convergencia."):
-        self.msg = msg
-        super().__init__(self.msg)
-
-
 @dataclass
 class gas_model_to_solver:
     """Esta clase se crea para permitir emplear otro módulo alternativo que describa el comportamiento termodinámico
@@ -233,11 +234,10 @@ class gas_model_to_solver:
 
     def __post_init__(self):
         if self.thermo_mode not in ("ig", "mp", ):
-            record.critical("Los modos a elegir son ig (gas ideal con NASA coefs) o mp ('multi-phase').\n "
-                            "El modo mp se aplica solo en el vapor de agua, en caso contrario los límites del "
-                            "cálculo disminuirían demasiado y se realentiza todo el cálculo innecesariamente. \n "
-                            "Para  el modelo del Çengel usar el módulo IGmodelfromCengel.py. \n")
-            sys.exit()
+            raise InputDataError("Los modos a elegir son ig (gas ideal con NASA coefs) o mp ('multi-phase').\n "
+                                 "El modo mp se aplica solo en el vapor de agua, en caso contrario los límites del "
+                                 "cálculo disminuirían demasiado y se realentiza todo el cálculo innecesariamente. \n "
+                                 "Para  el modelo del Çengel usar el módulo IGmodelfromCengel.py. \n")
         self.gas_model = mixpm(self.thermo_mode)
         self.gas_model.setmix(self.C_atoms, self.H_atoms, self.air_excess)
         self.gas_model.rel_error = self.relative_error

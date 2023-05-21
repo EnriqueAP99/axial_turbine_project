@@ -468,10 +468,7 @@ def main_4(action):
         solver = solver_data_reader('process_object.pkl')
         solver.problem_solver(T_in=1102, p_in=600_100, n_rpm=20_003, p_out=450_000)
 
-    elif action == 'calcular_con_p_out_modificado':
-        pass
-
 
 if __name__ == '__main__':
-    main_1(False, 'procesar_y_guardar')
-    # main_4('calcular_con_p_out_modificado')
+    # main_1(False, 'procesar_y_guardar')
+    main_4('calcular_con_p_out_modificado')

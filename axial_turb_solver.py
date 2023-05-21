@@ -143,8 +143,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                             p_out_iter_a = p_out_iter
                             from_a = False
                         else:
-                            record.critical('Something went wrong.')
-                            sys.exit()
+                            raise NonConvergenceError('Something went wrong.')
 
                     # It is evaluated whether the new range contains the solution.
                     if (p_out_iter_b-p_out)*(p_out_iter_a-p_out) < 0:
@@ -428,16 +427,14 @@ class solver_object:
         if config.loss_model == 'Ainley_and_Mathieson':
             for key in ['e', 'o', 't_max', 'r_r', 'r_c', 't_e', 'k']:
                 if key not in self.cfg.geom:
-                    record.critical('Para emplear el modelo de pérdidas se debe introducir "%s"', key)
-                    sys.exit()  # Cambiar por error
+                    raise InputDataError(f'Para emplear el modelo de pérdidas se debe introducir "{key}"')
             self.AM_object = Ainley_and_Mathieson_Loss_Model(config)
             self.AM_object.AM_diameter_def()
 
         if config.loss_model == 'Aungier':
             for key in ['e', 'o', 't_max', 'r_r', 'r_c', 't_e', 'k', 'roughness_ptv', 'b_z', 'delta']:
                 if key not in self.cfg.geom:
-                    record.critical('Para emplear el modelo de pérdidas se debe introducir "%s"', key)
-                    sys.exit()  # Cambiar por error
+                    raise InputDataError(f'Para emplear el modelo de pérdidas se debe introducir "{key}"')
             self.AUNGIER_object = Aungier_Loss_Model(config)
 
         if self.cfg.automatic_preloading_for_small_input_deviations:
@@ -510,13 +507,11 @@ class solver_object:
 
         if m_dot is None and C_inx is None:
             if p_out is None:
-                record.critical('Debe indicarse un valor de referencia de velocidad a la entrada si se desea fijar '
-                                'la presión a la salida de la turbina.')
-                sys.exit()  # Quizás convenga cambiar esto por raise y algún error para datos insuficientes
+                raise InputDataError('Debe indicarse un valor de referencia de velocidad a la entrada si se desea '
+                                     'fijar la presión a la salida de la turbina.')
             elif C_inx_ref is None and self.small_input_deviation_data is None:
-                record.critical('Se debe establecer uno de los parámetros opcionales "p_outlet", "Cinlet" ó '
-                                '"mass_flow".')
-                sys.exit()
+                raise InputDataError('Se debe establecer uno de los parámetros opcionales "p_outlet", "Cinlet" ó '
+                                     '"mass_flow".')
             elif self.small_input_deviation_data is None:
                 if self.C_inx_register is None:
                     C_inx = self.C_inx_register = C_inx_ref
