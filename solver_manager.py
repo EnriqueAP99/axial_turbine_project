@@ -538,7 +538,7 @@ def main_5():
         holgura_radial = data_dictionary['holgura_radial']
         blade_roughness_peak_to_valley = data_dictionary['blade_roughness_peak_to_valley']
     except NameError:
-        raise InputDataError('Non-valid text file, please, stick to default template.')
+        raise InputDataError('Non-valid text file, please, stick to the template.')
 
     settings.set_geometry(B_A_est=LE_stator, theta_est=theta_stator, B_A_rot=LE_rotor, theta_rot=theta_rotor, H=heights,
                           B_S_est=TE_stator, B_S_rot=TE_rotor, areas=areas, cuerda=chord, radio_medio=Rm, e=e_param,
