@@ -3,6 +3,7 @@ Se almacenan y procesan los datos haciendo uso de las librerías Pickle y Pandas
 """
 
 import pickle
+
 from axial_turb_solver import *
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -244,6 +245,29 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
     return df_a_packg, df_b_packg, df_c_packg
 
 
+def txt_reader():
+    with open('turbine_data_template.txt') as file:
+        for line in file:
+            if line[0] == '#':
+                continue
+            declaration = ''
+            for char in line.strip():
+                if char != ';':
+                    if char != ' ':
+                        if char != '=':
+                            declaration += char
+                        else:
+                            declaration += f' {char} '
+                else:
+                    eval(declaration)
+                    declaration = ''
+        return locals()
+
+
+def modes_for_txt():
+    pass
+
+
 def main_1(chain_mode, action):
     if action == 'procesar_y_guardar':
         settings = config_class(relative_error=1E-11, ideal_gas=True, n_steps=1, jump=0.5, loss_model='Aungier',
@@ -469,6 +493,66 @@ def main_4(action):
         solver.problem_solver(T_in=1102, p_in=600_100, n_rpm=20_003, p_out=450_000)
 
 
+def main_5():
+    data_dictionary = txt_reader()
+    try:
+        settings = config_class(
+            relative_error=data_dictionary['relative_error'],
+            ideal_gas=data_dictionary['ideal_gas'],
+            n_steps=data_dictionary['n_steps'],
+            jump=data_dictionary['jump'],
+            chain_mode=data_dictionary['chain_mode'],
+            loss_model=data_dictionary['loss_model'],
+            iter_limit=data_dictionary['iter_limit'],
+            max_trend_changes=data_dictionary['max_trend_changes'],
+            T_nominal=data_dictionary['T_nominal'],
+            automatic_preloading_for_small_input_deviations=data_dictionary[
+                'automatic_preloading_for_small_input_deviations'
+            ],
+            p_nominal=data_dictionary['p_nominal'],
+            resolution_for_small_input_deviations=data_dictionary['resolution_for_small_input_deviations'],
+            inlet_velocity_range=data_dictionary['inlet_velocity_range'],
+            n_rpm_nominal=data_dictionary['n_rpm_nominal']
+            )
+        LE_stator = data_dictionary['stator_leading_edge_angle']
+        LE_rotor = data_dictionary['rotor_leading_edge_angle']
+        TE_stator = data_dictionary['stator_trailing_edge_angle']
+        TE_rotor = data_dictionary['rotor_trailing_edge_angle']
+        theta_stator = data_dictionary['stator_blade_curvature']
+        theta_rotor = data_dictionary['rotor_blade_curvature']
+        root_radius = data_dictionary['root_radius']
+        head_radius = data_dictionary['head_radius']
+        Rm = data_dictionary['radio_medio']
+        heights = data_dictionary['heights']
+        areas = data_dictionary['areas']
+        chord = data_dictionary['chord']
+        t_max = data_dictionary['maximum_thickness']
+        pitch = data_dictionary['pitch']
+        t_e = data_dictionary['outlet_thickness']
+        blade_opening = data_dictionary['blade_opening']
+        e_param = data_dictionary['blade_mean_radius_of_curvature']
+        tip_clearance = data_dictionary['tip_clearance']
+        chord_proj_z = data_dictionary['chord_z']
+        wire_diameter = data_dictionary['wire_diameter']
+        lashing_wires = data_dictionary['lashing_wires']
+        holgura_radial = data_dictionary['holgura_radial']
+        blade_roughness_peak_to_valley = data_dictionary['blade_roughness_peak_to_valley']
+    except NameError:
+        raise InputDataError('Non-valid text file, please, stick to default template.')
+
+    settings.set_geometry(B_A_est=LE_stator, theta_est=theta_stator, B_A_rot=LE_rotor, theta_rot=theta_rotor, H=heights,
+                          B_S_est=TE_stator, B_S_rot=TE_rotor, areas=areas, cuerda=chord, radio_medio=Rm, e=e_param,
+                          b_z=chord_proj_z, o=blade_opening, s=pitch, t_max=t_max, r_r=root_radius, delta=tip_clearance,
+                          r_c=head_radius, k=tip_clearance, t_e=t_e, roughness_ptv=blade_roughness_peak_to_valley,
+                          holgura_radial=holgura_radial, lashing_wires=lashing_wires, wire_diameter=wire_diameter, )
+
+    gas_model = gas_model_to_solver(thermo_mode=data_dictionary.get('thermo_mode_in_gas_model.py', 'ig'))
+
+    solver = solver_object(settings, gas_model)
+    solver_data_saver('process_object_from_txt_data.pkl', solver)
+
+
 if __name__ == '__main__':
     # main_1(False, 'procesar_y_guardar')
-    main_4('calcular_con_p_out_modificado')
+    # main_4('calcular_con_p_out_modificado')
+    main_5()

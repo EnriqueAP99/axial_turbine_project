@@ -143,16 +143,16 @@ class config_class:
 
         list_items2, local_dict2 = ['t_max', 'r_r', 'r_c', 't_e', ], {}
         for key in ['roughness_ptv', 'lashing_wires', 'wire_diameter', 'b_z', 'delta', 'k', ]:
-            if key in kwargs:
+            if kwargs.get(key, None) is not None:
                 list_items2.append(key)
-        if 'o' in kwargs and 'e' in kwargs:
+        if kwargs.get('o', None) is not None and kwargs.get('e', None) is not None:
             list_items2.append('o')
             list_items2.append('e')
         for par_id in list_items2:
             local_dict2[par_id] = kwargs.get(par_id, 0.0)
         local_dict2['b'], local_dict2['Rm'] = cuerda, radio_medio
-        s = kwargs.get('s', 0.0)
-        if not s == 0.0:
+        s = kwargs.get('s', None)
+        if s is not None:
             local_dict2['s'] = s
 
         ld_list = [local_dict1, local_dict2]
@@ -170,7 +170,7 @@ class config_class:
 
         Rm = geom['Rm']
         for i1, i2 in [['areas', 'H'], ['H', 'areas']]:
-            if i1 not in kwargs:
+            if kwargs.get(i1, None) is not None:
                 geom[i1] = list()
                 geom[i2] = tuple(kwargs[i2])
                 for num, v2 in enumerate(geom[i2]):
@@ -186,7 +186,7 @@ class config_class:
             if (2*Rm[num2]-h)/(2*Rm[num2]-h) > 1.4:
                 raise InputDataError('No se verifica la hipótesis de bidimensionalidad.')
 
-        if s == 0.0:
+        if s is None:
             ap_i_est, ap_i_rot, cuerda = geom['alfap_i_est'], geom['alfap_i_rot'], geom['b']
             geom['s'] = [cuerda[(i // 2) * 2] * 0.4 / ((tan(ap_i_est[i // 2]) + tan(ap_i_rot[i // 2])) *
                                                        (cos(ap_i_rot[i//2])**2)) for i in range(ns*2)]
@@ -199,7 +199,7 @@ class config_class:
             else:
                 geom[theta_name] = [geom[B_S_name][i] + geom[B_A_name][i] for i in range(ns)]
 
-        if 'holgura_radial' in kwargs:
+        if kwargs.get('holgura_radial', None) is not None:
             geom['X'] = 1.35 if kwargs['holgura_radial'] else 0.7
 
         object.__setattr__(self, 'geom', geom)

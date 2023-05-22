@@ -409,8 +409,7 @@ class solver_object:
         self.rho_seed_list = None  # Para aligerar los cálculos para variaciones pequeñas de las variables de entrada
         self.prd = productos  # Modela el comportamiento termodinámico de los productos de la combustión
         self.prd.modify_relative_error(self.cfg.relative_error)
-        self.AM_object = None
-        self.AUNGIER_object = None
+        self.loss_model_object = None
         self.ref_values = None  # Valores de referencia en las primeras semillas dentro de "blade_outlet_calculator".
         self.first_seeds_boc = None
         # En una nueva evaluación fijando p_out próximo se ahorra tiempo por conocer la solución anterior.
@@ -424,18 +423,18 @@ class solver_object:
         # corrector_seed: Lista de listas que contienen datos concluidos por el corrector en cada escalonamiento
         #                 para aprovecharlos en cálculos consecutivos.
 
-        if config.loss_model == 'Ainley_and_Mathieson':
-            for key in ['e', 'o', 't_max', 'r_r', 'r_c', 't_e', 'k']:
-                if key not in self.cfg.geom:
-                    raise InputDataError(f'Para emplear el modelo de pérdidas se debe introducir "{key}"')
-            self.AM_object = Ainley_and_Mathieson_Loss_Model(config)
-            self.AM_object.AM_diameter_def()
-
-        if config.loss_model == 'Aungier':
-            for key in ['e', 'o', 't_max', 'r_r', 'r_c', 't_e', 'k', 'roughness_ptv', 'b_z', 'delta']:
-                if key not in self.cfg.geom:
-                    raise InputDataError(f'Para emplear el modelo de pérdidas se debe introducir "{key}"')
-            self.AUNGIER_object = Aungier_Loss_Model(config)
+        AM_extra_parameters = ['e', 'o', 't_max', 'r_r', 'r_c', 't_e', 'k']
+        Aungier_extra_parameters = AM_extra_parameters + ['roughness_ptv', 'b_z', 'delta']
+        loss_model_list_for_extra_data = [AM_extra_parameters, Aungier_extra_parameters]
+        list_index = 1 if config.loss_model == 'Aungier' else 0
+        for key in loss_model_list_for_extra_data[list_index]:
+            if self.cfg.geom.get(key, None) is None:
+                raise InputDataError(f'Para emplear el modelo de pérdidas se debe introducir "{key}"')
+        if list_index == 0:
+            self.loss_model_object = Ainley_and_Mathieson_Loss_Model(config)
+            self.loss_model_object.AM_diameter_def()
+        else:
+            self.loss_model_object = Aungier_Loss_Model(config)
 
         if self.cfg.automatic_preloading_for_small_input_deviations:
             self.data_collector_for_small_input_deviations()
@@ -862,7 +861,7 @@ class solver_object:
                     determinado (p_b, h_b, T_b, U_b, rho_b, h_bs, T_bs, C_bx). """
 
         if self.cfg.loss_model == 'Ainley_and_Mathieson':
-            self.AM_object.limit_mssg = [True, True, True]
+            self.loss_model_object.limit_mssg = [True, True, True]
 
         rho_b = rho_bp = rho_outer_seed
         M_b = h_b = U_b = h_bs = C_bx = Y_total = Re = Re_AU = pr0_b = Tr0_b = pre_rel_diff = pre_pre_rel_diff = None
@@ -885,10 +884,10 @@ class solver_object:
             # tau_2 debe ser corregida si Mb < 0.5, ahora se asigna el valor calculado inicialmente en cualquier caso.
             # El valor de xi se conoce únicamente cuando iter_mode y estátor, pero no el de tau_2 (Y_total no default).
             # El resto de veces depende xi depende de si se modifica o no el valor de tau_2.
-            tau_b = self.AM_object.outlet_angle_before_mod[num]
+            tau_b = self.loss_model_object.outlet_angle_before_mod[num]
             Re_in = Reynolds(counter*2, rho_a, C_a, T_a, self.cfg, self.prd)
         else:
-            tau_b = self.AUNGIER_object.outlet_angle_before_mod[num]  # Primera estimación
+            tau_b = self.loss_model_object.outlet_angle_before_mod[num]  # Primera estimación
             if Re_out is None:
                 record.debug('Se emplea el valor de Reynolds a la entrada como primera estimación.')
                 if self.AU_Re_register is None:
@@ -941,21 +940,21 @@ class solver_object:
                             Re = Reynolds(num, rho_b, U_b, T_b, self.cfg, self.prd)
 
                 if self.cfg.loss_model == 'Ainley_and_Mathieson':
-                    tau_b_n = self.AM_object.tau2_corrector(num, M_b)
+                    tau_b_n = self.loss_model_object.tau2_corrector(num, M_b)
                     # Se ejecuta el primer bloque a excepción de si es estátor y step_iter_mode.
                     if (not self.step_iter_mode and not self.step_iter_end) or blade == 'rot':
                         args = [num, degrees(tau_a), degrees(tau_b), self.step_iter_mode or self.step_iter_end]
-                        Y_total = self.AM_object.Ainley_and_Mathieson_Loss_Model(*args)
+                        Y_total = self.loss_model_object.Ainley_and_Mathieson_Loss_Model(*args)
                         xi = Y_total / (1 + (0.5*gamma_b*(M_b**2)))
                     else:
                         Y_total = xi * (1 + (0.5*gamma_b*(M_b**2)))
                         args = [num, degrees(tau_a), degrees(tau_b), True, Y_total]
-                        self.AM_object.Ainley_and_Mathieson_Loss_Model(*args)
+                        self.loss_model_object.Ainley_and_Mathieson_Loss_Model(*args)
 
                 elif self.cfg.loss_model == 'Aungier':
                     s_b = self.prd.get_prop(known_props={'T': T_b, 'p': p_b}, req_prop='s')
                     pr0_b, Tr0_b = self.Zero_pt_calculator(p_b, s_b, h_tb, p_0x=pr0_b, T_0x=Tr0_b)
-                    Y_total, tau_b_n = self.AUNGIER_object.Aungier_operations(
+                    Y_total, tau_b_n = self.loss_model_object.Aungier_operations(
                         num=num, Min=M_a, Mout=M_b, Re_c=Re_AU, tau_1=tau_a, V_2x=C_bx,
                         V_1x=C_ax, p_2=p_b, pr0_2=pr0_b, d2=rho_b, d1=rho_a, U_2=U_b
                     )
@@ -995,7 +994,7 @@ class solver_object:
         if (self.step_iter_mode or self.step_iter_end) and self.cfg.loss_model == 'Ainley_and_Mathieson':
             record.debug('La relación entre el valor actual y el inicial de las pérdidas adimensionales de presión '
                          'en ambas coronas del escalonamiento %s es: %.3f\n  ...   ',
-                         1 + (num//2), Y_total / self.AM_object.Y_t_preiter[num])
+                         1 + (num//2), Y_total / self.loss_model_object.Y_t_preiter[num])
         record.debug('Incidencia: %.2f°  ...  tau_in: %.2f°  ...  Ángulo del B.A.: %.2f°',
                      degrees(tau_a) - degrees(alfap_1), degrees(tau_a), degrees(alfap_1))
         record.debug('Desviación: %.2f°  ...  tau_out: %.2f°  ...  Ángulo del B.S.: %.2f°',
@@ -1003,11 +1002,11 @@ class solver_object:
 
         if self.cfg.loss_model == 'Ainley_and_Mathieson':
             if not self.step_iter_mode and not self.step_iter_end:
-                Yp = self.AM_object.Yp_preiter[num]
+                Yp = self.loss_model_object.Yp_preiter[num]
             else:
-                Yp = self.AM_object.Yp_iter_mode
+                Yp = self.loss_model_object.Yp_iter_mode
         else:
-            Yp = self.AUNGIER_object.Yp_iter_mode
+            Yp = self.loss_model_object.Yp_iter_mode
         record.debug('Pérdidas:  ...  Y_total: %.4f  ...  Yp: %.4f   ',
                      Y_total, Yp)
 
