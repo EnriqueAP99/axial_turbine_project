@@ -45,7 +45,7 @@ def solver_data_saver(file: str, process_object: solver_object) -> None:
                     :return: No se devuelve nada. """
 
     prd = process_object.prd
-    product_attr = {'tm': prd.thermo_mode, 'tol': prd.relative_error,
+    product_attr = {'tm': prd.thermod_mode, 'tol': prd.relative_error,
                     'C': prd.C_atoms, 'H': prd.H_atoms, 'N': prd.air_excess}
     process_object.prd = None  # Esto se hace así para evitar un error que surge
 
@@ -66,7 +66,7 @@ def solver_data_reader(file: str) -> solver_object:
         solver_obj: solver_object = pickle.load(obj_pickle)
         prd_attr = pickle.load(obj_pickle)
 
-    solver_obj.prd = gas_model_to_solver(thermo_mode=prd_attr['tm'], relative_error=prd_attr['tol'],
+    solver_obj.prd = gas_model_to_solver(thermod_mode=prd_attr['tm'], relative_error=prd_attr['tol'],
                                          C_atoms=prd_attr['C'], H_atoms=prd_attr['H'], air_excess=prd_attr['N'])
 
     return solver_obj
@@ -173,28 +173,28 @@ def problem_data_viewer(solver: solver_object, req_vars=None) -> None:
 
 
 def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_sweep: str, C_inx=None,
-                 m_dot=None, p_out=None, C_inx_ref=None, resolution: float | int = None, req_vars: list = None):
+                 m_dot=None, p_out=None, C_inx_ref=None, sweep_resolution: float | int = None, req_vars: list = None):
     """ El rango debe ser creciente. """
     k = 0
     sweep_data = {}
     lista_df_a, lista_df_b, lista_df_c = [], [], []
 
-    if var_to_sweep == 'T_in':
+    if var_to_sweep == 'T_inlet':
         sweep_data[var_to_sweep] = T_in
         sweep_data['units'] = 'K'
-    elif var_to_sweep == 'p_in':
+    elif var_to_sweep == 'p_inlet':
         sweep_data[var_to_sweep] = p_in
         sweep_data['units'] = 'Pa'
-    elif var_to_sweep == 'n_rpm':
+    elif var_to_sweep == 'rpm':
         sweep_data[var_to_sweep] = n_rpm
         sweep_data['units'] = 'rpm'
-    elif var_to_sweep == 'p_out':
+    elif var_to_sweep == 'p_outlet':
         sweep_data[var_to_sweep] = p_out
         sweep_data['units'] = 'Pa'
-    elif var_to_sweep == 'm_dot':
+    elif var_to_sweep == 'mass_flow':
         sweep_data[var_to_sweep] = m_dot
         sweep_data['units'] = 'kg'
-    elif var_to_sweep == 'C_inx':
+    elif var_to_sweep == 'axial_inlet_velocity':
         sweep_data[var_to_sweep] = C_inx
         sweep_data['units'] = 'm/s'
 
@@ -213,10 +213,10 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
         elif var_to_sweep == 'C_inx':
             C_inx = value
 
-    if resolution is None:
-        resolution = 200
-    jump = (sweep_data[var_to_sweep][1] - sweep_data[var_to_sweep][0]) / (resolution - 1)
-    while k < resolution:
+    if sweep_resolution is None:
+        sweep_resolution = 200
+    jump = (sweep_data[var_to_sweep][1] - sweep_data[var_to_sweep][0]) / (sweep_resolution - 1)
+    while k < sweep_resolution:
 
         value_k = sweep_data[var_to_sweep][0] + (k * jump)
         set_value(value_k)
@@ -238,9 +238,12 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
             lista_df_c.append(copy.deepcopy(df_c))
         k += 1
 
-    df_a_packg = pd.concat([*lista_df_a], keys=[f'{v}' for v in range(resolution)], names=['Aux_Index', 'Spec_Index'])
-    df_b_packg = pd.concat([*lista_df_b], keys=[f'{v}' for v in range(resolution)], names=['Aux_Index', 'Spec_Index'])
-    df_c_packg = pd.concat([*lista_df_c], keys=[f'{v}' for v in range(resolution)], names=['Aux_Index', 'Spec_Index'])
+    df_a_packg = pd.concat(
+        [*lista_df_a], keys=[f'{v}' for v in range(sweep_resolution)], names=['Aux_Index', 'Spec_Index'])
+    df_b_packg = pd.concat(
+        [*lista_df_b], keys=[f'{v}' for v in range(sweep_resolution)], names=['Aux_Index', 'Spec_Index'])
+    df_c_packg = pd.concat(
+        [*lista_df_c], keys=[f'{v}' for v in range(sweep_resolution)], names=['Aux_Index', 'Spec_Index'])
 
     return df_a_packg, df_b_packg, df_c_packg
 
@@ -248,311 +251,243 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
 def txt_reader():
     with open('turbine_data_template.txt') as file:
         for line in file:
-            if line[0] == '#':
-                continue
             declaration = ''
             for char in line.strip():
                 if char != ';':
-                    if char != ' ':
-                        if char != '=':
+                    if char not in [' ', '#']:
+                        if char not in ['=', ',']:
                             declaration += char
+                        elif char == ',':
+                            declaration += ', '
                         else:
-                            declaration += f' {char} '
+                            declaration += ' = '
+                    elif char == '#':
+                        break
                 else:
-                    eval(declaration)
+                    if '$' in declaration:
+                        exec(declaration.replace('for', ' for ').replace('in', ' in ').replace('$', ''))
+                    else:
+                        exec(declaration)
                     declaration = ''
         return locals()
 
 
-def modes_for_txt():
-    pass
+def main():
+    data_dictionary = txt_reader()
+    settings = None
 
+    def aux_reading_operations():
+        nonlocal settings
+        try:
+            settings = config_class(
+                relative_error=data_dictionary['relative_error'],
+                ideal_gas=data_dictionary['ideal_gas'],
+                n_steps=data_dictionary['n_steps'],
+                jump=data_dictionary['jump'],
+                chain_mode=data_dictionary['chain_mode'],
+                loss_model=data_dictionary['loss_model'],
+                iter_limit=data_dictionary['iter_limit'],
+                max_trend_changes=data_dictionary['max_trend_changes'],
+                T_nominal=data_dictionary['T_nominal'],
+                automatic_preloading_for_small_input_deviations=data_dictionary[
+                    'automatic_preloading_for_small_input_deviations'
+                ],
+                p_nominal=data_dictionary['p_nominal'],
+                resolution_for_small_input_deviations=data_dictionary['resolution_for_small_input_deviations'],
+                inlet_velocity_range=data_dictionary['inlet_velocity_range'],
+                n_rpm_nominal=data_dictionary['n_rpm_nominal']
+                )
+            LE_stator = data_dictionary['stator_leading_edge_angle']
+            LE_rotor = data_dictionary['rotor_leading_edge_angle']
+            TE_stator = data_dictionary['stator_trailing_edge_angle']
+            TE_rotor = data_dictionary['rotor_trailing_edge_angle']
+            theta_stator = data_dictionary['stator_blade_curvature']
+            theta_rotor = data_dictionary['rotor_blade_curvature']
+            root_radius = data_dictionary['root_radius']
+            head_radius = data_dictionary['head_radius']
+            Rm = data_dictionary['radio_medio']
+            heights = data_dictionary['heights']
+            areas = data_dictionary['areas']
+            chord = data_dictionary['chord']
+            t_max = data_dictionary['maximum_thickness']
+            pitch = data_dictionary['pitch']
+            t_e = data_dictionary['outlet_thickness']
+            blade_opening = data_dictionary['blade_opening']
+            e_param = data_dictionary['blade_mean_radius_of_curvature']
+            tip_clearance = data_dictionary['tip_clearance']
+            chord_proj_z = data_dictionary['chord_z']
+            wire_diameter = data_dictionary['wire_diameter']
+            lashing_wires = data_dictionary['lashing_wires']
+            holgura_radial = data_dictionary['holgura_radial']
+            blade_roughness_peak_to_valley = data_dictionary['blade_roughness_peak_to_valley']
+        except NameError:
+            raise InputDataError('Non-valid text file, please, stick to the template.')
 
-def main_1(chain_mode, action):
-    if action == 'procesar_y_guardar':
-        settings = config_class(relative_error=1E-11, ideal_gas=True, n_steps=1, jump=0.5, loss_model='Aungier',
-                                chain_mode=False, iter_limit=1000, max_trend_changes=30)
+        settings.set_geometry(B_A_est=LE_stator, theta_est=theta_stator, B_A_rot=LE_rotor, theta_rot=theta_rotor,
+                              H=heights, B_S_est=TE_stator, B_S_rot=TE_rotor, areas=areas, cuerda=chord, radio_medio=Rm,
+                              e=e_param, b_z=chord_proj_z, o=blade_opening, s=pitch, t_max=t_max, r_r=root_radius,
+                              delta=tip_clearance, r_c=head_radius, k=tip_clearance, t_e=t_e,
+                              roughness_ptv=blade_roughness_peak_to_valley, lashing_wires=lashing_wires,
+                              wire_diameter=wire_diameter, holgura_radial=holgura_radial,)
+        return settings
 
-        Rm = 0.1429
-        heights = [0.0445 for _ in range(3)]
-        areas = [0.0399 for _ in range(3)]
-        chord = [0.0338, 0.0241]
-        t_max = [0.2 * chord[0], 0.15 * chord[1]]
-        pitch = [0.0249, 0.0196]
-        t_e = [0.01 * s for s in pitch]
-        blade_opening = [0.01090, 0.01354]
-        e_param = [0.0893, 0.01135]
-        tip_clearance = [0.0004, 0.0008]
-        # 'wire_diameter' 'lashing_wires'
-        chord_proj_z = [0.9 * b for b in chord]
-        blade_roughness_peak_to_valley = [0.00001 for _ in chord]
+    mode = data_dictionary['modo']
 
-        settings.set_geometry(B_A_est=0, theta_est=70, B_A_rot=55, theta_rot=105, areas=areas, cuerda=chord,
-                              radio_medio=Rm, e=e_param, o=blade_opening, s=pitch, H=heights, b_z=chord_proj_z,
-                              t_max=t_max, r_r=0.002, r_c=0.001, t_e=t_e, k=tip_clearance, delta=tip_clearance,
-                              roughness_ptv=blade_roughness_peak_to_valley, holgura_radial=False)
-
-        gas_model = gas_model_to_solver(thermo_mode="ig")
-
+    if mode == 'procesar_valores_nominales':
+        settings = aux_reading_operations()
+        gas_model = gas_model_to_solver(thermod_mode=data_dictionary.get('thermo_mode_in_gas_model.py', 'ig'))
         solver = solver_object(settings, gas_model)
+        solver_data_saver('process_object_from_txt_data.pkl', solver)
 
-        if chain_mode:
-            output = solver.problem_solver(T_in=1102, p_in=600_100, n_rpm=20_003, p_out=450_000, C_inx_ref=130)
-            T_salida, p_salida, C_salida, alfa_salida = output
-            print(' T_out', T_salida, '\n', 'P_out', p_salida, '\n', 'C_out', C_salida, '\n', 'alfa_out', alfa_salida)
-        else:
-            solver.problem_solver(T_in=1102, p_in=600_100, n_rpm=20_003, p_out=450_000, C_inx_ref=130)
-            solver_data_saver('process_object1.pkl', solver)
+    elif mode == 'resolver':
+        try:
+            solver = solver_data_reader('process_object_from_txt_data.pkl')
+        except FileNotFoundError:
+            settings = aux_reading_operations()
+            gas_model = gas_model_to_solver(thermod_mode=data_dictionary.get('thermod_mode_in_gas_model_module', 'ig'))
+            solver = solver_object(settings, gas_model)
+        try:
+            if data_dictionary['chain_mode']:
+                output = solver.problem_solver(
+                    T_in=data_dictionary['T_inlet'],
+                    p_in=data_dictionary['p_inlet'],
+                    n_rpm=data_dictionary['rpm'],
+                    p_out=data_dictionary['p_outlet'],
+                    m_dot=data_dictionary['mass_flow'],
+                    C_inx=data_dictionary['inlet_velocity'],
+                    C_inx_ref=data_dictionary['reference_inlet_velocity'],
+                )
+                T_salida, p_salida, C_salida, alfa_out = output
+                print(' T_out', T_salida, '\n', 'p_out', p_salida, '\n', 'C_out', C_salida, '\n', 'alfa_out', alfa_out)
+            else:
+                solver.problem_solver(
+                    T_in=data_dictionary['T_inlet'],
+                    p_in=data_dictionary['p_inlet'],
+                    n_rpm=data_dictionary['rpm'],
+                    p_out=data_dictionary['p_outlet'],
+                    m_dot=data_dictionary['mass_flow'],
+                    C_inx=data_dictionary['inlet_velocity'],
+                    C_inx_ref=data_dictionary['reference_inlet_velocity'],
+                )
+                solver_data_saver('process_object1.pkl', solver)
+        except NameError:
+            raise InputDataError('Non-valid text file, please, stick to the template.')
 
-    elif action == 'cargar_y_visualizar':
+    elif mode == 'visualizar_valores':
         solver = solver_data_reader('process_object1.pkl')
         problem_data_viewer(solver)
 
-    elif action == 'cargar_reprocesar_y_guardar':
-        # Se usan semillas de la ejecución anterior. Se leen, se guardan y se visualizan los datos.
-        # Esta ejecución es más rápida que la ejecución normal, ya que se aprovechan las semillas del objeto cargado.
-        solver = solver_data_reader('process_object1.pkl')
-        solver.cfg.set_geometry(B_A_est=[0, 5], theta_est=[70, 75], B_A_rot=[55, 55], theta_rot=[105, 105], b_z=0.027,
-                                cuerda=0.03, radio_medio=0.30, H=[0.030, 0.035, 0.041, 0.048, 0.052], e=0.015, o=0.015,
-                                t_max=0.006, r_r=0.003, r_c=0.002, t_e=0.004, k=0.001, delta=0.001,
-                                roughness_ptv=0.00001, holgura_radial=False)
-
-        solver.problem_solver(T_in=1800, p_in=1_000_000, n_rpm=6_000, m_dot=18.0)
-        solver_data_saver('process_object1.pkl', solver)
-        problem_data_viewer(solver)
-
-
-def main_2():
-    settings = config_class(relative_error=1E-11, ideal_gas=True, n_steps=1, jump=0.5,
-                            loss_model='Aungier', chain_mode=False,
-                            iter_limit=1000, max_trend_changes=30)
-
-    Rm = 0.1429
-    heights = [0.0445 for _ in range(3)]
-    areas = [0.0399 for _ in range(3)]
-    chord = [0.0338, 0.0241]
-    t_max = [0.2 * chord[0], 0.15 * chord[1]]
-    pitch = [0.0249, 0.0196]
-    t_e = [0.01 * s for s in pitch]
-    blade_opening = [0.01090, 0.01354]
-    e_param = [0.0893, 0.01135]
-    tip_clearance = [0.0004, 0.0008]
-    # 'wire_diameter' 'lashing_wires'
-    chord_proj_z = [0.9 * b for b in chord]
-    blade_roughness_peak_to_valley = [0.00001 for _ in chord]
-
-    settings.set_geometry(B_A_est=0, theta_est=70, B_A_rot=55, theta_rot=105, areas=areas, cuerda=chord,
-                          radio_medio=Rm, e=e_param, o=blade_opening, s=pitch, H=heights, b_z=chord_proj_z,
-                          t_max=t_max, r_r=0.002, r_c=0.001, t_e=t_e, k=tip_clearance, delta=tip_clearance,
-                          roughness_ptv=blade_roughness_peak_to_valley, holgura_radial=False)
-
-    gas_model = gas_model_to_solver(thermo_mode="ig")
-    solver = solver_object(settings, gas_model)
-
-    df_a, df_b, df_c = var_sweeping(solver, T_in=1100, p_in=400_000, n_rpm=17_000, C_inx=[40, 180],
-                                    var_to_sweep='C_inx', resolution=200)
-
-    df_a.to_csv('df_a_4.csv')
-    df_b.to_csv('df_b_4.csv')
-    df_c.to_csv('df_c_4.csv')
-
-
-def main_3():
-
-    df_c = pd.read_csv('df_c_AM.csv', index_col='m_dot (kg/s)')
-    eta_s = df_c['eta_maq (-)']
-    Potencia = df_c['P_total (kW)']
-    Potencia_ss = df_c['w_ss_total (kJ/kg)'] * df_c.index
-
-    plt.plot(eta_s)
-    plt.minorticks_on()
-    plt.grid(which='both')
-    plt.title('Rendimiento isentrópico - Flujo másico')
-    plt.xlabel(r'$\dot{m}$ (kg/s)')
-    plt.ylabel(r'$\eta_{s}$ (-)')
-    plt.show()
-
-    plt.plot(Potencia)
-    plt.plot(Potencia_ss)
-    plt.title('Potencia - Flujo másico')
-    plt.xlabel(r'$\dot{m}$ (kg/s)')
-    plt.ylabel(r'$P$ (kW)')
-    plt.minorticks_on()
-    plt.grid(which='both')
-    plt.show()
-
-    df_a = pd.read_csv('df_a_AM.csv', index_col='Aux_Index')
-    df_a_pt_3 = df_a[df_a['Spec_Index'] == 'Step_1_pt_3']
-    df_a_pt_2 = df_a[df_a['Spec_Index'] == 'Step_1_pt_2']
-    df_a_pt_1 = df_a[df_a['Spec_Index'] == 'Step_1_pt_1']
-    p_out_m_dot = pd.DataFrame((df_a_pt_3['p (Pa)']/1000).values.tolist(), columns=['p'], index=df_c.index)
-    p_out_C_inx = pd.DataFrame((df_a_pt_3['p (Pa)']/1000).values.tolist(), columns=['p'], index=df_a_pt_1['C (m/s)'])
-    p_out_h0 = pd.DataFrame((df_a_pt_3['p (Pa)']/1000).values.tolist(), columns=['p'], index=df_a_pt_1['h0 (kJ/kg)'])
-    p_out_T0 = pd.DataFrame((df_a_pt_3['p (Pa)']/1000).values.tolist(), columns=['p'], index=df_a_pt_1['T0 (K)'])
-    p_out = p_out_m_dot['p']
-    plt.plot(p_out)
-    plt.title('Presión a la salida - Flujo másico')
-    plt.xlabel(r'$\dot{m}$ (kg/s)')
-    plt.ylabel(r'$p_{out}$ (kPa)')
-    plt.minorticks_on()
-    plt.grid(which='both')
-    plt.show()
-
-    p_out = p_out_C_inx['p']
-    plt.plot(p_out)
-    plt.title('Presión a la salida - Velocidad a la entrada')
-    plt.xlabel(r'$\dot{C}_{in}$ (m/s)')
-    plt.ylabel(r'$p_{out}$ (kPa)')
-    plt.minorticks_on()
-    plt.grid(which='both')
-    plt.show()
-
-    p_out = p_out_h0['p']
-    plt.plot(p_out)
-    plt.title('Presión a la salida - Entalpía de remanso a la entrada')
-    plt.xlabel(r'$h_{0in}$ (kJ/kg)')
-    plt.ylabel(r'$p_{out}$ (kPa)')
-    plt.minorticks_on()
-    plt.grid(which='both')
-    plt.show()
-
-    p_out = p_out_T0['p']
-    plt.plot(p_out)
-    plt.title('Presión a la salida - Temperatura de remanso a la entrada')
-    plt.xlabel(r'$T_{0in}$ (K)')
-    plt.ylabel(r'$p_{out}$ (kPa)')
-    plt.minorticks_on()
-    plt.grid(which='both')
-    plt.show()
-
-    df_b = pd.read_csv('df_b_AM.csv')
-    eta_TT_m_dot = pd.DataFrame((df_b['eta_TT (-)']).values.tolist(), columns=['eta_TT'], index=df_c.index)
-    eta_TE_m_dot = pd.DataFrame((df_b['eta_TE (-)']).values.tolist(), columns=['eta_TE'], index=df_c.index)
-    xi_est_m_dot = pd.DataFrame((df_b['Y_est (kJ/kg)']/(0.0005*(df_a_pt_2['C (m/s)'] *
-                                                                df_a_pt_2['C (m/s)']))).values.tolist(),
-                                columns=['xi_est'], index=df_c.index)
-    xi_rot_m_dot = pd.DataFrame((df_b['Y_rot (kJ/kg)']/(0.0005*(df_a_pt_3['omega (m/s)'] *
-                                                                df_a_pt_3['omega (m/s)']))).values.tolist(),
-                                columns=['xi_rot'], index=df_c.index)
-    plt.plot(eta_TT_m_dot['eta_TT'], label='Rendimiento total a total')
-    plt.plot(eta_TE_m_dot['eta_TE'], label='Rendimiento total a estático')
-    plt.plot(xi_est_m_dot['xi_est'], label='Coeficiente adimensional de pérdidas en estátor')
-    plt.plot(xi_rot_m_dot['xi_rot'], label='Coeficiente adimensional de pérdidas en rótor')
-    plt.minorticks_on()
-    plt.grid(which='both')
-    plt.show()
-
-    return
-
-
-def main_4(action):
-    if action == 'procesar_y_guardar':
-        settings = config_class(relative_error=1E-11, ideal_gas=True, n_steps=1, jump=0.5, chain_mode=False,
-                                loss_model='Aungier', iter_limit=1000, max_trend_changes=30, T_nominal=1_100,
-                                automatic_preloading_for_small_input_deviations=True, p_nominal=600_000,
-                                resolution_for_small_input_deviations=500, inlet_velocity_range=[0.01, 140.69],
-                                n_rpm_nominal=20_000)
-
-        Rm = 0.1429
-        heights = [0.0445 for _ in range(3)]
-        areas = [0.0399 for _ in range(3)]
-        chord = [0.0338, 0.0241]
-        t_max = [0.2 * chord[0], 0.15 * chord[1]]
-        pitch = [0.0249, 0.0196]
-        t_e = [0.01 * s for s in pitch]
-        blade_opening = [0.01090, 0.01354]
-        e_param = [0.0893, 0.01135]
-        tip_clearance = [0.0004, 0.0008]
-        # 'wire_diameter' 'lashing_wires'
-        chord_proj_z = [0.9 * b for b in chord]
-        blade_roughness_peak_to_valley = [0.00001 for _ in chord]
-
-        settings.set_geometry(B_A_est=0, theta_est=70, B_A_rot=55, theta_rot=105, areas=areas, cuerda=chord,
-                              radio_medio=Rm, e=e_param, o=blade_opening, s=pitch, H=heights, b_z=chord_proj_z,
-                              t_max=t_max, r_r=0.002, r_c=0.001, t_e=t_e, k=tip_clearance, delta=tip_clearance,
-                              roughness_ptv=blade_roughness_peak_to_valley, holgura_radial=False)
-
-        gas_model = gas_model_to_solver(thermo_mode="ig")
-
+    elif mode == 'recorrer_variable':
+        settings = aux_reading_operations()
+        gas_model = gas_model_to_solver(thermod_mode=data_dictionary.get('thermod_mode_in_gas_model_module', 'ig'))
         solver = solver_object(settings, gas_model)
-        solver_data_saver('process_object.pkl', solver)
+        try:
+            df_a, df_b, df_c = var_sweeping(
+                solver,
+                T_in=data_dictionary['T_input'],
+                p_in=data_dictionary['p_input'],
+                n_rpm=data_dictionary['rpm'],
+                m_dot=data_dictionary['mass_flow'],
+                C_inx=data_dictionary['inlet_velocity'],
+                C_inx_ref=data_dictionary['reference_inlet_velocity'],
+                p_out=data_dictionary['p_outlet'],
+                req_vars=data_dictionary['req_vars'],
+                var_to_sweep=data_dictionary['var_to_sweep'],
+                sweep_resolution=data_dictionary['sweep_resolution'])
+        except NameError:
+            raise InputDataError('Non-valid text file, please, stick to the template.')
+        df_a.to_csv('df_a.csv')
+        df_b.to_csv('df_b.csv')
+        df_c.to_csv('df_c.csv')
 
-    elif action == 'leer_corrección':
-        solver = solver_data_reader('process_object.pkl')
-        cfg = solver.cfg
-        small_input_deviation_data = solver.small_input_deviation_data
-        C_in_eval_list, p_out_vref, dpout_dTin, dpout_dpin, dpout_dn = small_input_deviation_data
-        T_in, p_in, n_rev = 1102, 600_005, 20_003
-        Tin_ref, pin_ref, nrev_ref = cfg.T_nominal, cfg.p_nominal, cfg.n_rpm_nominal
-        p_out_vref += ((T_in-Tin_ref)*dpout_dTin)+((p_in-pin_ref)*dpout_dpin)+((n_rev-nrev_ref)*dpout_dn)
-        plt.plot(p_out_vref, C_in_eval_list)
+    elif mode == 'visualizar_recorrido':
+        df_c = pd.read_csv('df_c.csv', index_col='m_dot (kg/s)')
+        eta_s = df_c['eta_maq (-)']
+        Potencia = df_c['P_total (kW)']
+        Potencia_ss = df_c['w_ss_total (kJ/kg)'] * df_c.index
+
+        plt.plot(eta_s)
+        plt.minorticks_on()
+        plt.grid(which='both')
+        plt.title('Rendimiento isentrópico - Flujo másico')
+        plt.xlabel(r'$\dot{m}$ (kg/s)')
+        plt.ylabel(r'$\eta_{s}$ (-)')
         plt.show()
 
-    elif action == 'calcular_con_p_out_modificado':
-        solver = solver_data_reader('process_object.pkl')
-        solver.problem_solver(T_in=1102, p_in=600_100, n_rpm=20_003, p_out=450_000)
+        plt.plot(Potencia)
+        plt.plot(Potencia_ss)
+        plt.title('Potencia - Flujo másico')
+        plt.xlabel(r'$\dot{m}$ (kg/s)')
+        plt.ylabel(r'$P$ (kW)')
+        plt.minorticks_on()
+        plt.grid(which='both')
+        plt.show()
 
+        df_a = pd.read_csv('df_a.csv', index_col='Aux_Index')
+        df_a_pt_3 = df_a[df_a['Spec_Index'] == 'Step_1_pt_3']
+        df_a_pt_2 = df_a[df_a['Spec_Index'] == 'Step_1_pt_2']
+        df_a_pt_1 = df_a[df_a['Spec_Index'] == 'Step_1_pt_1']
+        p_out_m_dot = pd.DataFrame(
+            (df_a_pt_3['p (Pa)']/1000).values.tolist(), columns=['p'], index=df_c.index)
+        p_out_C_inx = pd.DataFrame(
+            (df_a_pt_3['p (Pa)']/1000).values.tolist(), columns=['p'], index=df_a_pt_1['C (m/s)'])
+        p_out_h0 = pd.DataFrame(
+            (df_a_pt_3['p (Pa)']/1000).values.tolist(), columns=['p'], index=df_a_pt_1['h0 (kJ/kg)'])
+        p_out_T0 = pd.DataFrame(
+            (df_a_pt_3['p (Pa)']/1000).values.tolist(), columns=['p'], index=df_a_pt_1['T0 (K)'])
+        p_out = p_out_m_dot['p']
+        plt.plot(p_out)
+        plt.title('Presión a la salida - Flujo másico')
+        plt.xlabel(r'$\dot{m}$ (kg/s)')
+        plt.ylabel(r'$p_{out}$ (kPa)')
+        plt.minorticks_on()
+        plt.grid(which='both')
+        plt.show()
 
-def main_5():
-    data_dictionary = txt_reader()
-    try:
-        settings = config_class(
-            relative_error=data_dictionary['relative_error'],
-            ideal_gas=data_dictionary['ideal_gas'],
-            n_steps=data_dictionary['n_steps'],
-            jump=data_dictionary['jump'],
-            chain_mode=data_dictionary['chain_mode'],
-            loss_model=data_dictionary['loss_model'],
-            iter_limit=data_dictionary['iter_limit'],
-            max_trend_changes=data_dictionary['max_trend_changes'],
-            T_nominal=data_dictionary['T_nominal'],
-            automatic_preloading_for_small_input_deviations=data_dictionary[
-                'automatic_preloading_for_small_input_deviations'
-            ],
-            p_nominal=data_dictionary['p_nominal'],
-            resolution_for_small_input_deviations=data_dictionary['resolution_for_small_input_deviations'],
-            inlet_velocity_range=data_dictionary['inlet_velocity_range'],
-            n_rpm_nominal=data_dictionary['n_rpm_nominal']
-            )
-        LE_stator = data_dictionary['stator_leading_edge_angle']
-        LE_rotor = data_dictionary['rotor_leading_edge_angle']
-        TE_stator = data_dictionary['stator_trailing_edge_angle']
-        TE_rotor = data_dictionary['rotor_trailing_edge_angle']
-        theta_stator = data_dictionary['stator_blade_curvature']
-        theta_rotor = data_dictionary['rotor_blade_curvature']
-        root_radius = data_dictionary['root_radius']
-        head_radius = data_dictionary['head_radius']
-        Rm = data_dictionary['radio_medio']
-        heights = data_dictionary['heights']
-        areas = data_dictionary['areas']
-        chord = data_dictionary['chord']
-        t_max = data_dictionary['maximum_thickness']
-        pitch = data_dictionary['pitch']
-        t_e = data_dictionary['outlet_thickness']
-        blade_opening = data_dictionary['blade_opening']
-        e_param = data_dictionary['blade_mean_radius_of_curvature']
-        tip_clearance = data_dictionary['tip_clearance']
-        chord_proj_z = data_dictionary['chord_z']
-        wire_diameter = data_dictionary['wire_diameter']
-        lashing_wires = data_dictionary['lashing_wires']
-        holgura_radial = data_dictionary['holgura_radial']
-        blade_roughness_peak_to_valley = data_dictionary['blade_roughness_peak_to_valley']
-    except NameError:
-        raise InputDataError('Non-valid text file, please, stick to the template.')
+        p_out = p_out_C_inx['p']
+        plt.plot(p_out)
+        plt.title('Presión a la salida - Velocidad a la entrada')
+        plt.xlabel(r'$\dot{C}_{in}$ (m/s)')
+        plt.ylabel(r'$p_{out}$ (kPa)')
+        plt.minorticks_on()
+        plt.grid(which='both')
+        plt.show()
 
-    settings.set_geometry(B_A_est=LE_stator, theta_est=theta_stator, B_A_rot=LE_rotor, theta_rot=theta_rotor, H=heights,
-                          B_S_est=TE_stator, B_S_rot=TE_rotor, areas=areas, cuerda=chord, radio_medio=Rm, e=e_param,
-                          b_z=chord_proj_z, o=blade_opening, s=pitch, t_max=t_max, r_r=root_radius, delta=tip_clearance,
-                          r_c=head_radius, k=tip_clearance, t_e=t_e, roughness_ptv=blade_roughness_peak_to_valley,
-                          holgura_radial=holgura_radial, lashing_wires=lashing_wires, wire_diameter=wire_diameter, )
+        p_out = p_out_h0['p']
+        plt.plot(p_out)
+        plt.title('Presión a la salida - Entalpía de remanso a la entrada')
+        plt.xlabel(r'$h_{0in}$ (kJ/kg)')
+        plt.ylabel(r'$p_{out}$ (kPa)')
+        plt.minorticks_on()
+        plt.grid(which='both')
+        plt.show()
 
-    gas_model = gas_model_to_solver(thermo_mode=data_dictionary.get('thermo_mode_in_gas_model.py', 'ig'))
+        p_out = p_out_T0['p']
+        plt.plot(p_out)
+        plt.title('Presión a la salida - Temperatura de remanso a la entrada')
+        plt.xlabel(r'$T_{0in}$ (K)')
+        plt.ylabel(r'$p_{out}$ (kPa)')
+        plt.minorticks_on()
+        plt.grid(which='both')
+        plt.show()
 
-    solver = solver_object(settings, gas_model)
-    solver_data_saver('process_object_from_txt_data.pkl', solver)
+        df_b = pd.read_csv('df_b.csv')
+        eta_TT_m_dot = pd.DataFrame((df_b['eta_TT (-)']).values.tolist(), columns=['eta_TT'], index=df_c.index)
+        eta_TE_m_dot = pd.DataFrame((df_b['eta_TE (-)']).values.tolist(), columns=['eta_TE'], index=df_c.index)
+        xi_est_m_dot = pd.DataFrame((df_b['Y_est (kJ/kg)']/(0.0005*(df_a_pt_2['C (m/s)'] *
+                                                                    df_a_pt_2['C (m/s)']))).values.tolist(),
+                                    columns=['xi_est'], index=df_c.index)
+        xi_rot_m_dot = pd.DataFrame((df_b['Y_rot (kJ/kg)']/(0.0005*(df_a_pt_3['omega (m/s)'] *
+                                                                    df_a_pt_3['omega (m/s)']))).values.tolist(),
+                                    columns=['xi_rot'], index=df_c.index)
+        plt.plot(eta_TT_m_dot['eta_TT'], label='Rendimiento total a total')
+        plt.plot(eta_TE_m_dot['eta_TE'], label='Rendimiento total a estático')
+        plt.plot(xi_est_m_dot['xi_est'], label='Coeficiente adimensional de pérdidas en estátor')
+        plt.plot(xi_rot_m_dot['xi_rot'], label='Coeficiente adimensional de pérdidas en rótor')
+        plt.minorticks_on()
+        plt.grid(which='both')
+        plt.show()
 
 
 if __name__ == '__main__':
-    # main_1(False, 'procesar_y_guardar')
-    # main_4('calcular_con_p_out_modificado')
-    main_5()
+    main()

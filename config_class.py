@@ -170,7 +170,7 @@ class config_class:
 
         Rm = geom['Rm']
         for i1, i2 in [['areas', 'H'], ['H', 'areas']]:
-            if kwargs.get(i1, None) is not None:
+            if kwargs.get(i2, None) is not None:
                 geom[i1] = list()
                 geom[i2] = tuple(kwargs[i2])
                 for num, v2 in enumerate(geom[i2]):
@@ -224,7 +224,7 @@ class gas_model_to_solver:
     modularidad, es decir, solo sería necesario modificar esta clase de manera adecuada para implementar un módulo
     alternativo a "gas_model.py"."""
 
-    thermo_mode: str = "ig"  # Cadena que identifica si se establece modelo multifase o ideal para el vapor de agua.
+    thermod_mode: str = "ig"  # Cadena que identifica si se establece modelo multifase o ideal para el vapor de agua.
     relative_error: float = 1E-12  # Máximo error relativo que se permite en los cálculos.
     C_atoms: float | int = 12.0  # Átomos de carbono en cada átomo de hidrocarburo en los reactivos.
     H_atoms: float | int = 23.5  # Átomos de hidrógeno en cada átomo de hidrocarburo en los reactivos.
@@ -233,12 +233,12 @@ class gas_model_to_solver:
     _gamma: float = None
 
     def __post_init__(self):
-        if self.thermo_mode not in ("ig", "mp", ):
+        if self.thermod_mode not in ("ig", "mp",):
             raise InputDataError("Los modos a elegir son ig (gas ideal con NASA coefs) o mp ('multi-phase').\n "
                                  "El modo mp se aplica solo en el vapor de agua, en caso contrario los límites del "
                                  "cálculo disminuirían demasiado y se realentiza todo el cálculo innecesariamente. \n "
                                  "Para  el modelo del Çengel usar el módulo IGmodelfromCengel.py. \n")
-        self.gas_model = mixpm(self.thermo_mode)
+        self.gas_model = mixpm(self.thermod_mode)
         self.gas_model.setmix(self.C_atoms, self.H_atoms, self.air_excess)
         self.gas_model.rel_error = self.relative_error
 

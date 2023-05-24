@@ -1080,7 +1080,7 @@ def main():
                           t_max=t_max, r_r=0.002, r_c=0.001, t_e=t_e, k=tip_clearance, delta=tip_clearance,
                           roughness_ptv=blade_roughness_peak_to_valley, holgura_radial=False)
 
-    gas_model = gas_model_to_solver(thermo_mode="ig")
+    gas_model = gas_model_to_solver(thermod_mode="ig")
     solver = solver_object(settings, gas_model)
 
     if chain_mode:
