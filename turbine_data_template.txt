@@ -1,0 +1,42 @@
+###########################################################################################################################################################################
+# Nomenclatura y unidades:
+
+# Se pueden emplear operaciones de python en cada definición, dentro del apartado sobre la geometría, y siguiendo el orden propuesto.
+# Cada variable debe estar separada por un "=" del valor que se le asigna.
+# Cada pareja variable-definición debe ir seguida de punto y coma.
+# Cuando se alcanza el caracter "#" se salta a la siguiente línea.
+# Cuando no corresponda definir una variable se le asignará "None".
+# El caracter de espaciado se ignora, por esto es necesarrio que al emplear list-comprehension se indique con "$".
+# Las unidades de las variables a introducir deben ser: Kelvin, Pascales, degrees, metros/segundo
+###########################################################################################################################################################################
+# En primer lugar, se define la acción deseada, o modo de funcionamiento, entre comillas dobles o simples.
+
+# A elegir entre: procesar_valores_nominales, resolver, visualizar_valores, recorrer_variable, visualizar_recorrido
+modo = 'resolver';
+
+var_to_sweep = 'axial_inlet_velocity';    sweep_resolution = 300;    req_vars = None;    # Información adicional para el modo 'recorrer_variable'.
+###########################################################################################################################################################################
+# En segundo lugar, se define todo aquello que comprende la configuración del programa:
+
+automatic_preloading_for_small_input_deviations = False;
+resolution_for_small_input_deviations = 500;
+thermod_mode_in_gas_model_module = 'ig';
+relative_error=1E-11;      ideal_gas=True;       chain_mode=False;       loss_model='Aungier';      n_steps=1;   jump=4.0;   iter_limit=1000;
+max_trend_changes=30;      T_nominal=1_100;      p_nominal=600_000;      n_rpm_nominal=20_000;      inlet_velocity_range=[0.01, 140.69];
+###########################################################################################################################################################################
+# A continuación, se define la geometría con todos los parámetros necesarios, según el modelo de pérdidas empleado.
+# Se puede encontrar más información sobre las variables a definir en la documentación del código.
+
+stator_leading_edge_angle = 0;                              rotor_leading_edge_angle = 55;                                stator_blade_curvature = 70;
+rotor_blade_curvature = 105;                                stator_trailing_edge_angle = None;                            rotor_trailing_edge_angle = None;
+root_radius = 0.002;                                        head_radius = 0.001;                                          radio_medio = 0.1429;
+heights = [0.0445, 0.0445, 0.0445];                         areas = None;                                                 chord = [0.0338, 0.0241];
+maximum_thickness = [0.2*chord[0], 0.15*chord[1]];          pitch = [0.0249, 0.0196];                                     outlet_thickness = $[0.01*s for s in pitch];
+blade_opening = [0.01090, 0.01354];                         blade_mean_radius_of_curvature = [0.0893, 0.01135];           tip_clearance = [0.0004, 0.0008];
+chord_z = $[0.9 * b for b in chord];                         wire_diameter = None;                                         lashing_wires = None;
+holgura_radial = False;                                     blade_roughness_peak_to_valley = $[0.00001 for _ in chord];
+###########################################################################################################################################################################
+# Por último, se definen los valores que van a restringir el punto de funcionamiento a evaluar:
+
+T_inlet=1100;      p_inlet=600_000;      rpm=20_000;      p_outlet=500_000;      mass_flow=None;      inlet_velocity=None;      reference_inlet_velocity=130;
+###########################################################################################################################################################################
