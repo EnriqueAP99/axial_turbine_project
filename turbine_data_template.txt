@@ -33,7 +33,7 @@ root_radius = 0.002;                                        head_radius = 0.001;
 heights = [0.0445, 0.0445, 0.0445];                         areas = None;                                                 chord = [0.0338, 0.0241];
 maximum_thickness = [0.2*chord[0], 0.15*chord[1]];          pitch = [0.0249, 0.0196];                                     outlet_thickness = $[0.01*s for s in pitch];
 blade_opening = [0.01090, 0.01354];                         blade_mean_radius_of_curvature = [0.0893, 0.01135];           tip_clearance = [0.0004, 0.0008];
-chord_z = $[0.9 * b for b in chord];                         wire_diameter = None;                                         lashing_wires = None;
+chord_z = $[0.9 * b for b in chord];                        wire_diameter = None;                                         lashing_wires = None;
 holgura_radial = False;                                     blade_roughness_peak_to_valley = $[0.00001 for _ in chord];
 ###########################################################################################################################################################################
 # Por último, se definen los valores que van a restringir el punto de funcionamiento a evaluar:
