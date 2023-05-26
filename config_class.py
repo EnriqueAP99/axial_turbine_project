@@ -202,6 +202,9 @@ class config_class:
         if kwargs.get('holgura_radial', None) is not None:
             geom['X'] = 1.35 if kwargs['holgura_radial'] else 0.7
 
+        if self.loss_model == 'Aungier':
+            geom['design_factor'] = kwargs.get('design_factor', 0.67)
+
         object.__setattr__(self, 'geom', geom)
         return
 

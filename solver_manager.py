@@ -295,7 +295,7 @@ def main():
                 p_nominal=data_dictionary['p_nominal'],
                 resolution_for_small_input_deviations=data_dictionary['resolution_for_small_input_deviations'],
                 inlet_velocity_range=data_dictionary['inlet_velocity_range'],
-                n_rpm_nominal=data_dictionary['n_rpm_nominal']
+                n_rpm_nominal=data_dictionary['n_rpm_nominal'],
                 )
             LE_stator = data_dictionary['stator_leading_edge_angle']
             LE_rotor = data_dictionary['rotor_leading_edge_angle']
@@ -320,6 +320,7 @@ def main():
             lashing_wires = data_dictionary['lashing_wires']
             holgura_radial = data_dictionary['holgura_radial']
             blade_roughness_peak_to_valley = data_dictionary['blade_roughness_peak_to_valley']
+            design_factor = data_dictionary['design_factor']
         except NameError:
             raise InputDataError('Non-valid text file, please, stick to the template.')
 
@@ -328,7 +329,7 @@ def main():
                               e=e_param, b_z=chord_proj_z, o=blade_opening, s=pitch, t_max=t_max, r_r=root_radius,
                               delta=tip_clearance, r_c=head_radius, k=tip_clearance, t_e=t_e,
                               roughness_ptv=blade_roughness_peak_to_valley, lashing_wires=lashing_wires,
-                              wire_diameter=wire_diameter, holgura_radial=holgura_radial,)
+                              wire_diameter=wire_diameter, holgura_radial=holgura_radial, design_factor=design_factor)
         return settings
 
     mode = data_dictionary['modo']

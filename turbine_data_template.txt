@@ -23,6 +23,7 @@ resolution_for_small_input_deviations = 500;
 thermod_mode_in_gas_model_module = 'ig';
 relative_error=1E-11;      ideal_gas=True;       chain_mode=False;       loss_model='Aungier';      n_steps=1;   jump=4.0;   iter_limit=1000;
 max_trend_changes=30;      T_nominal=1_100;      p_nominal=600_000;      n_rpm_nominal=20_000;      inlet_velocity_range=[0.01, 140.69];
+design_factor = 0.67;  # Esto último aplica para el modelo de Aungier.
 ###########################################################################################################################################################################
 # A continuación, se define la geometría con todos los parámetros necesarios, según el modelo de pérdidas empleado.
 # Se puede encontrar más información sobre las variables a definir en la documentación del código.

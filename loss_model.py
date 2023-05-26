@@ -443,7 +443,8 @@ class Aungier_Loss_Model(Ainley_and_Mathieson_Loss_Model):
         Y_TE_002s = (0.02*s_j/((s_j*sin(radians(beta_g)))-(0.02*s_j)))**2
         delta_Y_TE = Y_TE_002s
 
-        Yp = 0.67 * k_inc * k_m * k_p * k_Re * (((Yp1 + ((ksi**2)*(Yp2-Yp1)))*((5*t_max/b_j)**ksi))-delta_Y_TE)
+        Yp = self.cfg.geom['design_factor'] * k_inc * k_m * k_p * k_Re * (((Yp1 + ((ksi**2)*(Yp2-Yp1))) *
+                                                                           ((5*t_max/b_j)**ksi))-delta_Y_TE)
         self.Yp_iter_mode = Yp
 
         CL = 2*(tan(tau_1) + tan(tau_2))*s_j/b_j
