@@ -206,7 +206,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
 
                 # The next block applies in cases affected by discontinuity.
                 if pre_rel_error is not None:
-                    if pre_rel_error*0.999 < rel_error < pre_rel_error*1.001:
+                    if pre_rel_error*0.999999 < rel_error < pre_rel_error*1.000001:
                         if limit_error is None:
                             limit_error = {}
                         if fabs(p_out_iter - p_out_iter_b)/p_out <= solver_relative_error:
@@ -436,7 +436,7 @@ class solver_object:
         else:
             self.loss_model_object = Aungier_Loss_Model(config)
 
-        if self.cfg.automatic_preloading_for_small_input_deviations:
+        if self.cfg.preloading_for_small_input_deviations:
             self.data_collector_for_small_input_deviations()
 
     def data_collector_for_small_input_deviations(self):
@@ -509,8 +509,8 @@ class solver_object:
                 raise InputDataError('Debe indicarse un valor de referencia de velocidad a la entrada si se desea '
                                      'fijar la presión a la salida de la turbina.')
             elif C_inx_ref is None and self.small_input_deviation_data is None:
-                raise InputDataError('Se debe establecer uno de los parámetros opcionales "p_outlet", "Cinlet" ó '
-                                     '"mass_flow".')
+                raise InputDataError('Se debe establecer uno de los parámetros opcionales "p_outlet", '
+                                     '"axial_inlet_velocity" ó "mass_flow".')
             elif self.small_input_deviation_data is None:
                 if self.C_inx_register is None:
                     C_inx = self.C_inx_register = C_inx_ref

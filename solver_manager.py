@@ -200,17 +200,17 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
 
     def set_value(value):
         nonlocal T_in, p_in, n_rpm, p_out, m_dot, C_inx
-        if var_to_sweep == 'T_in':
+        if var_to_sweep == 'T_inlet':
             T_in = value
-        elif var_to_sweep == 'p_in':
+        elif var_to_sweep == 'p_inlet':
             p_in = value
-        elif var_to_sweep == 'n_rpm':
+        elif var_to_sweep == 'rpm':
             n_rpm = value
-        elif var_to_sweep == 'p_out':
+        elif var_to_sweep == 'p_outlet':
             p_out = value
-        elif var_to_sweep == 'm_dot':
+        elif var_to_sweep == 'mass_flow':
             m_dot = value
-        elif var_to_sweep == 'C_inx':
+        elif var_to_sweep == 'axial_inlet_velocity':
             C_inx = value
 
     if sweep_resolution is None:
@@ -222,11 +222,13 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
         set_value(value_k)
 
         try:
-            if not solver.cfg.resolution_for_small_input_deviations:
-                solver.problem_solver(T_in=T_in, p_in=p_in, n_rpm=n_rpm, m_dot=m_dot, C_inx=C_inx, p_out=p_out,
+            if not solver.cfg.preloading_for_small_input_deviations:
+                solver.problem_solver(T_in=T_in, p_in=p_in, n_rpm=n_rpm,
+                                      m_dot=m_dot, C_inx=C_inx, p_out=p_out,
                                       C_inx_ref=C_inx_ref)
             else:
-                solver.problem_solver(T_in=T_in, p_in=p_in, n_rpm=n_rpm, m_dot=m_dot, C_inx=C_inx, p_out=p_out)
+                solver.problem_solver(T_in=T_in, p_in=p_in, n_rpm=n_rpm,
+                                      m_dot=m_dot, C_inx=C_inx, p_out=p_out)
         except GasLibraryAdaptedException:
             pass
         except NonConvergenceError:
@@ -289,8 +291,8 @@ def main():
                 iter_limit=data_dictionary['iter_limit'],
                 max_trend_changes=data_dictionary['max_trend_changes'],
                 T_nominal=data_dictionary['T_nominal'],
-                automatic_preloading_for_small_input_deviations=data_dictionary[
-                    'automatic_preloading_for_small_input_deviations'
+                preloading_for_small_input_deviations=data_dictionary[
+                    'preloading_for_small_input_deviations'
                 ],
                 p_nominal=data_dictionary['p_nominal'],
                 resolution_for_small_input_deviations=data_dictionary['resolution_for_small_input_deviations'],
@@ -385,8 +387,8 @@ def main():
         try:
             df_a, df_b, df_c = var_sweeping(
                 solver,
-                T_in=data_dictionary['T_input'],
-                p_in=data_dictionary['p_input'],
+                T_in=data_dictionary['T_inlet'],
+                p_in=data_dictionary['p_inlet'],
                 n_rpm=data_dictionary['rpm'],
                 m_dot=data_dictionary['mass_flow'],
                 C_inx=data_dictionary['inlet_velocity'],

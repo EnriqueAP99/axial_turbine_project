@@ -75,13 +75,13 @@ class config_class:
     max_trend_changes: int = 5  # Número máximo de fluctuaciones a partir de las que no se considera que no converge
     # Al comenzar la ejecución se genera una función a partir de interpolación por splines que va a permitir fijar
     # la presión a la salida como parámetro de entrada.
-    automatic_preloading_for_small_input_deviations: bool = False
+    preloading_for_small_input_deviations: bool = False
     resolution_for_small_input_deviations: int = 200
     p_nominal: float | int = None
     T_nominal: float | int = None
     n_rpm_nominal: float | int = None
     inlet_velocity_range: list[float | int, float | int] = None
-    if automatic_preloading_for_small_input_deviations is True:
+    if preloading_for_small_input_deviations is True:
         if p_nominal is None or T_nominal is None or n_rpm_nominal is None:
             raise InputDataError('Se deben indicar las variables de entrada correspondientes al punto referencia.')
         if inlet_velocity_range is None:
