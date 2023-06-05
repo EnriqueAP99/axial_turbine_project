@@ -206,7 +206,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
 
                 # The next block applies in cases affected by discontinuity.
                 if pre_rel_error is not None:
-                    if pre_rel_error*0.999999 < rel_error < pre_rel_error*1.000001:
+                    if pre_rel_error*0.999 < rel_error < pre_rel_error*1.001:
                         if limit_error is None:
                             limit_error = {}
                         if fabs(p_out_iter - p_out_iter_b)/p_out <= solver_relative_error:
