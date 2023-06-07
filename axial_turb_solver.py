@@ -371,8 +371,9 @@ def step_decorator(cfg: config_class, step_corrector_memory):
             iter_counter = 0
             while rel_error is None or rel_error > relative_error:
                 iter_counter += 1
-                if iter_counter > 50:
-                    record.warning('Reynolds oscila, se adopta solución actual.')
+                if iter_counter > 30:
+                    record.warning('Reynolds no se estabiliza o tarda demasiado en converger, se adopta la solución '
+                                   'actual.')
                     break
                 Re_n = Re
                 Re, rho_seed, _ = get_sif_output(True, False, None, rho_seed, Re_n)
