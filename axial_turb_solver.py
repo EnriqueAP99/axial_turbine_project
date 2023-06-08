@@ -371,10 +371,8 @@ def step_decorator(cfg: config_class, step_corrector_memory):
             iter_counter = 0
             while rel_error is None or rel_error > relative_error:
                 iter_counter += 1
-                if iter_counter > 30:
-                    record.warning('Reynolds no se estabiliza o tarda demasiado en converger, se adopta la solución '
-                                   'actual.')
-                    break
+                if iter_counter > cfg.iter_limit:
+                    raise NonConvergenceError('Reynolds no se estabiliza para el límite de iteraciones establecido.')
                 Re_n = Re
                 Re, rho_seed, _ = get_sif_output(True, False, None, rho_seed, Re_n)
                 rel_error = fabs(Re_n - Re) / Re
@@ -1091,7 +1089,7 @@ def main():
               '\n', 'C_out =', C_salida, '\n', 'alfa_out =', alfa_salida)
 
     else:
-        solver.problem_solver(T_in=1100, p_in=400_000, n_rpm=17_000, p_out=120_000, C_inx_ref=140)
+        solver.problem_solver(T_in=1100, p_in=400_000, n_rpm=17_000, p_out=230_000, C_inx_ref=140)
 
 
 if __name__ == '__main__':

@@ -341,11 +341,11 @@ def main():
         settings = aux_reading_operations()
         gas_model = gas_model_to_solver(thermod_mode=data_dictionary.get('thermo_mode_in_gas_model.py', 'ig'))
         solver = solver_object(settings, gas_model)
-        solver_data_saver('process_object_from_txt_data.pkl', solver)
+        solver_data_saver('process_object.pkl', solver)
 
     elif mode == 'resolver':
         try:
-            solver = solver_data_reader('process_object_from_txt_data.pkl')
+            solver = solver_data_reader('process_object.pkl')
         except FileNotFoundError:
             settings = aux_reading_operations()
             gas_model = gas_model_to_solver(thermod_mode=data_dictionary.get('thermod_mode_in_gas_model_module', 'ig'))
@@ -373,12 +373,12 @@ def main():
                     C_inx=data_dictionary['inlet_velocity'],
                     C_inx_ref=data_dictionary['reference_inlet_velocity'],
                 )
-                solver_data_saver('process_object1.pkl', solver)
+                solver_data_saver('process_object.pkl', solver)
         except NameError:
             raise InputDataError('Non-valid text file, please, stick to the template.')
 
     elif mode == 'visualizar_valores':
-        solver = solver_data_reader('process_object1.pkl')
+        solver = solver_data_reader('process_object.pkl')
         problem_data_viewer(solver)
 
     elif mode == 'recorrer_variable':
@@ -403,6 +403,7 @@ def main():
         df_a.to_csv('df_a.csv')
         df_b.to_csv('df_b.csv')
         df_c.to_csv('df_c.csv')
+        solver_data_saver('process_object.pkl', solver)
 
     elif mode == 'visualizar_recorrido':
         df_c = pd.read_csv('df_c.csv', index_col='m_dot (kg/s)')
