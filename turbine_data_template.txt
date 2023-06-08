@@ -12,7 +12,7 @@
 # En primer lugar, se define la acción deseada, o modo de funcionamiento, entre comillas dobles o simples.
 
 # A elegir entre: procesar_valores_nominales, resolver, visualizar_valores, recorrer_variable, visualizar_recorrido
-modo = 'visualizar_recorrido';
+modo = 'recorrer_variable';
 
 var_to_sweep = 'p_inlet';    sweep_resolution = 50;    req_vars = None;    # Información adicional para el modo 'recorrer_variable'.
 ###########################################################################################################################################################################
@@ -22,7 +22,7 @@ preloading_for_small_input_deviations = False;  # Se realizan tantas evaluacione
 resolution_for_small_input_deviations = 500;
 thermod_mode_in_gas_model_module = 'ig';
 relative_error=1E-7;      ideal_gas=True;       chain_mode=False;       loss_model='Aungier';      n_steps=1;   jump=3.0;   iter_limit=200;
-max_trend_changes=30;      T_nominal=1_100;      p_nominal=150_000;      n_rpm_nominal=20_000;      inlet_velocity_range=[0.01, 140.69];
+max_trend_changes=30;      T_nominal=750;      p_nominal=150_000;      n_rpm_nominal=20_000;      inlet_velocity_range=[0.01, 140.69];
 design_factor = 0.67;  # Esto último aplica para el modelo de Aungier.
 ###########################################################################################################################################################################
 # A continuación, se define la geometría con todos los parámetros necesarios, según el modelo de pérdidas empleado.
