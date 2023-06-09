@@ -1056,7 +1056,7 @@ class solver_object:
 
 def main():
     chain_mode = False
-    settings = config_class(relative_error=1E-12, n_steps=1, jump=0.5, loss_model='Aungier',
+    settings = config_class(relative_error=1E-9, n_steps=1, jump=0.5, loss_model='Aungier',
                             ideal_gas=True, chain_mode=chain_mode, iter_limit=1200)
 
     # Geometría procedente de: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf
