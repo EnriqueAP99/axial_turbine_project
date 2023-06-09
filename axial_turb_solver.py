@@ -1056,7 +1056,7 @@ class solver_object:
 
 def main():
     chain_mode = False
-    settings = config_class(relative_error=1E-9, n_steps=1, jump=0.5, loss_model='Aungier',
+    settings = config_class(relative_error=1E-9, n_steps=1, jump=2, loss_model='Aungier',
                             ideal_gas=True, chain_mode=chain_mode, iter_limit=1200)
 
     # Geometría procedente de: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf
@@ -1083,13 +1083,13 @@ def main():
     solver = solver_object(settings, gas_model)
 
     if chain_mode:
-        output = solver.problem_solver(T_in=1100, p_in=400_000, n_rpm=17_000, p_out=120_000, C_inx_ref=140)
+        output = solver.problem_solver(T_in=900, p_in=170_000, n_rpm=17_000, p_out=100_000, C_inx_ref=130)
         T_salida, p_salida, C_salida, alfa_salida = output
         print(' T_out =', T_salida, '\n', 'P_out =', p_salida,
               '\n', 'C_out =', C_salida, '\n', 'alfa_out =', alfa_salida)
 
     else:
-        solver.problem_solver(T_in=900, p_in=200_000, n_rpm=17_000, p_out=100_000, C_inx_ref=121)
+        solver.problem_solver(T_in=900, p_in=170_000, n_rpm=17_000, p_out=100_000, C_inx_ref=130)
 
 
 if __name__ == '__main__':

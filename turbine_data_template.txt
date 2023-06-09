@@ -39,5 +39,5 @@ holgura_radial = False;                                     blade_roughness_peak
 ###########################################################################################################################################################################
 # Por último, se definen los valores que van a restringir el punto de funcionamiento a evaluar:
 
-T_inlet=900;      p_inlet=200_000;      rpm=13_000;      p_outlet=105_000;      mass_flow=None;      inlet_velocity=None;      reference_inlet_velocity=20;
+T_inlet=900;      p_inlet=[110_000, 170_000];      rpm=17_000;      p_outlet=100_000;      mass_flow=None;      inlet_velocity=None;      reference_inlet_velocity=100;
 ###########################################################################################################################################################################
