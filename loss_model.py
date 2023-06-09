@@ -53,7 +53,7 @@ def lineal_interpolation(x_target=None, x=None, series=None, y=None):
         serie_x, serie_y = x, y
     if serie_x[0] < x_target < serie_x[-1]:
         n_1, n_2 = 0, len(serie_x)-1
-        while n_2 - n_1 != 1:
+        while n_2 - n_1 > 1:
             n_c = int((n_2 + n_1)//2)
             if x_target < serie_x[n_c]:
                 n_2 = n_c

@@ -367,13 +367,13 @@ def step_decorator(cfg: config_class, step_corrector_memory):
                 Re, rho_seed, _ = get_sif_output()
             else:
                 Re, rho_seed = step_corrector_memory[0], step_corrector_memory[1]
-            rel_error = None
+            rel_error = Re_n = None
             iter_counter = 0
             while rel_error is None or rel_error > relative_error:
                 iter_counter += 1
                 if iter_counter > cfg.iter_limit:
                     raise NonConvergenceError('Reynolds no se estabiliza para el límite de iteraciones establecido.')
-                Re_n = Re
+                Re_n = Re if Re_n is None else 0.5*(Re + Re_n)
                 Re, rho_seed, _ = get_sif_output(True, False, None, rho_seed, Re_n)
                 rel_error = fabs(Re_n - Re) / Re
             _, _, ll_1 = get_sif_output(True, True, None, rho_seed, Re)
@@ -1056,7 +1056,7 @@ class solver_object:
 
 def main():
     chain_mode = False
-    settings = config_class(relative_error=1E-12, n_steps=1, jump=0.05, loss_model='Aungier',
+    settings = config_class(relative_error=1E-12, n_steps=1, jump=0.5, loss_model='Aungier',
                             ideal_gas=True, chain_mode=chain_mode, iter_limit=1200)
 
     # Geometría procedente de: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf
@@ -1089,7 +1089,7 @@ def main():
               '\n', 'C_out =', C_salida, '\n', 'alfa_out =', alfa_salida)
 
     else:
-        solver.problem_solver(T_in=1100, p_in=400_000, n_rpm=17_000, p_out=230_000, C_inx_ref=140)
+        solver.problem_solver(T_in=900, p_in=200_000, n_rpm=17_000, p_out=100_000, C_inx_ref=121)
 
 
 if __name__ == '__main__':

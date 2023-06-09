@@ -12,16 +12,16 @@
 # En primer lugar, se define la acción deseada, o modo de funcionamiento, entre comillas dobles o simples.
 
 # A elegir entre: procesar_valores_nominales, resolver, visualizar_valores, recorrer_variable, visualizar_recorrido
-modo = 'recorrer_variable';
+modo = 'resolver';
 
-var_to_sweep = 'p_inlet';    sweep_resolution = 50;    req_vars = None;    # Información adicional para el modo 'recorrer_variable'.
+var_to_sweep = 'p_inlet';    sweep_resolution = 10;    req_vars = None;    # Información adicional para el modo 'recorrer_variable'.
 ###########################################################################################################################################################################
 # En segundo lugar, se define todo aquello que comprende la configuración del programa:
 
 preloading_for_small_input_deviations = False;  # Se realizan tantas evaluaciones iniciales como se establezcan para hacer cálculos directos.
 resolution_for_small_input_deviations = 500;
 thermod_mode_in_gas_model_module = 'ig';
-relative_error=1E-7;      ideal_gas=True;       chain_mode=False;       loss_model='Aungier';      n_steps=1;   jump=3.0;   iter_limit=200;
+relative_error=1E-8;      ideal_gas=True;       chain_mode=False;       loss_model='Aungier';      n_steps=1;   jump=3.0;   iter_limit=200;
 max_trend_changes=30;      T_nominal=750;      p_nominal=150_000;      n_rpm_nominal=20_000;      inlet_velocity_range=[0.01, 140.69];
 design_factor = 0.67;  # Esto último aplica para el modelo de Aungier.
 ###########################################################################################################################################################################
@@ -39,5 +39,5 @@ holgura_radial = False;                                     blade_roughness_peak
 ###########################################################################################################################################################################
 # Por último, se definen los valores que van a restringir el punto de funcionamiento a evaluar:
 
-T_inlet=750;      p_inlet=[120_000, 180_000];      rpm=16_000;      p_outlet=100_000;      mass_flow=None;      inlet_velocity=None;      reference_inlet_velocity=120;
+T_inlet=900;      p_inlet=200_000;      rpm=13_000;      p_outlet=105_000;      mass_flow=None;      inlet_velocity=None;      reference_inlet_velocity=20;
 ###########################################################################################################################################################################
