@@ -173,30 +173,30 @@ def problem_data_viewer(solver: solver_object, req_vars=None) -> None:
 
 
 def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_sweep: str, C_inx=None,
-                 m_dot=None, p_out=None, C_inx_ref=None, sweep_resolution: float | int = None, req_vars: list = None):
+                 m_dot=None, p_out=None, C_inx_ref=None, sweep_resolution=None, req_vars: list = None):
     """ El rango debe ser creciente. """
     k = 0
-    sweep_data = {}
+    sweeping_data = {}
     lista_df_a, lista_df_b, lista_df_c = [], [], []
 
     if var_to_sweep == 'T_inlet':
-        sweep_data[var_to_sweep] = T_in
-        sweep_data['units'] = 'K'
+        sweeping_data[var_to_sweep] = T_in
+        sweeping_data['units'] = 'K'
     elif var_to_sweep == 'p_inlet':
-        sweep_data[var_to_sweep] = p_in
-        sweep_data['units'] = 'Pa'
+        sweeping_data[var_to_sweep] = p_in
+        sweeping_data['units'] = 'Pa'
     elif var_to_sweep == 'rpm':
-        sweep_data[var_to_sweep] = n_rpm
-        sweep_data['units'] = 'rpm'
+        sweeping_data[var_to_sweep] = n_rpm
+        sweeping_data['units'] = 'rpm'
     elif var_to_sweep == 'p_outlet':
-        sweep_data[var_to_sweep] = p_out
-        sweep_data['units'] = 'Pa'
+        sweeping_data[var_to_sweep] = p_out
+        sweeping_data['units'] = 'Pa'
     elif var_to_sweep == 'mass_flow':
-        sweep_data[var_to_sweep] = m_dot
-        sweep_data['units'] = 'kg'
+        sweeping_data[var_to_sweep] = m_dot
+        sweeping_data['units'] = 'kg'
     elif var_to_sweep == 'axial_inlet_velocity':
-        sweep_data[var_to_sweep] = C_inx
-        sweep_data['units'] = 'm/s'
+        sweeping_data[var_to_sweep] = C_inx
+        sweeping_data['units'] = 'm/s'
 
     def set_value(value):
         nonlocal T_in, p_in, n_rpm, p_out, m_dot, C_inx
@@ -215,10 +215,10 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
 
     if sweep_resolution is None:
         sweep_resolution = 200
-    jump = (sweep_data[var_to_sweep][1] - sweep_data[var_to_sweep][0]) / (sweep_resolution - 1)
+    jump = (sweeping_data[var_to_sweep][1] - sweeping_data[var_to_sweep][0]) / (sweep_resolution - 1)
     while k < sweep_resolution:
 
-        value_k = sweep_data[var_to_sweep][0] + (k * jump)
+        value_k = sweeping_data[var_to_sweep][0] + (k * jump)
         set_value(value_k)
 
         try:
@@ -358,7 +358,7 @@ def main():
                     n_rpm=data_dictionary['rpm'],
                     p_out=data_dictionary['p_outlet'],
                     m_dot=data_dictionary['mass_flow'],
-                    C_inx=data_dictionary['inlet_velocity'],
+                    C_inx=data_dictionary['axial_inlet_velocity'],
                     C_inx_ref=data_dictionary['reference_inlet_velocity'],
                 )
                 T_salida, p_salida, C_salida, alfa_out = output
@@ -370,7 +370,7 @@ def main():
                     n_rpm=data_dictionary['rpm'],
                     p_out=data_dictionary['p_outlet'],
                     m_dot=data_dictionary['mass_flow'],
-                    C_inx=data_dictionary['inlet_velocity'],
+                    C_inx=data_dictionary['axial_inlet_velocity'],
                     C_inx_ref=data_dictionary['reference_inlet_velocity'],
                 )
                 solver_data_saver('process_object.pkl', solver)
@@ -394,7 +394,7 @@ def main():
                 p_in=data_dictionary['p_inlet'],
                 n_rpm=data_dictionary['rpm'],
                 m_dot=data_dictionary['mass_flow'],
-                C_inx=data_dictionary['inlet_velocity'],
+                C_inx=data_dictionary['axial_inlet_velocity'],
                 C_inx_ref=data_dictionary['reference_inlet_velocity'],
                 p_out=data_dictionary['p_outlet'],
                 req_vars=data_dictionary['req_vars'],
