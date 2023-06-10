@@ -1,4 +1,4 @@
-########################################################################################################################################################################################
+##############################################################################################################################################################################
 # Nomenclatura y unidades:
 
 # Se pueden emplear operaciones de python en cada definición, dentro del apartado sobre la geometría, y siguiendo el orden propuesto.
@@ -8,23 +8,24 @@
 # Cuando no corresponda definir una variable se le asignará "None".
 # El caracter de espaciado se ignora, por esto es necesarrio que al emplear list-comprehension se indique con "$".
 # Las unidades de las variables a introducir deben ser: Kelvin, Pascales, degrees, metros/segundo
-########################################################################################################################################################################################
+##############################################################################################################################################################################
 # En primer lugar, se define la acción deseada, o modo de funcionamiento, entre comillas dobles o simples.
 
 # A elegir entre: procesar_valores_nominales, resolver, visualizar_valores, recorrer_variable, visualizar_recorrido
 modo = 'recorrer_variable';
 
-var_to_sweep = 'axial_inlet_velocity';    sweep_resolution = 10;    req_vars = None;   csv_filename_extension = 'prueba1.csv';   #Información adicional para el modo 'recorrer_variable'.
-########################################################################################################################################################################################
+# Información adicional para el modo 'recorrer_variable' ó 'visualizar_recorrido'.
+var_to_sweep = 'p_outlet';    sweep_resolution = 15;    req_vars = None;   csv_filename_extension = 'prueba1.csv';   
+##############################################################################################################################################################################
 # En segundo lugar, se define todo aquello que comprende la configuración del programa:
 
 preloading_for_small_input_deviations = False;  # Se realizan tantas evaluaciones iniciales como se establezcan para hacer cálculos directos.
 resolution_for_small_input_deviations = 500;
 thermod_mode_in_gas_model_module = 'ig';
-relative_error=1E-8;      ideal_gas=True;       chain_mode=False;       loss_model='Aungier';      n_steps=1;   jump=3.0;   iter_limit=200;
+relative_error=1E-8;      ideal_gas=True;       chain_mode=False;       loss_model='Aungier';     n_steps=1;   jump=1.0;   iter_limit=200;
 max_trend_changes=30;      T_nominal=750;      p_nominal=150_000;      n_rpm_nominal=20_000;      inlet_velocity_range=[0.01, 140.69];
 design_factor = 0.67;  # Esto último aplica para el modelo de Aungier.
-########################################################################################################################################################################################
+##############################################################################################################################################################################
 # A continuación, se define la geometría con todos los parámetros necesarios, según el modelo de pérdidas empleado.
 # Se puede encontrar más información sobre las variables a definir en la documentación del código.
 
@@ -36,8 +37,8 @@ maximum_thickness = [0.2*chord[0], 0.15*chord[1]];          pitch = [0.0249, 0.0
 blade_opening = [0.01090, 0.01354];                         blade_mean_radius_of_curvature = [0.0893, 0.01135];           tip_clearance = [0.0004, 0.0008];
 chord_z = $[0.9 * b for b in chord];                        wire_diameter = None;                                         lashing_wires = None;
 holgura_radial = False;                                     blade_roughness_peak_to_valley = $[0.00001 for _ in chord];
-########################################################################################################################################################################################
-# Por último, se definen los valores que van a restringir el punto de funcionamiento a evaluar:
+##############################################################################################################################################################################
+# Por último, se definen exclusivamente, los valores que van a restringir el punto de funcionamiento a evaluar:
 
-T_inlet=900;      p_inlet=150_000;      rpm=17_000;      p_outlet=None;      mass_flow=None;      axial_inlet_velocity=[50, 80];      reference_inlet_velocity=None;
-########################################################################################################################################################################################
+T_inlet=900;      p_inlet=150_000;      rpm=17_000;      p_outlet=[90_000, 120_000];      mass_flow=None;      axial_inlet_velocity=None;      reference_inlet_velocity=30;
+##############################################################################################################################################################################

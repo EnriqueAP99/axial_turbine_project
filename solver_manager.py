@@ -238,7 +238,7 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
             lista_df_a.append(copy.deepcopy(df_a))
             lista_df_b.append(copy.deepcopy(df_b))
             lista_df_c.append(copy.deepcopy(df_c))
-        record.info('Barrido de la variable completo en un %s', (k+1)/sweep_resolution)
+        record.info('Barrido de la variable completo en un %s%', 100*(k+1)/sweep_resolution)
         k += 1
 
     df_a_packg = pd.concat(
