@@ -386,6 +386,8 @@ def main():
         gas_model = gas_model_to_solver(thermod_mode=data_dictionary.get('thermod_mode_in_gas_model_module', 'ig'))
         solver = solver_object(settings, gas_model)
         try:
+            a_filename, b_filename, c_filename = [root + data_dictionary['csv_filename_extension'] for root in
+                                                  ['df_a_', 'df_b_', 'df_c_']]
             df_a, df_b, df_c = var_sweeping(
                 solver,
                 T_in=data_dictionary['T_inlet'],
@@ -400,13 +402,18 @@ def main():
                 sweep_resolution=data_dictionary['sweep_resolution'])
         except NameError:
             raise InputDataError('Non-valid text file, please, stick to the template.')
-        df_a.to_csv('df_a.csv')
-        df_b.to_csv('df_b.csv')
-        df_c.to_csv('df_c.csv')
+        df_a.to_csv(a_filename)
+        df_b.to_csv(b_filename)
+        df_c.to_csv(c_filename)
         solver_data_saver('process_object.pkl', solver)
 
     elif mode == 'visualizar_recorrido':
-        df_c = pd.read_csv('df_c.csv', index_col='m_dot (kg/s)')
+        try:
+            a_filename, b_filename, c_filename = [root + data_dictionary['csv_filename_extension'] for root in
+                                                  ['df_a_', 'df_b_', 'df_c_']]
+        except NameError:
+            raise InputDataError('Non-valid text file, please, stick to the template.')
+        df_c = pd.read_csv(c_filename, index_col='m_dot (kg/s)')
         eta_s = df_c['eta_maq (-)']
         Potencia = df_c['P_total (kW)']
         Potencia_ss = df_c['w_ss_total (kJ/kg)'] * df_c.index
@@ -428,7 +435,7 @@ def main():
         plt.grid(which='both')
         plt.show()
 
-        df_a = pd.read_csv('df_a.csv', index_col='Aux_Index')
+        df_a = pd.read_csv(a_filename, index_col='Aux_Index')
         df_a_pt_3 = df_a[df_a['Spec_Index'] == 'Step_1_pt_3']
         df_a_pt_2 = df_a[df_a['Spec_Index'] == 'Step_1_pt_2']
         df_a_pt_1 = df_a[df_a['Spec_Index'] == 'Step_1_pt_1']
@@ -476,7 +483,7 @@ def main():
         plt.grid(which='both')
         plt.show()
 
-        df_b = pd.read_csv('df_b.csv')
+        df_b = pd.read_csv(b_filename)
         eta_TT_m_dot = pd.DataFrame((df_b['eta_TT (-)']).values.tolist(), columns=['eta_TT'], index=df_c.index)
         eta_TE_m_dot = pd.DataFrame((df_b['eta_TE (-)']).values.tolist(), columns=['eta_TE'], index=df_c.index)
         xi_est_m_dot = pd.DataFrame((df_b['Y_est (kJ/kg)']/(0.0005*(df_a_pt_2['C (m/s)'] *
