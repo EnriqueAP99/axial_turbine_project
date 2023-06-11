@@ -49,12 +49,12 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
 
             def read_ps_list():
                 if cfg.chain_mode:
-                    new_p_out = ps_list[1]
+                    new_p_out = ps_list.copy[1]
                 else:
                     if solver_iter:
-                        new_p_out = ps_list[-1][1]
+                        new_p_out = copy.deepcopy(ps_list)[-1][1]
                     else:
-                        new_p_out = ps_list[-2][1]
+                        new_p_out = copy.deepcopy(ps_list)[-2][1]
                 return new_p_out
 
             iter_count = 0
