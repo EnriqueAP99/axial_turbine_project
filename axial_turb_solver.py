@@ -49,13 +49,12 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
 
             def read_ps_list():
                 if cfg.chain_mode:
-                    new_p_out = ps_list.copy[1]
+                    return ps_list[1]
                 else:
                     if solver_iter:
-                        new_p_out = copy.deepcopy(ps_list)[-1][1]
+                        return ps_list[-1][1]
                     else:
-                        new_p_out = copy.deepcopy(ps_list)[-2][1]
-                return new_p_out
+                        return ps_list[-2][1]
 
             iter_count = 0
             from_b = from_a = False
@@ -280,9 +279,8 @@ def step_decorator(cfg: config_class, step_corrector_memory):
         relative_error = cfg.relative_error
 
         def get_sif_output(iter_mode: bool = None, iter_end: bool = None, xi=None, rho_seed: list = None, Re=None):
-            """ Se hace deepcopy de la salida y se devuelve. """
-            sif_output = step_inner_function(iter_mode, iter_end, xi, rho_seed, Re)
-            return copy.deepcopy(sif_output)
+            """ Se recibe la copia del output generado y se devuelve. """
+            return step_inner_function(iter_mode, iter_end, xi, rho_seed, Re)
 
         def AM_corrector(eta_TT, Re: int, xi_est, rho_seed) -> list:
             """ Función que aplica la corrección de Reynolds cuando es llamada por wrapper_r. La solución se determina
@@ -389,7 +387,10 @@ def step_decorator(cfg: config_class, step_corrector_memory):
                 ll_1 = AM_corrector(eta_TT, Re, xi_est, rho_seed)
             else:
                 ll_1 = AU_corrector()
-            return ll_1
+            if cfg.chain_mode:
+                return ll_1.copy()
+            else:
+                return copy.deepcopy(ll_1)
 
         return wrapper_r
     return Reynolds_corrector
@@ -555,9 +556,9 @@ class solver_object:
                     ps_list = self.step_block(*args)
                 else:
                     if i == 0:
-                        ps_list = [self.step_block(*args).copy()]
+                        ps_list = [self.step_block(*args)]
                     else:
-                        ps_list += [self.step_block(*args).copy()]
+                        ps_list += [self.step_block(*args)]
 
                 self.Re_corrector_counter = 0
                 self.step_counter += 1
@@ -584,7 +585,10 @@ class solver_object:
                              eta_maq, p_0A, T_0A, eta_p, r_turbina, m_dot]]
 
             self.vmmr = ps_list
-            return ps_list
+            if self.cfg.chain_mode:
+                return self.vmmr.copy()
+            else:
+                return copy.deepcopy(self.vmmr)
 
         inner_solver()
 
@@ -827,7 +831,7 @@ class solver_object:
                     return Re_23, [rho_2, rho_3], local_list_1
 
         ll_1 = inner_funct()
-        return ll_1
+        return ll_1.copy()
 
     def blade_outlet_calculator(self, blade: str, area_b: float, tau_a: float, h_tb: float, m_dot: float, s_a: float,
                                 rho_outer_seed: float, M_a: float, rho_a: float, C_a: float, C_ax: float, T_a: float,

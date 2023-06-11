@@ -12,10 +12,10 @@
 # En primer lugar, se define la acción deseada, o modo de funcionamiento, entre comillas dobles o simples.
 
 # A elegir entre: procesar_valores_nominales, resolver, visualizar_valores, recorrer_variable, visualizar_recorrido
-modo = 'recorrer_variable';
+modo = 'visualizar_recorrido';
 
 # Información adicional para el modo 'recorrer_variable' ó 'visualizar_recorrido'.
-var_to_sweep = 'p_outlet';    sweep_resolution = 15;    req_vars = None;   csv_filename_extension = 'prueba1.csv';   
+var_to_sweep = 'p_outlet';    sweep_resolution = 10;    req_vars = None;   csv_filename_extension = 'prueba1.csv';   
 ##############################################################################################################################################################################
 # En segundo lugar, se define todo aquello que comprende la configuración del programa:
 
@@ -40,5 +40,5 @@ holgura_radial = False;                                     blade_roughness_peak
 ##############################################################################################################################################################################
 # Por último, se definen exclusivamente, los valores que van a restringir el punto de funcionamiento a evaluar:
 
-T_inlet=900;      p_inlet=190_000;      rpm=17_000;      p_outlet=[80_000, 110_000];      mass_flow=None;      axial_inlet_velocity=None;      reference_inlet_velocity=30;
+T_inlet=900;      p_inlet=170_000;      rpm=17_000;      p_outlet=[100_000, 120_000];      mass_flow=None;      axial_inlet_velocity=None;      reference_inlet_velocity=120;
 ##############################################################################################################################################################################
