@@ -49,12 +49,12 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
 
             def read_ps_list():
                 if cfg.chain_mode:
-                    return ps_list[1]
+                    return ps_list.copy[1]
                 else:
                     if solver_iter:
-                        return ps_list[-1][1]
+                        return copy.deepcopy(ps_list)[-1][1]
                     else:
-                        return ps_list[-2][1]
+                        return copy.deepcopy(ps_list)[-2][1]
 
             iter_count = 0
             from_b = from_a = False
@@ -69,13 +69,17 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
 
             def C_in_algorithm():
                 nonlocal C_inx_a, C_inx_b, from_a, from_b, C_inx, pre_C_inx_a, pre_C_inx_b
-                if p_out_iter_b > p_out:
+                try:
+                    slope = (p_out_iter_b - p_out_iter_a)/(C_inx_b - C_inx_a)
+                except ZeroDivisionError:
+                    slope = -1
+                if (p_out_iter_b > p_out and slope < 0) or (p_out_iter_a < p_out and slope > 0):
                     # Here goes the level to increase velocity at point "b".
                     C_inx_a = C_inx_b
                     C_inx_b += delta
                     from_b = True  # To indicate where does the process flow come from
                     C_inx = C_inx_b
-                elif p_out_iter_a < p_out:
+                elif (p_out_iter_b > p_out and slope > 0) or (p_out_iter_a < p_out and slope < 0):
                     # Here goes the level to decrease velocity at point "a".
                     C_inx_b = C_inx_a
                     C_inx_a -= delta
@@ -365,15 +369,15 @@ def step_decorator(cfg: config_class, step_corrector_memory):
                 Re, rho_seed, _ = get_sif_output()
             else:
                 Re, rho_seed = step_corrector_memory[0], step_corrector_memory[1]
-            rel_error = Re_n = None
+            relative_deviation = None
             iter_counter = 0
-            while rel_error is None or rel_error > relative_error:
+            while relative_deviation is None or relative_deviation > relative_error:
                 iter_counter += 1
                 if iter_counter > cfg.iter_limit:
                     raise NonConvergenceError('Reynolds no se estabiliza para el límite de iteraciones establecido.')
-                Re_n = Re if Re_n is None else 0.5*(Re + Re_n)
+                Re_n = Re
                 Re, rho_seed, _ = get_sif_output(True, False, None, rho_seed, Re_n)
-                rel_error = fabs(Re_n - Re) / Re
+                relative_deviation = fabs(Re_n - Re) / Re
             _, _, ll_1 = get_sif_output(True, True, None, rho_seed, Re)
             return ll_1
 
@@ -387,10 +391,7 @@ def step_decorator(cfg: config_class, step_corrector_memory):
                 ll_1 = AM_corrector(eta_TT, Re, xi_est, rho_seed)
             else:
                 ll_1 = AU_corrector()
-            if cfg.chain_mode:
-                return ll_1.copy()
-            else:
-                return copy.deepcopy(ll_1)
+            return ll_1.copy()
 
         return wrapper_r
     return Reynolds_corrector
@@ -585,10 +586,7 @@ class solver_object:
                              eta_maq, p_0A, T_0A, eta_p, r_turbina, m_dot]]
 
             self.vmmr = ps_list
-            if self.cfg.chain_mode:
-                return self.vmmr.copy()
-            else:
-                return copy.deepcopy(self.vmmr)
+            return copy.deepcopy(self.vmmr)
 
         inner_solver()
 

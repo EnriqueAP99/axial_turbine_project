@@ -43,8 +43,16 @@ def f_sp(x_list: list, y_list: list, order: int):
     return InterpolatedUnivariateSpline(x_list, y_list, k=order)
 
 
+# def lineal_interpolation(x_target=None, x=None, series=None, y=None):
+#     if y is None:
+#         serie_x = [parameter for _, _, parameter in series]
+#         serie_y = [float(funcion(x)) for _, funcion, _ in series]
+#     else:
+#         serie_x, serie_y = x, y
+#     f_param = InterpolatedUnivariateSpline(serie_x, serie_y, k=2)
+#     return f_param(x_target)
+# #
 def lineal_interpolation(x_target=None, x=None, series=None, y=None):
-    # Interpolación lineal
     output = None
     if y is None:
         serie_x = [parameter for _, _, parameter in series]
@@ -443,8 +451,8 @@ class Aungier_Loss_Model(Ainley_and_Mathieson_Loss_Model):
         Y_TE_002s = (0.02*s_j/((s_j*sin(radians(beta_g)))-(0.02*s_j)))**2
         delta_Y_TE = Y_TE_002s
 
-        Yp = self.cfg.geom['design_factor'] * k_inc * k_m * k_p * k_Re * (((Yp1 + ((ksi**2)*(Yp2-Yp1))) *
-                                                                           ((5*t_max/b_j)**ksi))-delta_Y_TE)
+        Yp = self.cfg.geom['design_factor'] * k_inc * k_m * k_p * k_Re * \
+            (((Yp1 + ((ksi**2)*(Yp2-Yp1))) * ((5*t_max/b_j)**ksi))-delta_Y_TE)
         self.Yp_iter_mode = Yp
 
         CL = 2*(tan(tau_1) + tan(tau_2))*s_j/b_j
