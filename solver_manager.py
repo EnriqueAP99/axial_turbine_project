@@ -345,12 +345,13 @@ def main():
 
     elif mode == 'resolver':
         try:
-            solver = solver_data_reader('process_object.pkl')
-        except FileNotFoundError:
-            settings = aux_reading_operations()
-            gas_model = gas_model_to_solver(thermod_mode=data_dictionary.get('thermod_mode_in_gas_model_module', 'ig'))
-            solver = solver_object(settings, gas_model)
-        try:
+            try:
+                solver = solver_data_reader('process_object.pkl')
+            except FileNotFoundError:
+                settings = aux_reading_operations()
+                gas_model = gas_model_to_solver(thermod_mode=data_dictionary.get('thermod_mode_in_gas_model_module',
+                                                                                 'ig'))
+                solver = solver_object(settings, gas_model)
             if data_dictionary['chain_mode']:
                 output = solver.problem_solver(
                     T_in=data_dictionary['T_inlet'],

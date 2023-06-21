@@ -5,6 +5,7 @@ outlet.
 """
 
 import copy
+import sys
 
 from math import log
 from time import time
@@ -89,8 +90,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
 
             def first_iter_exception_task():
                 nonlocal C_inx_a, C_inx_b
-                C_inx_b = C_inx_a = C_inx
-                return
+                raise NonConvergenceError('Try another seed value.')
 
             def post_exception_tasks():
                 record.warning('An exception was caught.')
