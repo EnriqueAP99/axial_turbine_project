@@ -417,22 +417,24 @@ def main():
             raise InputDataError('Non-valid text file, please, stick to the template.')
 
         df_c = pd.read_csv(c_filename, index_col='r_turbina (-)')
+        df_c.set_index(1/df_c.index)
+
         eta_s = df_c['eta_maq (-)']
         Potencia = df_c['P_total (kW)']
         Potencia_ss = df_c['w_ss_total (kJ/kg)'] * df_c['m_dot (kg/s)']
 
         plt.plot(eta_s)
+        plt.title('Rendimiento isentrópico - Relación de presiones')
+        plt.xlabel(r'$P_{0B}/P_{0A}$ (-)')
+        plt.ylabel(r'$\eta_{s_{TT}}$ (-)')
         plt.minorticks_on()
         plt.grid(which='both')
-        plt.title('Rendimiento isentrópico - Relación de presiones (P_{0A}/P_{0B})')
-        plt.xlabel(r'$P_{0A}/P_{0B}$ (-)')
-        plt.ylabel(r'$\eta_{s}$ (-)')
         plt.show()
 
         plt.plot(Potencia)
         plt.plot(Potencia_ss)
-        plt.title('Potencia - Relación de presiones (P_{0A}/P_{0B})')
-        plt.xlabel(r'$P_{0A}/P_{0B}$ (-)')
+        plt.title('Potencia - Relación de presiones')
+        plt.xlabel(r'$P_{0B}/P_{0A}$ (-)')
         plt.ylabel(r'$P$ (kW)')
         plt.minorticks_on()
         plt.grid(which='both')
@@ -441,40 +443,40 @@ def main():
         df_a = pd.read_csv(a_filename, index_col='Aux_Index')
         df_a_pt_B = df_a[df_a['Spec_Index'] == f'Step_{settings.n_steps}_pt_3']
         df_a_pt_A = df_a[df_a['Spec_Index'] == 'Step_1_pt_1']
-        r_turbine = df_a_pt_A['p0 (Pa)']/df_a_pt_B['p0 (Pa)']
+        r_turbine = df_a_pt_B['p0 (Pa)']/df_a_pt_A['p0 (Pa)']
 
-        m_dot_r = pd.DataFrame(df_c['m_dot (kg/s)'], columns=['m_dot'], index=r_turbine.values.tolist())
+        m_dot_r = pd.DataFrame(df_c['m_dot (kg/s)'].tolist(), columns=['m_dot'], index=r_turbine.values.tolist())
         plt.plot(m_dot_r['m_dot'])
-        plt.title('Flujo másico - Relación de presiones (P_{0A}/P_{0B})')
+        plt.title('Flujo másico - Relación de presiones')
         plt.ylabel(r'$\dot{m}$ (kg/s)')
-        plt.xlabel(r'$P_{0A}/P_{0B}$ (-)')
+        plt.xlabel(r'$P_{0B}/P_{0A}$ (-)')
         plt.minorticks_on()
         plt.grid(which='both')
         plt.show()
 
-        C_inx_r = pd.DataFrame(df_a_pt_A['C (m/s)'], columns=['C'], index=r_turbine.values.tolist())
+        C_inx_r = pd.DataFrame(df_a_pt_A['C (m/s)'].tolist(), columns=['C'], index=r_turbine.values.tolist())
         plt.plot(C_inx_r['C'])
-        plt.title('Velocidad a la entrada - Relación de presiones (P_{0A}/P_{0B})')
-        plt.ylabel(r'$\dot{C}_{in}$ (m/s)')
-        plt.xlabel(r'$P_{0A}/P_{0B}$ (-)')
+        plt.title('Velocidad a la entrada - Relación de presiones')
+        plt.ylabel(r'$C_{in}$ (m/s)')
+        plt.xlabel(r'$P_{0B}/P_{0A}$ (-)')
         plt.minorticks_on()
         plt.grid(which='both')
         plt.show()
 
-        h0_r = pd.DataFrame(df_a_pt_A['h0 (kJ/kg)'], columns=['h0'], index=r_turbine.values.tolist())
+        h0_r = pd.DataFrame(df_a_pt_A['h0 (kJ/kg)'].tolist(), columns=['h0'], index=r_turbine.values.tolist())
         plt.plot(h0_r['h0'])
-        plt.title('Entalpía de remanso a la entrada - Relación de presiones (P_{0A}/P_{0B})')
+        plt.title('Entalpía de remanso a la entrada - Relación de presiones')
         plt.ylabel(r'$h_{0in}$ (kJ/kg)')
-        plt.xlabel(r'$P_{0A}/P_{0B}$ (-)')
+        plt.xlabel(r'$P_{0B}/P_{0A}$ (-)')
         plt.minorticks_on()
         plt.grid(which='both')
         plt.show()
 
-        T0_r = pd.DataFrame(df_a_pt_A['T0 (K)'], columns=['T0'], index=r_turbine.values.tolist())
+        T0_r = pd.DataFrame(df_a_pt_A['T0 (K)'].tolist(), columns=['T0'], index=r_turbine.values.tolist())
         plt.plot(T0_r['T0'])
-        plt.title('Temperatura de remanso a la entrada - Relación de presiones (P_{0A}/P_{0B})')
-        plt.ylabel(r'$T_{0in}$ (kJ/kg)')
-        plt.xlabel(r'$P_{0A}/P_{0B}$ (-)')
+        plt.title('Temperatura de remanso a la entrada - Relación de presiones')
+        plt.ylabel(r'$T_{0in}$ (K)')
+        plt.xlabel(r'$P_{0B}/P_{0A}$ (-)')
         plt.minorticks_on()
         plt.grid(which='both')
         plt.show()
