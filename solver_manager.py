@@ -409,97 +409,92 @@ def main():
         solver_data_saver('process_object.pkl', solver)
 
     elif mode == 'visualizar_recorrido':
+        settings = aux_reading_operations()
         try:
             a_filename, b_filename, c_filename = [root + data_dictionary['csv_filename_extension'] for root in
                                                   ['df_a_', 'df_b_', 'df_c_']]
         except NameError:
             raise InputDataError('Non-valid text file, please, stick to the template.')
-        df_c = pd.read_csv(c_filename, index_col='m_dot (kg/s)')
+
+        df_c = pd.read_csv(c_filename, index_col='r_turbina (-)')
         eta_s = df_c['eta_maq (-)']
         Potencia = df_c['P_total (kW)']
-        Potencia_ss = df_c['w_ss_total (kJ/kg)'] * df_c.index
+        Potencia_ss = df_c['w_ss_total (kJ/kg)'] * df_c['m_dot (kg/s)']
 
         plt.plot(eta_s)
         plt.minorticks_on()
         plt.grid(which='both')
-        plt.title('Rendimiento isentrópico - Flujo másico')
-        plt.xlabel(r'$\dot{m}$ (kg/s)')
+        plt.title('Rendimiento isentrópico - Relación de presiones (P_{0A}/P_{0B})')
+        plt.xlabel(r'$P_{0A}/P_{0B}$ (-)')
         plt.ylabel(r'$\eta_{s}$ (-)')
         plt.show()
 
         plt.plot(Potencia)
         plt.plot(Potencia_ss)
-        plt.title('Potencia - Flujo másico')
-        plt.xlabel(r'$\dot{m}$ (kg/s)')
+        plt.title('Potencia - Relación de presiones (P_{0A}/P_{0B})')
+        plt.xlabel(r'$P_{0A}/P_{0B}$ (-)')
         plt.ylabel(r'$P$ (kW)')
         plt.minorticks_on()
         plt.grid(which='both')
         plt.show()
 
         df_a = pd.read_csv(a_filename, index_col='Aux_Index')
-        df_a_pt_3 = df_a[df_a['Spec_Index'] == 'Step_1_pt_3']
-        df_a_pt_2 = df_a[df_a['Spec_Index'] == 'Step_1_pt_2']
-        df_a_pt_1 = df_a[df_a['Spec_Index'] == 'Step_1_pt_1']
-        p_out_m_dot = pd.DataFrame(
-            (df_a_pt_3['p (Pa)']/1000).values.tolist(), columns=['p'], index=df_c.index)
-        p_out_C_inx = pd.DataFrame(
-            (df_a_pt_3['p (Pa)']/1000).values.tolist(), columns=['p'], index=df_a_pt_1['C (m/s)'])
-        p_out_h0 = pd.DataFrame(
-            (df_a_pt_3['p (Pa)']/1000).values.tolist(), columns=['p'], index=df_a_pt_1['h0 (kJ/kg)'])
-        p_out_T0 = pd.DataFrame(
-            (df_a_pt_3['p (Pa)']/1000).values.tolist(), columns=['p'], index=df_a_pt_1['T0 (K)'])
-        p_out = p_out_m_dot['p']
-        plt.plot(p_out)
-        plt.title('Presión a la salida - Flujo másico')
-        plt.xlabel(r'$\dot{m}$ (kg/s)')
-        plt.ylabel(r'$p_{out}$ (kPa)')
+        df_a_pt_B = df_a[df_a['Spec_Index'] == f'Step_{settings.n_steps}_pt_3']
+        df_a_pt_A = df_a[df_a['Spec_Index'] == 'Step_1_pt_1']
+        r_turbine = df_a_pt_A['p0 (Pa)']/df_a_pt_B['p0 (Pa)']
+
+        m_dot_r = pd.DataFrame(df_c['m_dot (kg/s)'], columns=['m_dot'], index=r_turbine.values.tolist())
+        plt.plot(m_dot_r['m_dot'])
+        plt.title('Flujo másico - Relación de presiones (P_{0A}/P_{0B})')
+        plt.ylabel(r'$\dot{m}$ (kg/s)')
+        plt.xlabel(r'$P_{0A}/P_{0B}$ (-)')
         plt.minorticks_on()
         plt.grid(which='both')
         plt.show()
 
-        p_out = p_out_C_inx['p']
-        plt.plot(p_out)
-        plt.title('Presión a la salida - Velocidad a la entrada')
-        plt.xlabel(r'$\dot{C}_{in}$ (m/s)')
-        plt.ylabel(r'$p_{out}$ (kPa)')
+        C_inx_r = pd.DataFrame(df_a_pt_A['C (m/s)'], columns=['C'], index=r_turbine.values.tolist())
+        plt.plot(C_inx_r['C'])
+        plt.title('Velocidad a la entrada - Relación de presiones (P_{0A}/P_{0B})')
+        plt.ylabel(r'$\dot{C}_{in}$ (m/s)')
+        plt.xlabel(r'$P_{0A}/P_{0B}$ (-)')
         plt.minorticks_on()
         plt.grid(which='both')
         plt.show()
 
-        p_out = p_out_h0['p']
-        plt.plot(p_out)
-        plt.title('Presión a la salida - Entalpía de remanso a la entrada')
-        plt.xlabel(r'$h_{0in}$ (kJ/kg)')
-        plt.ylabel(r'$p_{out}$ (kPa)')
+        h0_r = pd.DataFrame(df_a_pt_A['h0 (kJ/kg)'], columns=['h0'], index=r_turbine.values.tolist())
+        plt.plot(h0_r['h0'])
+        plt.title('Entalpía de remanso a la entrada - Relación de presiones (P_{0A}/P_{0B})')
+        plt.ylabel(r'$h_{0in}$ (kJ/kg)')
+        plt.xlabel(r'$P_{0A}/P_{0B}$ (-)')
         plt.minorticks_on()
         plt.grid(which='both')
         plt.show()
 
-        p_out = p_out_T0['p']
-        plt.plot(p_out)
-        plt.title('Presión a la salida - Temperatura de remanso a la entrada')
-        plt.xlabel(r'$T_{0in}$ (K)')
-        plt.ylabel(r'$p_{out}$ (kPa)')
+        T0_r = pd.DataFrame(df_a_pt_A['T0 (K)'], columns=['T0'], index=r_turbine.values.tolist())
+        plt.plot(T0_r['T0'])
+        plt.title('Temperatura de remanso a la entrada - Relación de presiones (P_{0A}/P_{0B})')
+        plt.ylabel(r'$T_{0in}$ (kJ/kg)')
+        plt.xlabel(r'$P_{0A}/P_{0B}$ (-)')
         plt.minorticks_on()
         plt.grid(which='both')
         plt.show()
 
-        df_b = pd.read_csv(b_filename)
-        eta_TT_m_dot = pd.DataFrame((df_b['eta_TT (-)']).values.tolist(), columns=['eta_TT'], index=df_c.index)
-        eta_TE_m_dot = pd.DataFrame((df_b['eta_TE (-)']).values.tolist(), columns=['eta_TE'], index=df_c.index)
-        xi_est_m_dot = pd.DataFrame((df_b['Y_est (kJ/kg)']/(0.0005*(df_a_pt_2['C (m/s)'] *
-                                                                    df_a_pt_2['C (m/s)']))).values.tolist(),
-                                    columns=['xi_est'], index=df_c.index)
-        xi_rot_m_dot = pd.DataFrame((df_b['Y_rot (kJ/kg)']/(0.0005*(df_a_pt_3['omega (m/s)'] *
-                                                                    df_a_pt_3['omega (m/s)']))).values.tolist(),
-                                    columns=['xi_rot'], index=df_c.index)
-        plt.plot(eta_TT_m_dot['eta_TT'], label='Rendimiento total a total')
-        plt.plot(eta_TE_m_dot['eta_TE'], label='Rendimiento total a estático')
-        plt.plot(xi_est_m_dot['xi_est'], label='Coeficiente adimensional de pérdidas en estátor')
-        plt.plot(xi_rot_m_dot['xi_rot'], label='Coeficiente adimensional de pérdidas en rótor')
-        plt.minorticks_on()
-        plt.grid(which='both')
-        plt.show()
+        # df_b = pd.read_csv(b_filename)
+        # eta_TT_m_dot = pd.DataFrame((df_b['eta_TT (-)']).values.tolist(), columns=['eta_TT'], index=df_c.index)
+        # eta_TE_m_dot = pd.DataFrame((df_b['eta_TE (-)']).values.tolist(), columns=['eta_TE'], index=df_c.index)
+        # xi_est_m_dot = pd.DataFrame((df_b['Y_est (kJ/kg)']/(0.0005*(df_a_pt_2['C (m/s)'] *
+        #                                                             df_a_pt_2['C (m/s)']))).values.tolist(),
+        #                             columns=['xi_est'], index=df_c.index)
+        # xi_rot_m_dot = pd.DataFrame((df_b['Y_rot (kJ/kg)']/(0.0005*(df_a_pt_B['omega (m/s)'] *
+        #                                                             df_a_pt_B['omega (m/s)']))).values.tolist(),
+        #                             columns=['xi_rot'], index=df_c.index)
+        # plt.plot(eta_TT_m_dot['eta_TT'], label='Rendimiento total a total')
+        # plt.plot(eta_TE_m_dot['eta_TE'], label='Rendimiento total a estático')
+        # plt.plot(xi_est_m_dot['xi_est'], label='Coeficiente adimensional de pérdidas en estátor')
+        # plt.plot(xi_rot_m_dot['xi_rot'], label='Coeficiente adimensional de pérdidas en rótor')
+        # plt.minorticks_on()
+        # plt.grid(which='both')
+        # plt.show()
 
 
 if __name__ == '__main__':
