@@ -5,7 +5,6 @@ outlet.
 """
 
 import copy
-import sys
 
 from math import log
 from time import time
@@ -335,9 +334,10 @@ def step_decorator(cfg: config_class, step_corrector_memory):
             pre_rel_error_eta_TT = 2.0
             rel_error_eta_TT = 1.0
             xi_ec = None
-            jam_counter = 0
+            jam_counter = iter_counter = 0
 
             while fabs(rel_error_eta_TT) > cfg.relative_error:
+                iter_counter += 1
                 xi_ec = xi_e2 - (f2 * (xi_e2 - xi_e1) / (f2 - f1))
                 if fabs(pre_rel_error_eta_TT-rel_error_eta_TT) > relative_error*fabs(rel_error_eta_TT):
                     if xi_ec < (0.8*xi_e1) + (0.2*xi_e2):
@@ -347,8 +347,9 @@ def step_decorator(cfg: config_class, step_corrector_memory):
                 else:
                     jam_counter += 1
                     if jam_counter > 15:
-                        record.error("Couldn't reach convergence.")
-                        raise NonConvergenceError
+                        raise NonConvergenceError("Couldn't reach convergence.")
+                if iter_counter > 50:
+                    raise NonConvergenceError("Couldn't reach convergence.")
                 sifc = get_sif_output(True, False, xi_ec, rho_seed_c)
                 fc, rho_seed_c = sifc[1]-target_efficiency, sifc[3]
                 if fc * f2 <= 0:
@@ -373,7 +374,7 @@ def step_decorator(cfg: config_class, step_corrector_memory):
             iter_counter = 0
             while relative_deviation is None or relative_deviation > relative_error:
                 iter_counter += 1
-                if iter_counter > cfg.iter_limit:
+                if iter_counter > 50:
                     raise NonConvergenceError('Reynolds no se estabiliza para el límite de iteraciones establecido.')
                 Re_n = Re
                 Re, rho_seed, _ = get_sif_output(True, False, None, rho_seed, Re_n)
