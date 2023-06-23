@@ -15,15 +15,15 @@
 modo = 'recorrer_variable';
 
 # Información adicional para el modo 'recorrer_variable' ó 'visualizar_recorrido'.
-var_to_sweep = 'p_inlet';    sweep_resolution = 300;    req_vars = None;   csv_filename_extension = 'sweeping_p_inlet_v2.csv';   
+var_to_sweep = 'p_inlet';    sweep_resolution = 200;    req_vars = None;   csv_filename_extension = 'sweeping_p_inlet_v2.csv';   
 ##############################################################################################################################################################################
 # En segundo lugar, se define todo aquello que comprende la configuración del programa:
 
-preloading_for_small_input_deviations = False;  # Se realizan tantas evaluaciones iniciales como se establezcan para hacer cálculos directos.
-resolution_for_small_input_deviations = 500;
-thermod_mode_in_gas_model_module = 'ig';
-relative_error=1E-8;      ideal_gas=True;       chain_mode=False;       loss_model='Aungier';     n_steps=1;   jump=4.0;   iter_limit=600;
-max_trend_changes=30;      T_nominal=750;      p_nominal=150_000;      n_rpm_nominal=20_000;      inlet_velocity_range=[0.01, 140.69];
+preloading_for_small_input_deviations = False;  # Se realizan tantas evaluaciones iniciales como se establezcan para hacer cálculos directos. (KEEP FALSE FOR NORMAL USAGE)
+resolution_for_small_input_deviations = 500;    thermod_mode_in_gas_model_module = 'ig';
+iter_limit_at_inner_loops=600;                 iter_limit_at_outer_loops=20;
+relative_error=1E-8;         ideal_gas=True;       chain_mode=False;       loss_model='Aungier';      n_steps=1;           jump=4.0;   
+max_trend_changes=30;        T_nominal=750;        p_nominal=150_000;      n_rpm_nominal=20_000;      inlet_velocity_range=[0.01, 140.69];
 design_factor = 0.67;  # Esto último aplica para el modelo de Aungier.
 ##############################################################################################################################################################################
 # A continuación, se define la geometría con todos los parámetros necesarios, según el modelo de pérdidas empleado.

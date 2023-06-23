@@ -291,7 +291,8 @@ def main():
                 jump=data_dictionary['jump'],
                 chain_mode=data_dictionary['chain_mode'],
                 loss_model=data_dictionary['loss_model'],
-                iter_limit=data_dictionary['iter_limit'],
+                iter_limit_IL=data_dictionary['iter_limit_at_inner_loops'],
+                iter_limit_OL=data_dictionary['iter_limit_at_outer_loops'],
                 max_trend_changes=data_dictionary['max_trend_changes'],
                 T_nominal=data_dictionary['T_nominal'],
                 preloading_for_small_input_deviations=data_dictionary[

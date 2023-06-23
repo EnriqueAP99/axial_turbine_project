@@ -77,7 +77,8 @@ class config_class:
     loss_model: str  # Cadena identificador del modelo de pérdidas establecido
     ideal_gas: bool  # True cuando se establece hipótesis de gas ideal
     geom: dict = None  # Diccionario para almacenar parámetros geométricos de la turbina
-    iter_limit: int = 600  # Límite de iteraciones que se establece
+    iter_limit_IL: int = 800  # Límite de iteraciones que se establece en los loops internos
+    iter_limit_OL: int = 20  # Límite de iteraciones que se establece en los loops externos
     jump: float = 0.5  # Salto de velocidad efectuado durante la búsqueda cuando se conoce la presión a la salida
     max_trend_changes: int = 5  # Número máximo de fluctuaciones a partir de las que no se considera que no converge
     # Al comenzar la ejecución se genera una función a partir de interpolación por splines que va a permitir fijar

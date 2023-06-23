@@ -231,9 +231,9 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                 record.info('Error de presión a la salida: %.10f  ...  Valor actual: %.2f Pa ...  '
                             'Valor objetivo: %.2f Pa', rel_error, p_out_iter, p_out)
 
-                if iter_count > cfg.iter_limit:
+                if iter_count > cfg.iter_limit_OL:
                     record.critical('Recursive calculation does not reach convergence.')
-                    raise InnerLoopConvergenceError
+                    raise OuterLoopConvergenceError
 
             if not cfg.chain_mode:
                 solver_iter = False
@@ -346,10 +346,10 @@ def step_decorator(cfg: config_class, step_corrector_memory):
                         xi_ec = (0.8*xi_e2) + (0.2*xi_e1)
                 else:
                     jam_counter += 1
-                    if jam_counter > 15:
-                        raise OuterLoopConvergenceError("Couldn't reach convergence.")
-                if iter_counter > 50:
-                    raise OuterLoopConvergenceError("Couldn't reach convergence.")
+                    if jam_counter > cfg.iter_limit_OL:
+                        raise OuterLoopConvergenceError()
+                if iter_counter > cfg.iter_limit_OL:
+                    raise OuterLoopConvergenceError()
                 sifc = get_sif_output(True, False, xi_ec, rho_seed_c)
                 fc, rho_seed_c = sifc[1]-target_efficiency, sifc[3]
                 if fc * f2 <= 0:
@@ -374,7 +374,7 @@ def step_decorator(cfg: config_class, step_corrector_memory):
             iter_counter = 0
             while relative_deviation is None or relative_deviation > relative_error:
                 iter_counter += 1
-                if iter_counter > 50:
+                if iter_counter > cfg.iter_limit_OL:
                     raise OuterLoopConvergenceError('Reynolds no se estabiliza para el límite de iteraciones '
                                                     'establecido.')
                 Re_n = Re
@@ -665,7 +665,7 @@ class solver_object:
                 pass
             else:
                 self.Re_corrector_counter += 1
-                if self.Re_corrector_counter > self.cfg.iter_limit:
+                if self.Re_corrector_counter > self.cfg.iter_limit_IL:
                     record.error('Iter limit has been reached.')
                     raise InnerLoopConvergenceError
             record.info('Modo de repetición: %s  ...  Llamadas: %s', iter_mode, self.Re_corrector_counter)
@@ -907,7 +907,7 @@ class solver_object:
                 record.error('It was not possible to reach convengence. Density is too low.')
                 raise InnerLoopConvergenceError
 
-            if iter_count > self.cfg.iter_limit:
+            if iter_count > self.cfg.iter_limit_IL:
                 record.error('Iteración aboratada, no se cumple el criterio de convergencia.')
                 raise InnerLoopConvergenceError
 
@@ -1061,7 +1061,7 @@ class solver_object:
 def main():
     chain_mode = False
     settings = config_class(relative_error=1E-9, n_steps=1, jump=2, loss_model='Aungier',
-                            ideal_gas=True, chain_mode=chain_mode, iter_limit=1200)
+                            ideal_gas=True, chain_mode=chain_mode, iter_limit_IL=1200)
 
     # Geometría procedente de: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf
     Rm = 0.1429
