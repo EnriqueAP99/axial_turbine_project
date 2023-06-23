@@ -35,6 +35,11 @@ t_units = '(kJ/kg), (kJ/kg), (kW), (kJ/kgK), (kJ/kgK), (Pa), (K), (K), (kJ/kg), 
 tpl_s_keys, tpl_t_keys = tuple(s_keys.split(', ')), tuple(t_keys.split(', '))
 tpl_s_units, tpl_t_units = tuple(s_units.split(',')), tuple(t_units.split(','))
 
+global_list_a = ['M', 'C', 'Cx', 'Cu', 'omega', 'omegax', 'omegau', 'alfa', 'beta', 'h', 'h0', 'T', 'T0',
+                 'p', 'p0', 'rho', ]
+global_list_b = ['GR', 'w_esc', 'w_s_esc', 'w_ss_esc', 'eta_TT', 'eta_TE', 'Y_est', 'Y_rot', 'U']
+global_list_c = ['w_total', 'w_ss_total', 'eta_maq', 'P_total', 'r_turbina', 'm_dot', ]
+
 
 # https://www.freecodecamp.org/news/with-open-in-python-with-statement-syntax-example/ (funcionamiento de with open as)
 def solver_data_saver(file: str, process_object: solver_object) -> None:
@@ -83,10 +88,9 @@ def data_to_df(process_object: solver_object, req_vars=None) -> [pd.DataFrame | 
     total_vars, dict_df = process_object.vmmr, dict()
     df_a = df_b = df_c = None
 
-    lista_a = ['M', 'C', 'Cx', 'Cu', 'omega', 'omegax', 'omegau', 'alfa', 'beta', 'h', 'h0', 'T', 'T0',
-               'p', 'p0', 'rho', ]
-    lista_b = ['GR', 'w_esc', 'w_s_esc', 'w_ss_esc', 'eta_TT', 'eta_TE', 'Y_est', 'Y_rot', 'U']
-    lista_c = ['w_total', 'w_ss_total', 'eta_maq', 'P_total', 'r_turbina', 'm_dot', ]
+    lista_a = global_list_a
+    lista_b = global_list_b
+    lista_c = global_list_c
 
     if req_vars is None:
         pass
@@ -175,6 +179,7 @@ def problem_data_viewer(solver: solver_object, req_vars=None) -> None:
 def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_sweep: str, C_inx=None,
                  m_dot=None, p_out=None, C_inx_ref=None, sweep_resolution=None, req_vars: list = None):
     """ El rango debe ser creciente. """
+    t_1 = time()
     k = 0
     sweeping_data = {}
     lista_df_a, lista_df_b, lista_df_c = [], [], []
@@ -230,11 +235,14 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
                 solver.problem_solver(T_in=T_in, p_in=p_in, n_rpm=n_rpm,
                                       m_dot=m_dot, C_inx=C_inx, p_out=p_out)
         except GasLibraryAdaptedException:
-            pass
+            record.error('An error has been handled during variable sweeping operation. Evaluated point '
+                         'has been omited.')
         except InnerLoopConvergenceError:
-            pass
+            record.error('An error has been handled during variable sweeping operation. Evaluated point '
+                         'has been omited.')
         except OuterLoopConvergenceError:
-            pass
+            record.error('An error has been handled during variable sweeping operation. Evaluated point '
+                         'has been omited.')
         else:
             df_a, df_b, df_c = data_to_df(solver, req_vars)
             lista_df_a.append(copy.deepcopy(df_a))
@@ -249,6 +257,12 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
         [*lista_df_b], keys=[f'{v}' for v in range(sweep_resolution)], names=['Aux_Index', 'Spec_Index'])
     df_c_packg = pd.concat(
         [*lista_df_c], keys=[f'{v}' for v in range(sweep_resolution)], names=['Aux_Index', 'Spec_Index'])
+
+    t_2 = (time() - t_1).__round__(0)
+    m, s = divmod(t_2, 60)
+    h, m = divmod(m, 60)
+    record.info('El tiempo de cálculo haciendo durante todo el barrido ha sido: %s horas, %s minutos y %s segundos.',
+                int(h), int(m), int(s))
 
     return df_a_packg, df_b_packg, df_c_packg
 
@@ -295,9 +309,7 @@ def main():
                 iter_limit_OL=data_dictionary['iter_limit_at_outer_loops'],
                 max_trend_changes=data_dictionary['max_trend_changes'],
                 T_nominal=data_dictionary['T_nominal'],
-                preloading_for_small_input_deviations=data_dictionary[
-                    'preloading_for_small_input_deviations'
-                ],
+                preloading_for_small_input_deviations=data_dictionary['preloading_for_small_input_deviations'],
                 p_nominal=data_dictionary['p_nominal'],
                 resolution_for_small_input_deviations=data_dictionary['resolution_for_small_input_deviations'],
                 inlet_velocity_range=data_dictionary['inlet_velocity_range'],
@@ -412,77 +424,142 @@ def main():
         solver_data_saver('process_object.pkl', solver)
 
     elif mode == 'visualizar_recorrido':
+        independent_var_id = None
         settings = aux_reading_operations()
         try:
+            WtE = data_dictionary['where_to_evaluate']
+            independent_var = data_dictionary['independent_variable']
+            dependent_vars = data_dictionary['dependent_variables']
             a_filename, b_filename, c_filename = [root + data_dictionary['csv_filename_extension'] for root in
                                                   ['df_a_', 'df_b_', 'df_c_']]
         except NameError:
             raise InputDataError('Non-valid text file, please, stick to the template.')
 
-        df_c = pd.read_csv(c_filename, index_col='r_turbina (-)')
-        df_c.set_index(1/df_c.index)
+        lista_a = global_list_a
+        lista_b = global_list_b
 
-        eta_s = df_c['eta_maq (-)']
-        Potencia = df_c['P_total (kW)']
-        Potencia_ss = df_c['w_ss_total (kJ/kg)'] * df_c['m_dot (kg/s)']
-
-        plt.plot(eta_s)
-        plt.title('Rendimiento isentrópico - Relación de presiones')
-        plt.xlabel(r'$P_{0B}/P_{0A}$ (-)')
-        plt.ylabel(r'$\eta_{s_{TT}}$ (-)')
-        plt.minorticks_on()
-        plt.grid(which='both')
-        plt.show()
-
-        plt.plot(Potencia)
-        plt.plot(Potencia_ss)
-        plt.title('Potencia - Relación de presiones')
-        plt.xlabel(r'$P_{0B}/P_{0A}$ (-)')
-        plt.ylabel(r'$P$ (kW)')
-        plt.minorticks_on()
-        plt.grid(which='both')
-        plt.show()
+        custom_df = pd.DataFrame()
+        custom_df.columns = data_dictionary[independent_var]
 
         df_a = pd.read_csv(a_filename, index_col='Aux_Index')
-        df_a_pt_B = df_a[df_a['Spec_Index'] == f'Step_{settings.n_steps}_pt_3']
-        df_a_pt_A = df_a[df_a['Spec_Index'] == 'Step_1_pt_1']
-        r_turbine = df_a_pt_B['p0 (Pa)']/df_a_pt_A['p0 (Pa)']
+        df_b = pd.read_csv(b_filename, index_col='Aux_Index')
+        df_c = pd.read_csv(c_filename, index_col='Aux_Index')
 
-        m_dot_r = pd.DataFrame(df_c['m_dot (kg/s)'].tolist(), columns=['m_dot'], index=r_turbine.values.tolist())
-        plt.plot(m_dot_r['m_dot'])
-        plt.title('Flujo másico - Relación de presiones')
-        plt.ylabel(r'$\dot{m}$ (kg/s)')
-        plt.xlabel(r'$P_{0B}/P_{0A}$ (-)')
-        plt.minorticks_on()
-        plt.grid(which='both')
-        plt.show()
+        variable_list = dependent_vars.append(independent_var)
+        for item in variable_list:
+            if WtE is not None and (item in lista_a or item in lista_b):
+                if (item not in WtE or 'step' not in item) or ('point' not in item and item in lista_b):
+                    raise InputDataError('It is needed complementary information for any variable at the text file to '
+                                         'process saved data to be plotted. Please, check items that need to be added '
+                                         'at "where_to_evaluate" dictionary.')
+            else:
+                if 'P_total_ss' == item:
+                    custom_df[item] = df_c['w_ss_total (kJ/kg)'] * df_c['m_dot (kg/s)']
+                else:
+                    custom_df[item] = df_c[item + tpl_t_units[tpl_t_keys.index(item)]]
+                if item == independent_var:
+                    custom_df.set_index(independent_var)
+                    independent_var_id = item + tpl_t_units[tpl_t_keys.index(item)]
 
-        C_inx_r = pd.DataFrame(df_a_pt_A['C (m/s)'].tolist(), columns=['C'], index=r_turbine.values.tolist())
-        plt.plot(C_inx_r['C'])
-        plt.title('Velocidad a la entrada - Relación de presiones')
-        plt.ylabel(r'$C_{in}$ (m/s)')
-        plt.xlabel(r'$P_{0B}/P_{0A}$ (-)')
-        plt.minorticks_on()
-        plt.grid(which='both')
-        plt.show()
+        if WtE is not None:
+            for key, _ in WtE:
+                if key in lista_a:
+                    step_point = WtE[key]['point']
+                    step_id = WtE[key]['step']
+                    var_id = f'{key}_{step_point}'
+                    old_var_id = var_id + tpl_s_units[tpl_s_keys.index(var_id)]
+                    custom_df[var_id] = df_a[df_a['Spec_Index'] == f'Step_{step_id}_pt_{step_point}'][old_var_id]
+                    if key == independent_var:
+                        custom_df.set_index(var_id)
+                        independent_var_id = old_var_id
+                elif key in lista_b:
+                    step_id = int(WtE[key]['step'])
+                    old_var_id = key + tpl_s_units[tpl_s_keys.index(key)]
+                    custom_df[f'{key}_{step_id}'] = df_b[df_b['Spec_Index'] == step_id][old_var_id]
+                    if key == independent_var:
+                        custom_df.set_index(f'{key}_{step_id}')
+                        independent_var_id = old_var_id
 
-        h0_r = pd.DataFrame(df_a_pt_A['h0 (kJ/kg)'].tolist(), columns=['h0'], index=r_turbine.values.tolist())
-        plt.plot(h0_r['h0'])
-        plt.title('Entalpía de remanso a la entrada - Relación de presiones')
-        plt.ylabel(r'$h_{0in}$ (kJ/kg)')
-        plt.xlabel(r'$P_{0B}/P_{0A}$ (-)')
-        plt.minorticks_on()
-        plt.grid(which='both')
-        plt.show()
+        for key in dependent_vars:
+            if key in lista_a:
+                step_point = WtE[key]['point']
+                var_id = f'{key}_{step_point}'
+                dependent_var_id = var_id + tpl_s_units[tpl_s_keys.index(var_id)]
+                plt.plot(custom_df[var_id])
+            elif key in lista_b:
+                step_id = int(WtE[key]['step'])
+                dependent_var_id = key + tpl_s_units[tpl_s_keys.index(key)]
+                plt.plot(custom_df[f'{key}_{step_id}'])
+            else:
+                dependent_var_id = key + tpl_t_units[tpl_t_keys.index(key)]
+                plt.plot(custom_df[key])
+            plt.title(f'{key} - {independent_var}')
+            plt.xlabel(f'{independent_var_id}')
+            plt.ylabel(f'{dependent_var_id}')
+            plt.minorticks_on()
+            plt.grid(which='both')
+            plt.show()
 
-        T0_r = pd.DataFrame(df_a_pt_A['T0 (K)'].tolist(), columns=['T0'], index=r_turbine.values.tolist())
-        plt.plot(T0_r['T0'])
-        plt.title('Temperatura de remanso a la entrada - Relación de presiones')
-        plt.ylabel(r'$T_{0in}$ (K)')
-        plt.xlabel(r'$P_{0B}/P_{0A}$ (-)')
-        plt.minorticks_on()
-        plt.grid(which='both')
-        plt.show()
+        # eta_s = df_c['eta_maq (-)']
+        # Potencia = df_c['P_total (kW)']
+        # Potencia_ss = df_c['w_ss_total (kJ/kg)'] * df_c['m_dot (kg/s)']
+        #
+        # plt.plot(eta_s)
+        # plt.title('Rendimiento isentrópico - Relación de presiones')
+        # plt.xlabel(r'$P_{0B}/P_{0A}$ (-)')
+        # plt.ylabel(r'$\eta_{s_{TT}}$ (-)')
+        # plt.minorticks_on()
+        # plt.grid(which='both')
+        # plt.show()
+        #
+        # plt.plot(Potencia)
+        # plt.plot(Potencia_ss)
+        # plt.title('Potencia - Relación de presiones')
+        # plt.xlabel(r'$P_{0B}/P_{0A}$ (-)')
+        # plt.ylabel(r'$P$ (kW)')
+        # plt.minorticks_on()
+        # plt.grid(which='both')
+        # plt.show()
+        #
+        # df_a_pt_B = df_a[df_a['Spec_Index'] == f'Step_{settings.n_steps}_pt_3']
+        # df_a_pt_A = df_a[df_a['Spec_Index'] == 'Step_1_pt_1']
+        # r_turbine = df_a_pt_B['p0 (Pa)']/df_a_pt_A['p0 (Pa)']
+        #
+        # m_dot_r = pd.DataFrame(df_c['m_dot (kg/s)'].tolist(), columns=['m_dot'], index=r_turbine.values.tolist())
+        # plt.plot(m_dot_r['m_dot'])
+        # plt.title('Flujo másico - Relación de presiones')
+        # plt.ylabel(r'$\dot{m}$ (kg/s)')
+        # plt.xlabel(r'$P_{0B}/P_{0A}$ (-)')
+        # plt.minorticks_on()
+        # plt.grid(which='both')
+        # plt.show()
+        #
+        # C_inx_r = pd.DataFrame(df_a_pt_A['C (m/s)'].tolist(), columns=['C'], index=r_turbine.values.tolist())
+        # plt.plot(C_inx_r['C'])
+        # plt.title('Velocidad a la entrada - Relación de presiones')
+        # plt.ylabel(r'$C_{in}$ (m/s)')
+        # plt.xlabel(r'$P_{0B}/P_{0A}$ (-)')
+        # plt.minorticks_on()
+        # plt.grid(which='both')
+        # plt.show()
+        #
+        # h0_r = pd.DataFrame(df_a_pt_A['h0 (kJ/kg)'].tolist(), columns=['h0'], index=r_turbine.values.tolist())
+        # plt.plot(h0_r['h0'])
+        # plt.title('Entalpía de remanso a la entrada - Relación de presiones')
+        # plt.ylabel(r'$h_{0in}$ (kJ/kg)')
+        # plt.xlabel(r'$P_{0B}/P_{0A}$ (-)')
+        # plt.minorticks_on()
+        # plt.grid(which='both')
+        # plt.show()
+        #
+        # T0_r = pd.DataFrame(df_a_pt_A['T0 (K)'].tolist(), columns=['T0'], index=r_turbine.values.tolist())
+        # plt.plot(T0_r['T0'])
+        # plt.title('Temperatura de remanso a la entrada - Relación de presiones')
+        # plt.ylabel(r'$T_{0in}$ (K)')
+        # plt.xlabel(r'$P_{0B}/P_{0A}$ (-)')
+        # plt.minorticks_on()
+        # plt.grid(which='both')
+        # plt.show()
 
         # df_b = pd.read_csv(b_filename)
         # eta_TT_m_dot = pd.DataFrame((df_b['eta_TT (-)']).values.tolist(), columns=['eta_TT'], index=df_c.index)

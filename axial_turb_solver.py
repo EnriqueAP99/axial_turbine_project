@@ -208,10 +208,10 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
 
                 # The next block applies in cases affected by discontinuity.
                 if pre_rel_error is not None:
-                    if fabs(pre_rel_error - rel_error)/rel_error <= solver_relative_error:
+                    if fabs(pre_rel_error - rel_error)/rel_error <= 10*solver_relative_error:
                         if limit_error is None:
                             limit_error = {}
-                        if fabs(p_out_iter - p_out_iter_b)/p_out <= solver_relative_error:
+                        if fabs(p_out_iter - p_out_iter_b)/p_out <= 10*solver_relative_error:
                             limit_error['b'] = rel_error
                             if 'a' in limit_error:
                                 if limit_error['b'] < limit_error['a']:
@@ -257,7 +257,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
             t_2 = (time() - t_1).__round__(0)
 
             m, s = divmod(t_2, 60)
-            record.info('Tiempo de cálculo: %s minutos y %s segundos.', int(m), int(s))
+            record.info('Tiempo de cálculo del punto de funcionamiento: %s minutos y %s segundos.', int(m), int(s))
 
             return
 
@@ -583,9 +583,10 @@ class solver_object:
                 eta_maq = w_total / w_ss_total
                 p_0A, T_0A = self.Zero_pt_calculator(p_in, s_A, h_0A)
                 eta_p = log(1 - (eta_maq * (1 - (T_0Bss / T_0A))), 10) / log(T_0Bss / T_0A, 10)
-                r_turbina = p_0A / p_0B
+                r0_turbina = p_0A / p_0B
+                r_turbina = p_in / p_B
                 ps_list += [[DELTA_h, w_total, P_total, s_A, s_B, p_0B, T_0B, T_0Bss, h_0Bss, Y_maq, w_ss_total,
-                             eta_maq, p_0A, T_0A, eta_p, r_turbina, m_dot]]
+                             eta_maq, p_0A, T_0A, eta_p, r_turbina, m_dot, r0_turbina, ]]
 
             self.vmmr = ps_list
             return copy.deepcopy(self.vmmr)
