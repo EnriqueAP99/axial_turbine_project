@@ -231,7 +231,9 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
                                       m_dot=m_dot, C_inx=C_inx, p_out=p_out)
         except GasLibraryAdaptedException:
             pass
-        except NonConvergenceError:
+        except InnerLoopConvergenceError:
+            pass
+        except OuterLoopConvergenceError:
             pass
         else:
             df_a, df_b, df_c = data_to_df(solver, req_vars)

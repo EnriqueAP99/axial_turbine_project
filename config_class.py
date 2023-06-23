@@ -32,9 +32,16 @@ class GasLibraryAdaptedException(Exception):
         super().__init__(self.msg)
 
 
-class NonConvergenceError(Exception):
-    """ Excepción creada para identificar errores de no convergencia."""
-    def __init__(self, msg="Error de no convergencia."):
+class InnerLoopConvergenceError(Exception):
+    """ Excepción creada para identificar errores en loops internos del solver por ausencia de convergencia."""
+    def __init__(self, msg="Error en nivel interno, no converge."):
+        self.msg = msg
+        super().__init__(self.msg)
+
+
+class OuterLoopConvergenceError(Exception):
+    """ Excepción creada para identificar errores en loops externos del solver por ausencia de convergencia."""
+    def __init__(self, msg="Error en nivel externo, no converge."):
         self.msg = msg
         super().__init__(self.msg)
 

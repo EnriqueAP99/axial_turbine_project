@@ -89,7 +89,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
 
             def first_iter_exception_task():
                 nonlocal C_inx_a, C_inx_b
-                raise NonConvergenceError('Try another seed value.')
+                raise OuterLoopConvergenceError('Try another seed value.')
 
             def post_exception_tasks():
                 record.warning('An exception was caught.')
@@ -113,7 +113,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                         ps_list_b = inner_funtion_from_problem_solver(C_inx_b, True)
                     else:
                         ps_list = inner_funtion_from_problem_solver(C_inx, True)
-                except NonConvergenceError:
+                except InnerLoopConvergenceError:
                     if start:
                         first_iter_exception_task()
                     else:
@@ -145,7 +145,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                             p_out_iter_a = p_out_iter
                             from_a = False
                         else:
-                            raise NonConvergenceError('Something went wrong.')
+                            raise OuterLoopConvergenceError('Something went wrong.')
 
                     # It is evaluated whether the new range contains the solution.
                     if (p_out_iter_b-p_out)*(p_out_iter_a-p_out) < 0:
@@ -183,7 +183,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                     update_C_inx()
                 try:
                     ps_list = inner_funtion_from_problem_solver(C_inx, True)
-                except NonConvergenceError:
+                except InnerLoopConvergenceError:
                     # This event will most likely only happen when limits are not high enough.
                     C_inx_b, C_inx_a = pre_C_inx_b, pre_C_inx_a
                 except GasLibraryAdaptedException:
@@ -233,7 +233,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
 
                 if iter_count > cfg.iter_limit:
                     record.critical('Recursive calculation does not reach convergence.')
-                    raise NonConvergenceError
+                    raise InnerLoopConvergenceError
 
             if not cfg.chain_mode:
                 solver_iter = False
@@ -347,9 +347,9 @@ def step_decorator(cfg: config_class, step_corrector_memory):
                 else:
                     jam_counter += 1
                     if jam_counter > 15:
-                        raise NonConvergenceError("Couldn't reach convergence.")
+                        raise OuterLoopConvergenceError("Couldn't reach convergence.")
                 if iter_counter > 50:
-                    raise NonConvergenceError("Couldn't reach convergence.")
+                    raise OuterLoopConvergenceError("Couldn't reach convergence.")
                 sifc = get_sif_output(True, False, xi_ec, rho_seed_c)
                 fc, rho_seed_c = sifc[1]-target_efficiency, sifc[3]
                 if fc * f2 <= 0:
@@ -375,7 +375,8 @@ def step_decorator(cfg: config_class, step_corrector_memory):
             while relative_deviation is None or relative_deviation > relative_error:
                 iter_counter += 1
                 if iter_counter > 50:
-                    raise NonConvergenceError('Reynolds no se estabiliza para el límite de iteraciones establecido.')
+                    raise OuterLoopConvergenceError('Reynolds no se estabiliza para el límite de iteraciones '
+                                                    'establecido.')
                 Re_n = Re
                 Re, rho_seed, _ = get_sif_output(True, False, None, rho_seed, Re_n)
                 relative_deviation = fabs(Re_n - Re) / Re
@@ -462,7 +463,7 @@ class solver_object:
                 except GasLibraryAdaptedException:
                     output_pressures[k] = np.NAN
                     record.warning('Se ha capturado un error inesperado, se omite esta evaluación.')
-                except NonConvergenceError:
+                except InnerLoopConvergenceError:
                     output_pressures[k] = np.NAN
                     record.warning('Se ha capturado un error inesperado, se omite esta evaluación.')
                 else:
@@ -666,7 +667,7 @@ class solver_object:
                 self.Re_corrector_counter += 1
                 if self.Re_corrector_counter > self.cfg.iter_limit:
                     record.error('Iter limit has been reached.')
-                    raise NonConvergenceError
+                    raise InnerLoopConvergenceError
             record.info('Modo de repetición: %s  ...  Llamadas: %s', iter_mode, self.Re_corrector_counter)
 
             if count > 0:
@@ -904,11 +905,11 @@ class solver_object:
             iter_count += 1
             if rho_b < 0.2:
                 record.error('It was not possible to reach convengence. Density is too low.')
-                raise NonConvergenceError
+                raise InnerLoopConvergenceError
 
             if iter_count > self.cfg.iter_limit:
                 record.error('Iteración aboratada, no se cumple el criterio de convergencia.')
-                raise NonConvergenceError
+                raise InnerLoopConvergenceError
 
             C_bx = m_dot / (area_b * rho_b)  # C_bx: velocidad axial a la salida
             tau_b_n = None
@@ -984,7 +985,7 @@ class solver_object:
 
             if trend_changes >= self.cfg.max_trend_changes:
                 record.error('Se ha excedido el valor límite de oscilaciones establecido.')
-                raise NonConvergenceError
+                raise InnerLoopConvergenceError
 
         if M_b > 0.5:
             record.warning('Mout %sa la salida superior a 0.5 ... Valor: %.2f',
