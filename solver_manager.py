@@ -1,7 +1,6 @@
 """
 Se almacenan y procesan los datos haciendo uso de las librerías Pickle y Pandas.
 """
-
 import pickle
 
 from axial_turb_solver import *
@@ -261,7 +260,7 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
     t_2 = (time() - t_1).__round__(0)
     m, s = divmod(t_2, 60)
     h, m = divmod(m, 60)
-    record.info('El tiempo de cálculo haciendo durante todo el barrido ha sido: %s horas, %s minutos y %s segundos.',
+    record.info('El tiempo de cálculo durante todo el barrido ha sido: %s horas, %s minutos y %s segundos.',
                 int(h), int(m), int(s))
 
     return df_a_packg, df_b_packg, df_c_packg
@@ -274,12 +273,14 @@ def txt_reader():
             for char in line.strip():
                 if char != ';':
                     if char not in [' ', '#']:
-                        if char not in ['=', ',']:
+                        if char not in ['=', ',', ':']:
                             declaration += char
                         elif char == ',':
                             declaration += ', '
-                        else:
+                        elif char == '=':
                             declaration += ' = '
+                        else:
+                            declaration += ': '
                     elif char == '#':
                         break
                 else:
@@ -427,7 +428,8 @@ def main():
         independent_var_id = None
         settings = aux_reading_operations()
         try:
-            WtE = data_dictionary['where_to_evaluate']
+            plot_together = data_dictionary['plot_together']
+            WtE: dict = data_dictionary['where_to_evaluate']
             independent_var = data_dictionary['independent_variable']
             dependent_vars = data_dictionary['dependent_variables']
             a_filename, b_filename, c_filename = [root + data_dictionary['csv_filename_extension'] for root in
@@ -444,13 +446,14 @@ def main():
         df_b = pd.read_csv(b_filename, index_col='Aux_Index')
         df_c = pd.read_csv(c_filename, index_col='Aux_Index')
 
-        variable_list = dependent_vars.append(independent_var)
+        dependent_vars.append(independent_var)
+        variable_list = dependent_vars
         for item in variable_list:
             if WtE is not None and (item in lista_a or item in lista_b):
-                if (item not in WtE or 'step' not in item) or ('point' not in item and item in lista_b):
+                if item not in WtE or 'step' not in WtE[item] or ('point' not in WtE[item] and item in lista_a):
                     raise InputDataError('It is needed complementary information for any variable at the text file to '
                                          'process saved data to be plotted. Please, check items that need to be added '
-                                         'at "where_to_evaluate" dictionary.')
+                                         'to "where_to_evaluate" dictionary.')
             else:
                 if 'P_total_ss' == item:
                     custom_df[item] = df_c['w_ss_total (kJ/kg)'] * df_c['m_dot (kg/s)']
@@ -461,12 +464,12 @@ def main():
                     independent_var_id = item + tpl_t_units[tpl_t_keys.index(item)]
 
         if WtE is not None:
-            for key, _ in WtE:
+            for key in WtE.keys():
                 if key in lista_a:
                     step_point = WtE[key]['point']
                     step_id = WtE[key]['step']
-                    var_id = f'{key}_{step_point}'
-                    old_var_id = var_id + tpl_s_units[tpl_s_keys.index(var_id)]
+                    var_id = key
+                    old_var_id = var_id + tpl_s_units[tpl_s_keys.index(f'{key}_{step_point}')]
                     custom_df[var_id] = df_a[df_a['Spec_Index'] == f'Step_{step_id}_pt_{step_point}'][old_var_id]
                     if key == independent_var:
                         custom_df.set_index(var_id)
@@ -479,22 +482,46 @@ def main():
                         custom_df.set_index(f'{key}_{step_id}')
                         independent_var_id = old_var_id
 
-        for key in dependent_vars:
-            if key in lista_a:
-                step_point = WtE[key]['point']
-                var_id = f'{key}_{step_point}'
+        dependent_var_id = None
+
+        def by_key_plotter(l_key: str):
+            nonlocal step_point, var_id, step_id, dependent_var_id
+            if l_key in lista_a:
+                step_point = WtE[l_key]['point']
+                var_id = f'{l_key}_{step_point}'
                 dependent_var_id = var_id + tpl_s_units[tpl_s_keys.index(var_id)]
                 plt.plot(custom_df[var_id])
-            elif key in lista_b:
-                step_id = int(WtE[key]['step'])
-                dependent_var_id = key + tpl_s_units[tpl_s_keys.index(key)]
-                plt.plot(custom_df[f'{key}_{step_id}'])
+            elif l_key in lista_b:
+                step_id = int(WtE[l_key]['step'])
+                dependent_var_id = l_key + tpl_s_units[tpl_s_keys.index(l_key)]
+                plt.plot(custom_df[f'{l_key}_{step_id}'])
             else:
-                dependent_var_id = key + tpl_t_units[tpl_t_keys.index(key)]
-                plt.plot(custom_df[key])
-            plt.title(f'{key} - {independent_var}')
+                dependent_var_id = l_key + tpl_t_units[tpl_t_keys.index(l_key)]
+                plt.plot(custom_df[l_key])
+
+        skip = False
+        for key in dependent_vars:
+            for lista in plot_together:
+                if key in lista:
+                    skip = True
+            if not skip:
+                by_key_plotter(key)
+                plt.title(f'{key} - {independent_var}')
+                plt.xlabel(f'{independent_var_id}')
+                plt.ylabel(f'{dependent_var_id}')
+                plt.minorticks_on()
+                plt.grid(which='both')
+                plt.show()
+        for lista in plot_together:
+            ID_DV = []
+            KEY_LIST = []
+            for key in lista:
+                by_key_plotter(key)
+                ID_DV.append(dependent_var_id)
+                KEY_LIST.append(key)
+            plt.title(f'{KEY_LIST} - {independent_var}')
             plt.xlabel(f'{independent_var_id}')
-            plt.ylabel(f'{dependent_var_id}')
+            plt.ylabel(f'{ID_DV}')
             plt.minorticks_on()
             plt.grid(which='both')
             plt.show()
