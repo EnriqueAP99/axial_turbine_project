@@ -591,14 +591,14 @@ class solver_object:
                 h_0Bss = self.prd.get_prop(known_props={'T': T_0Bss, 'p': p_0B}, req_prop='h')
                 Y_maq = h_0B - h_0Bss
                 w_ss_total = h_0A - h_0Bss
-                eta_maq = w_total / w_ss_total
+                eta_ss = w_total / w_ss_total
                 p_0A, T_0A = self.Zero_pt_calculator(p_in, s_A, h_0A)
-                eta_p = log(1 - (eta_maq * (1 - (T_0Bss / T_0A))), 10) / log(T_0Bss / T_0A, 10)
+                eta_p = log(1 - (eta_ss * (1 - (T_0Bss / T_0A))), 10) / log(T_0Bss / T_0A, 10)
                 r0_turbine = p_0A / p_0B
                 r_turbine = p_in / p_B
                 P_total_ss = m_dot*w_ss_total
                 ps_list += [[DELTA_h, w_total, P_total, s_A, s_B, p_0B, T_0B, T_0Bss, h_0Bss, Y_maq, w_ss_total,
-                             eta_maq, p_0A, T_0A, eta_p, r_turbine, m_dot, r0_turbine, P_total_ss]]
+                             eta_ss, p_0A, T_0A, eta_p, r_turbine, m_dot, r0_turbine, P_total_ss]]
 
             self.vmmr = ps_list
             return copy.deepcopy(self.vmmr)

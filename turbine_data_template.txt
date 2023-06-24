@@ -4,7 +4,7 @@
 # It can be used Python operators at each definition in geometry definition part, following the proposed order.
 # Each variable must be followed by an equal symbol and continuing with the assigned value.
 # Each pair variable-definition must be followed by semicolon.
-# Cuando se alcanza el caracter "#" se salta a la siguiente línea.
+# When the read flow reaches "#" it jumps to next line.
 # Cuando no corresponda definir una variable se le asignará "None".
 # El caracter de espaciado se ignora, por esto es necesarrio que al emplear list-comprehension se indique con "$".
 # Las unidades de las variables a introducir deben ser: Kelvin, Pascales, degrees, metros/segundo
@@ -16,12 +16,12 @@ modo = 'recorrer_variable';
 
 # Información adicional para el modo 'recorrer_variable' ó 'visualizar_recorrido'.
 var_to_sweep = 'p_inlet';    sweep_resolution = 400;    req_vars = None;   csv_filename_extension = 'sweeping_240623_v2.csv';
-independent_variable = 'r_turbine';      dependent_variables = ['C', 'm_dot', 'eta_s', 'P_total', 'P_total_ss', 'alfa', 'eta_TT', 'eta_TE'];
+independent_variable = 'r_turbine';      dependent_variables = ['C', 'm_dot', 'eta_ss', 'P_total', 'P_total_ss', 'alfa', 'eta_TT', 'eta_TE'];
 
 # Any dependend and non dependend variable whose value depends on axial direction or on the step evaluated has to be added to the dictionary at the next line.   
 where_to_evaluate = {'C': {'step': 1, 'point': 1}, 'alfa': {'step': 1, 'point': 3}, 'eta_TT': {'step': 1}, 'eta_TE': {'step': 1}};
 
-# In case it is needed to plot some dependent variables together, all of them have to be packed as follows:
+# In case it is needed to plot some dependent variables together, all of them have to be packed as it follows:
 plot_together = [['eta_TT', 'eta_TE'], ['P_total', 'P_total_ss']];
 ##############################################################################################################################################################################
 # En segundo lugar, se define todo aquello que comprende la configuración del programa:
@@ -47,5 +47,5 @@ holgura_radial = False;                                     blade_roughness_peak
 ##############################################################################################################################################################################
 # Por último, se definen exclusivamente, los valores que van a restringir el punto de funcionamiento a evaluar:
 
-T_inlet=800;      p_inlet=[651_000, 950_000];      rpm=10_000;      p_outlet=650_000;      mass_flow=None;      axial_inlet_velocity=None;      reference_inlet_velocity=20;
+T_inlet=800;      p_inlet=[655_000, 950_000];      rpm=10_000;      p_outlet=650_000;      mass_flow=None;      axial_inlet_velocity=None;      reference_inlet_velocity=20;
 ##############################################################################################################################################################################
