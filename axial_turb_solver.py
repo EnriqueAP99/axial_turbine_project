@@ -107,6 +107,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
             record.info('Searching for a range containing the solution.')
             # The search begins.
             while True:
+                iter_count += 1
                 try:
                     if start:
                         ps_list_a = inner_funtion_from_problem_solver(C_inx_a, True)
@@ -159,11 +160,16 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                         record.info('Current range: [%.2f, %.2f]  ...  Target value: %.2f',
                                     p_out_iter_a, p_out_iter_b, p_out)
 
+                if iter_count > cfg.iter_limit_OL:
+                    raise OuterLoopConvergenceError('Search took too many evaluations, check inlet velocity seed '
+                                                    'value or iter limit for outer loops.')
+
             rel_error = pre_rel_error = None
             p_out_iter = None
             f_a = f_b = None
             diff_value = None
             limit_error = None
+            iter_count = 0
 
             def update_C_inx():
                 nonlocal diff_value, C_inx
@@ -232,8 +238,8 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                             'Valor objetivo: %.2f Pa', rel_error, p_out_iter, p_out)
 
                 if iter_count > cfg.iter_limit_OL:
-                    record.critical('Recursive calculation does not reach convergence.')
-                    raise OuterLoopConvergenceError
+                    raise OuterLoopConvergenceError('Recursive calculation does not reach convergence when fixing the '
+                                                    'desired outlet pressure.')
 
             if not cfg.chain_mode:
                 solver_iter = False
@@ -304,8 +310,10 @@ def step_decorator(cfg: config_class, step_corrector_memory):
             xi_e0 = xi_est * (Re ** (-1 / 5)) / (200_000 ** (-1 / 5))
             xi_e1 = xi_e2 = xi_e0
             rho_seed_1 = rho_seed_2 = rho_seed_c = rho_seed
+            iter_counter = 0
 
             while bolz_c is None or bolz_c > 0:
+                iter_counter += 1
                 record.info('Buscando el rango que garantice encontrar la solución.')
                 if bolz_c is None:
                     sif1 = sif2 = get_sif_output(True, False, xi_e1, rho_seed_1)
@@ -328,6 +336,9 @@ def step_decorator(cfg: config_class, step_corrector_memory):
                         sif2 = get_sif_output(True, False, xi_e2, rho_seed_2)
                         f2, rho_seed_2 = sif2[1] - target_efficiency, sif2[3]
                 bolz_c = f1 * f2
+                if iter_counter > cfg.iter_limit_OL:
+                    raise OuterLoopConvergenceError('Search for Reynolds correction took too many evaluations, '
+                                                    'it may help checking iter limit for outer loops.')
 
             record.info('Corrección iniciada.')
 
@@ -583,10 +594,11 @@ class solver_object:
                 eta_maq = w_total / w_ss_total
                 p_0A, T_0A = self.Zero_pt_calculator(p_in, s_A, h_0A)
                 eta_p = log(1 - (eta_maq * (1 - (T_0Bss / T_0A))), 10) / log(T_0Bss / T_0A, 10)
-                r0_turbina = p_0A / p_0B
-                r_turbina = p_in / p_B
+                r0_turbine = p_0A / p_0B
+                r_turbine = p_in / p_B
+                P_total_ss = m_dot*w_ss_total
                 ps_list += [[DELTA_h, w_total, P_total, s_A, s_B, p_0B, T_0B, T_0Bss, h_0Bss, Y_maq, w_ss_total,
-                             eta_maq, p_0A, T_0A, eta_p, r_turbina, m_dot, r0_turbina, ]]
+                             eta_maq, p_0A, T_0A, eta_p, r_turbine, m_dot, r0_turbine, P_total_ss]]
 
             self.vmmr = ps_list
             return copy.deepcopy(self.vmmr)

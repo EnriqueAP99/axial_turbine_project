@@ -1,9 +1,9 @@
 ##############################################################################################################################################################################
-# Short tutorial about the methodology for data input:
+# Tutorial about the methodology for data input:
 
-# Se pueden emplear operaciones de python en cada definición, dentro del apartado sobre la geometría y siguiendo el orden propuesto.
-# Cada variable debe estar separada por un "=" del valor que se le asigna.
-# Cada pareja variable-definición debe ir seguida de punto y coma.
+# It can be used Python operators at each definition in geometry definition part, following de proposed order.
+# Each variable must be followed by an equal symbol and continuing with the assigned value.
+# Each pair variable-definition must be followed by semicolon.
 # Cuando se alcanza el caracter "#" se salta a la siguiente línea.
 # Cuando no corresponda definir una variable se le asignará "None".
 # El caracter de espaciado se ignora, por esto es necesarrio que al emplear list-comprehension se indique con "$".
@@ -12,10 +12,10 @@
 # En primer lugar, se define la acción deseada, o modo de funcionamiento, entre comillas dobles o simples.
 
 # A elegir entre: procesar_valores_nominales, resolver, visualizar_valores, recorrer_variable, visualizar_recorrido
-modo = 'visualizar_recorrido';
+modo = 'recorrer variable';
 
 # Información adicional para el modo 'recorrer_variable' ó 'visualizar_recorrido'.
-var_to_sweep = 'p_inlet';    sweep_resolution = 200;    req_vars = None;   csv_filename_extension = 'sweeping_p_inlet_v2.csv';
+var_to_sweep = 'p_inlet';    sweep_resolution = 400;    req_vars = None;   csv_filename_extension = 'sweeping_240623_v2.csv';
 independent_variable = 'r_turbine';      dependent_variables = ['C', 'm_dot', 'eta_s', 'P_total', 'P_total_ss', 'alfa', 'eta_TT', 'eta_TE'];
 
 # Any dependend and non dependend variable whose value depends on axial direction or on the step evaluated has to be added to the dictionary at the next line.   
@@ -47,5 +47,5 @@ holgura_radial = False;                                     blade_roughness_peak
 ##############################################################################################################################################################################
 # Por último, se definen exclusivamente, los valores que van a restringir el punto de funcionamiento a evaluar:
 
-T_inlet=800;      p_inlet=[651_000, 850_000];      rpm=10_000;      p_outlet=650_000;      mass_flow=None;      axial_inlet_velocity=None;      reference_inlet_velocity=20;
+T_inlet=800;      p_inlet=[651_000, 950_000];      rpm=10_000;      p_outlet=650_000;      mass_flow=None;      axial_inlet_velocity=None;      reference_inlet_velocity=20;
 ##############################################################################################################################################################################

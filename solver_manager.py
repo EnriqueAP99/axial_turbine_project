@@ -36,8 +36,8 @@ tpl_s_units, tpl_t_units = tuple(s_units.split(',')), tuple(t_units.split(','))
 
 global_list_a = ['M', 'C', 'Cx', 'Cu', 'omega', 'omegax', 'omegau', 'alfa', 'beta', 'h', 'h0', 'T', 'T0',
                  'p', 'p0', 'rho', ]
-global_list_b = ['GR', 'w_esc', 'w_s_esc', 'w_ss_esc', 'eta_TT', 'eta_TE', 'Y_est', 'Y_rot', 'U']
-global_list_c = ['w_total', 'w_ss_total', 'eta_s', 'P_total', 'r_turbine', 'm_dot', 'r0_turbine', ]
+global_list_b = ['GR', 'w_esc', 'w_s_esc', 'w_ss_esc', 'eta_TT', 'eta_TE', 'Y_est', 'Y_rot', 'U', ]
+global_list_c = ['w_total', 'w_ss_total', 'eta_s', 'P_total', 'r_turbine', 'm_dot', 'r0_turbine', 'P_total_ss', ]
 
 
 # https://www.freecodecamp.org/news/with-open-in-python-with-statement-syntax-example/ (funcionamiento de with open as)
@@ -463,10 +463,7 @@ def main():
                                          'process saved data to be plotted. Please, check items that need to be added '
                                          'to "where_to_evaluate" dictionary.')
             else:
-                if 'P_total_ss' == item:
-                    custom_df[item] = df_c['w_ss_total (kJ/kg)'] * df_c['m_dot (kg/s)']
-                else:
-                    custom_df[item] = df_c[item + tpl_t_units[tpl_t_keys.index(item)]]
+                custom_df[item] = df_c[item + tpl_t_units[tpl_t_keys.index(item)]]
                 if item == independent_var:
                     custom_df.set_index(independent_var)
                     x_label_name = item
@@ -518,8 +515,8 @@ def main():
             else:
                 plt.plot(custom_df[l_key], label=label)
 
-        skip = False
         for key in dependent_vars:
+            skip = False
             for lista in plot_together:
                 if key in lista:
                     skip = True
