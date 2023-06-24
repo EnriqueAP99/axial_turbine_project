@@ -531,7 +531,8 @@ def main():
                     dep_id = f'{key}_step{step_id}'
                 else:
                     dep_id = key
-                custom_df.plot(x=indep_id, y=dep_id, label='_nolegend_')
+                custom_df.plot(x=indep_id, y=dep_id, legend=False)
+                plt.gca.legend_ = None
                 title_str = y_label_name_dict[key] + '   -   ' + x_label_name
                 plt.title(title_str)
                 plt.xlabel(x_label_name_and_units)
@@ -553,18 +554,20 @@ def main():
                     y_label_ref_u_as_str += y_label_ref_u[number]
                     y_label_ref_as_str += ref
             title_str = f'{y_label_ref_as_str}   -   {x_label_name}'
-            lista_ids = []
+            list_ids = []
+            list_legend = []
             for key in lista:
                 if key in lista_a:
                     step_point = WtE[key]['point']
                     step_id = WtE[key]['step']
-                    lista_ids.append(f'{key}_step{step_id}_pt{step_point}')
+                    list_ids.append(f'{key}_step{step_id}_pt{step_point}')
                 elif key in lista_b:
                     step_id = WtE[key]['step']
-                    lista_ids.append(f'{key}_step{step_id}')
+                    list_ids.append(f'{key}_step{step_id}')
                 else:
-                    lista_ids.append(key)
-            custom_df.plot(x=indep_id, y=lista_ids)
+                    list_ids.append(key)
+                list_legend.append(y_label_name_dict[key])
+            custom_df.plot(x=indep_id, y=list_ids, label=list_legend)
             plt.legend(loc='upper left')
             plt.title(title_str)
             plt.xlabel(x_label_name_and_units)
