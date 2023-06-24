@@ -437,7 +437,7 @@ class solver_object:
         # corrector_seed: Lista de listas que contienen datos concluidos por el corrector en cada escalonamiento
         #                 para aprovecharlos en cálculos consecutivos.
 
-        AM_extra_parameters = ['e', 'o', 't_max', 'r_r', 'r_c', 't_e', 'k']
+        AM_extra_parameters = ['e', 'o', 't_max', 'r_h', 'r_t', 't_e', 'k']
         Aungier_extra_parameters = AM_extra_parameters + ['roughness_ptv', 'b_z', 'delta']
         loss_model_list_for_extra_data = [AM_extra_parameters, Aungier_extra_parameters]
         list_index = 1 if config.loss_model == 'Aungier' else 0
