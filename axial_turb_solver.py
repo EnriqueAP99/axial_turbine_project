@@ -443,7 +443,8 @@ class solver_object:
         list_index = 1 if config.loss_model == 'Aungier' else 0
         for key in loss_model_list_for_extra_data[list_index]:
             if self.cfg.geom.get(key, None) is None:
-                raise InputDataError(f'Para emplear el modelo de pérdidas se debe introducir "{key}"')
+                sentence = f'Para emplear el modelo de pérdidas se debe introducir {key}.'
+                raise InputDataError(sentence)
         if list_index == 0:
             self.loss_model_object = Ainley_and_Mathieson_Loss_Model(config)
             self.loss_model_object.AM_diameter_def()
