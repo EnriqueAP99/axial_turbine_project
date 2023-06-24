@@ -283,7 +283,9 @@ def txt_reader():
                         break
                 else:
                     if '$' in declaration:
-                        exec(declaration.replace('for', ' for ').replace('in', ' in ').replace('$', ''))
+                        splitted_str = declaration.split(sep='=')
+                        splitted_str[1] = splitted_str[1].replace('for', ' for ').replace('in', ' in ').replace('$', '')
+                        exec(splitted_str[0] + ' = ' + splitted_str[1])
                     else:
                         exec(declaration)
                     declaration = ''
@@ -322,7 +324,7 @@ def main():
             theta_rotor = data_dictionary['rotor_blade_curvature']
             hub_radius = data_dictionary['hub_radius']
             tip_radius = data_dictionary['tip_radius']
-            Rm = data_dictionary['radio_medio']
+            Rm = data_dictionary['mean_radius']
             heights = data_dictionary['heights']
             areas = data_dictionary['areas']
             chord = data_dictionary['chord']
@@ -335,7 +337,7 @@ def main():
             chord_proj_z = data_dictionary['chord_z']
             wire_diameter = data_dictionary['wire_diameter']
             lashing_wires = data_dictionary['lashing_wires']
-            holgura_radial = data_dictionary['holgura_radial']
+            holgura_radial = data_dictionary['radial_clearance']
             blade_roughness_peak_to_valley = data_dictionary['blade_roughness_peak_to_valley']
             design_factor = data_dictionary['design_factor']
         except NameError:
@@ -349,15 +351,15 @@ def main():
                               wire_diameter=wire_diameter, holgura_radial=holgura_radial, design_factor=design_factor)
         return settings
 
-    mode = data_dictionary['modo']
+    mode = data_dictionary['mode']
 
-    if mode == 'procesar_valores_nominales':
+    if mode == 'process_nominal_values':
         settings = aux_reading_operations()
         gas_model = gas_model_to_solver(thermod_mode=data_dictionary.get('thermo_mode_in_gas_model.py', 'ig'))
         solver = solver_object(settings, gas_model)
         solver_data_saver('process_object.pkl', solver)
 
-    elif mode == 'resolver':
+    elif mode == 'solve':
         try:
             try:
                 solver = solver_data_reader('process_object.pkl')
@@ -392,11 +394,11 @@ def main():
         except NameError:
             raise InputDataError('Non-valid text file, please, stick to the template.')
 
-    elif mode == 'visualizar_valores':
+    elif mode == 'display_values':
         solver = solver_data_reader('process_object.pkl')
         problem_data_viewer(solver)
 
-    elif mode == 'recorrer_variable':
+    elif mode == 'sweep_variable':
         settings = aux_reading_operations()
         gas_model = gas_model_to_solver(thermod_mode=data_dictionary.get('thermod_mode_in_gas_model_module', 'ig'))
         solver = solver_object(settings, gas_model)
@@ -422,7 +424,7 @@ def main():
         df_c.to_csv(c_filename)
         solver_data_saver('process_object.pkl', solver)
 
-    elif mode == 'visualizar_recorrido':
+    elif mode == 'display_graphs_with_sweep_data':
         x_label_name_and_units = x_label_name = None
         y_label_name_dict = {}
         settings = aux_reading_operations()
@@ -489,7 +491,7 @@ def main():
                         y_label_name_dict[key + '_u'] = y_label_name_dict[key] + tpl_s_units[tpl_s_keys.index(
                             f'{key}_{step_point}')]
                 elif key in lista_b:
-                    step_id = int(WtE[key]['step'])
+                    step_id = WtE[key]['step']
                     old_var_id = key + tpl_s_units[tpl_s_keys.index(key)]
                     custom_df[f'{key}_{step_id}'] = df_b[df_b['Spec_Index'] == step_id][old_var_id]
                     if key == independent_var:
