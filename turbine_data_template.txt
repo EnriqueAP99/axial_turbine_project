@@ -1,7 +1,7 @@
 ##############################################################################################################################################################################
-# Tutorial about the methodology for data input:
+# Tutorial about methodology for data input:
 
-# It can be used Python operators at each definition in geometry definition part, following de proposed order.
+# It can be used Python operators at each definition in geometry definition part, following the proposed order.
 # Each variable must be followed by an equal symbol and continuing with the assigned value.
 # Each pair variable-definition must be followed by semicolon.
 # Cuando se alcanza el caracter "#" se salta a la siguiente línea.
@@ -12,7 +12,7 @@
 # En primer lugar, se define la acción deseada, o modo de funcionamiento, entre comillas dobles o simples.
 
 # A elegir entre: procesar_valores_nominales, resolver, visualizar_valores, recorrer_variable, visualizar_recorrido
-modo = 'recorrer variable';
+modo = 'recorrer_variable';
 
 # Información adicional para el modo 'recorrer_variable' ó 'visualizar_recorrido'.
 var_to_sweep = 'p_inlet';    sweep_resolution = 400;    req_vars = None;   csv_filename_extension = 'sweeping_240623_v2.csv';
