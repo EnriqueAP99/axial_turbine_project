@@ -459,8 +459,9 @@ def main():
         variable_list = dependent_vars.copy()
         variable_list.append(independent_var)
         for item in variable_list:
-            if WtE is not None and (item in lista_a or item in lista_b):
-                if item not in WtE or 'step' not in WtE[item] or ('point' not in WtE[item] and item in lista_a):
+            if item in lista_a or item in lista_b:
+                if WtE is None or item not in WtE or 'step' not in WtE[item] or \
+                        ('point' not in WtE[item] and item in lista_a):
                     raise InputDataError('It is needed complementary information for any variable at the text file to '
                                          'process saved data to be plotted. Please, check items that need to be added '
                                          'to "where_to_evaluate" dictionary.')

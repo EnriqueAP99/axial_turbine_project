@@ -47,5 +47,5 @@ radial_clearance = False;                                   blade_roughness_peak
 ##############################################################################################################################################################################
 # Finally, only the values that will restrict the operating point to be evaluated are defined, the rest are assigned "None":
 
-T_inlet=1291.6;     p_inlet=[570_000, 120_000];     rpm=25_500;     p_outlet=113_520;     mass_flow=None;     axial_inlet_velocity=None;     reference_inlet_velocity=20;
+T_inlet=1291.6;     p_inlet=[120_000, 570_000];     rpm=25_500;     p_outlet=113_520;     mass_flow=None;     axial_inlet_velocity=None;     reference_inlet_velocity=20;
 ##############################################################################################################################################################################
