@@ -26,10 +26,10 @@ s_units = ' (K), (Pa), (kg/m^3), (kJ/kgK), (kJ/kg), (kJ/kg), (m/s), (°), (m/s),
           '(K), (kJ/kg), (m/s), (K), (K), (K), (kJ/kg), (kJ/kg), (kJ/kg), (m/s)'
 
 t_keys = 'DELTA_h, w_total, P_total, s_A, s_B, p0_B, T0_B, T0_Bss, h0_Bss, Y_maq, w_ss_total, eta_maq, p0_A, T0_A, ' \
-         'eta_p, r_turbina, m_dot, r0_turbina'
+         'eta_p, r_turbina, m_dot, r0_turbina, P_total_ss'
 
 t_units = '(kJ/kg), (kJ/kg), (kW), (kJ/kgK), (kJ/kgK), (Pa), (K), (K), (kJ/kg), (kJ/kg), (kJ/kg), (-), (Pa), (K), ' \
-          '(-), (-), (kg/s), (-)'
+          '(-), (-), (kg/s), (-), (kW)'
 
 tpl_s_keys, tpl_t_keys = tuple(s_keys.split(', ')), tuple(t_keys.split(', '))
 tpl_s_units, tpl_t_units = tuple(s_units.split(',')), tuple(t_units.split(','))
@@ -425,9 +425,11 @@ def main():
         solver_data_saver('process_object.pkl', solver)
 
     elif mode == 'visualizar_recorrido':
-        independent_var_id = None
+        x_label_name_and_units = x_label_name = None
+        y_label_name_dict = {}
         settings = aux_reading_operations()
         try:
+            req_vars = data_dictionary['req_vars']
             plot_together = data_dictionary['plot_together']
             WtE: dict = data_dictionary['where_to_evaluate']
             independent_var = data_dictionary['independent_variable']
@@ -439,6 +441,12 @@ def main():
 
         lista_a = global_list_a
         lista_b = global_list_b
+
+        if req_vars is None:
+            pass
+        else:
+            lista_a = [item for item in req_vars if item in lista_a]
+            lista_b = [item for item in req_vars if item in tpl_s_keys and item not in lista_a]
 
         custom_df = pd.DataFrame()
 
@@ -461,9 +469,15 @@ def main():
                     custom_df[item] = df_c[item + tpl_t_units[tpl_t_keys.index(item)]]
                 if item == independent_var:
                     custom_df.set_index(independent_var)
-                    independent_var_id = item + tpl_t_units[tpl_t_keys.index(item)]
+                    x_label_name = item
+                    x_label_name_and_units = x_label_name + tpl_t_units[tpl_t_keys.index(item)]
+                else:
+                    y_label_name_dict[item] = item
+                    y_label_name_dict[item + '_u'] = item + tpl_t_units[tpl_t_keys.index(item)]
+                    y_label_name_dict[item + '_multiplot'] = y_label_name_dict[item + '_u']
 
         if WtE is not None:
+            old_var_id = None
             for key in WtE.keys():
                 if key in lista_a:
                     step_point = WtE[key]['point']
@@ -473,31 +487,36 @@ def main():
                     custom_df[var_id] = df_a[df_a['Spec_Index'] == f'Step_{step_id}_pt_{step_point}'][old_var_id]
                     if key == independent_var:
                         custom_df.set_index(var_id)
-                        independent_var_id = old_var_id
+                        x_label_name = f'{key} (step {step_id}, point {step_point})'
+                        x_label_name_and_units = x_label_name + tpl_s_units[tpl_s_keys.index(f'{key}_{step_point}')]
+                    else:
+                        y_label_name_dict[key] = f'{key} (step {step_id}, point {step_point})'
+                        y_label_name_dict[key + '_u'] = y_label_name_dict[key] + tpl_s_units[tpl_s_keys.index(
+                            f'{key}_{step_point}')]
                 elif key in lista_b:
                     step_id = int(WtE[key]['step'])
                     old_var_id = key + tpl_s_units[tpl_s_keys.index(key)]
                     custom_df[f'{key}_{step_id}'] = df_b[df_b['Spec_Index'] == step_id][old_var_id]
                     if key == independent_var:
                         custom_df.set_index(f'{key}_{step_id}')
-                        independent_var_id = old_var_id
+                        x_label_name = f'{key} (step {step_id})'
+                        x_label_name_and_units = x_label_name + tpl_s_units[tpl_s_keys.index(key)]
+                    else:
+                        y_label_name_dict[key] = f'{key} (step {step_id})'
+                        y_label_name_dict[key + '_u'] = y_label_name_dict[key] + tpl_s_units[tpl_s_keys.index(key)]
+                y_label_name_dict[key + '_multiplot'] = old_var_id
 
-        dependent_var_id = None
-
-        def by_key_plotter(l_key: str):
-            nonlocal step_point, var_id, step_id, dependent_var_id
+        def by_key_plotter(l_key: str, label=None):
+            nonlocal step_point, var_id, step_id
             if l_key in lista_a:
                 step_point = WtE[l_key]['point']
-                var_id = f'{l_key}_{step_point}'
-                dependent_var_id = var_id + tpl_s_units[tpl_s_keys.index(var_id)]
-                plt.plot(custom_df[var_id])
+                var_id = l_key
+                plt.plot(custom_df[var_id], label=label)
             elif l_key in lista_b:
                 step_id = int(WtE[l_key]['step'])
-                dependent_var_id = l_key + tpl_s_units[tpl_s_keys.index(l_key)]
-                plt.plot(custom_df[f'{l_key}_{step_id}'])
+                plt.plot(custom_df[f'{l_key}_{step_id}'], label=label)
             else:
-                dependent_var_id = l_key + tpl_t_units[tpl_t_keys.index(l_key)]
-                plt.plot(custom_df[l_key])
+                plt.plot(custom_df[l_key], label=label)
 
         skip = False
         for key in dependent_vars:
@@ -506,103 +525,36 @@ def main():
                     skip = True
             if not skip:
                 by_key_plotter(key)
-                plt.title(f'{key} - {independent_var}')
-                plt.xlabel(f'{independent_var_id}')
-                plt.ylabel(f'{dependent_var_id}')
+                title_str = y_label_name_dict[key] + '   -   ' + x_label_name
+                plt.title(title_str)
+                plt.xlabel(x_label_name_and_units)
+                plt.ylabel(y_label_name_dict[key + '_u'])
                 plt.minorticks_on()
                 plt.grid(which='both')
                 plt.show()
         for lista in plot_together:
-            ID_DV = []
-            KEY_LIST = []
+            y_label_ref = [item for number, item in enumerate(lista) if
+                           (number+1 < len(lista) and item != lista[number+1]) or item != lista[number-1]]
+            y_label_ref_u = [y_label_name_dict[item+'_multiplot'] for number, item in enumerate(lista) if
+                             (number+1 < len(lista) and item != lista[number+1]) or item != lista[number-1]]
+            y_label_ref_as_str = y_label_ref_u_as_str = ''
+            for number, ref in enumerate(y_label_ref):
+                if number < len(y_label_ref)-1:
+                    y_label_ref_u_as_str += y_label_ref_u[number] + ',  '
+                    y_label_ref_as_str += ref + ',  '
+                else:
+                    y_label_ref_u_as_str += y_label_ref_u[number]
+                    y_label_ref_as_str += ref
+            title_str = f'{y_label_ref_as_str}   -   {x_label_name}'
             for key in lista:
-                by_key_plotter(key)
-                ID_DV.append(dependent_var_id)
-                KEY_LIST.append(key)
-            plt.title(f'{KEY_LIST} - {independent_var}')
-            plt.xlabel(f'{independent_var_id}')
-            plt.ylabel(f'{ID_DV}')
+                by_key_plotter(key, y_label_name_dict[key])
+            plt.legend(loc='upper left')
+            plt.title(title_str)
+            plt.xlabel(x_label_name_and_units)
+            plt.ylabel(y_label_ref_u_as_str)
             plt.minorticks_on()
             plt.grid(which='both')
             plt.show()
-
-        # eta_s = df_c['eta_maq (-)']
-        # Potencia = df_c['P_total (kW)']
-        # Potencia_ss = df_c['w_ss_total (kJ/kg)'] * df_c['m_dot (kg/s)']
-        #
-        # plt.plot(eta_s)
-        # plt.title('Rendimiento isentrópico - Relación de presiones')
-        # plt.xlabel(r'$P_{0B}/P_{0A}$ (-)')
-        # plt.ylabel(r'$\eta_{s_{TT}}$ (-)')
-        # plt.minorticks_on()
-        # plt.grid(which='both')
-        # plt.show()
-        #
-        # plt.plot(Potencia)
-        # plt.plot(Potencia_ss)
-        # plt.title('Potencia - Relación de presiones')
-        # plt.xlabel(r'$P_{0B}/P_{0A}$ (-)')
-        # plt.ylabel(r'$P$ (kW)')
-        # plt.minorticks_on()
-        # plt.grid(which='both')
-        # plt.show()
-        #
-        # df_a_pt_B = df_a[df_a['Spec_Index'] == f'Step_{settings.n_steps}_pt_3']
-        # df_a_pt_A = df_a[df_a['Spec_Index'] == 'Step_1_pt_1']
-        # r_turbine = df_a_pt_B['p0 (Pa)']/df_a_pt_A['p0 (Pa)']
-        #
-        # m_dot_r = pd.DataFrame(df_c['m_dot (kg/s)'].tolist(), columns=['m_dot'], index=r_turbine.values.tolist())
-        # plt.plot(m_dot_r['m_dot'])
-        # plt.title('Flujo másico - Relación de presiones')
-        # plt.ylabel(r'$\dot{m}$ (kg/s)')
-        # plt.xlabel(r'$P_{0B}/P_{0A}$ (-)')
-        # plt.minorticks_on()
-        # plt.grid(which='both')
-        # plt.show()
-        #
-        # C_inx_r = pd.DataFrame(df_a_pt_A['C (m/s)'].tolist(), columns=['C'], index=r_turbine.values.tolist())
-        # plt.plot(C_inx_r['C'])
-        # plt.title('Velocidad a la entrada - Relación de presiones')
-        # plt.ylabel(r'$C_{in}$ (m/s)')
-        # plt.xlabel(r'$P_{0B}/P_{0A}$ (-)')
-        # plt.minorticks_on()
-        # plt.grid(which='both')
-        # plt.show()
-        #
-        # h0_r = pd.DataFrame(df_a_pt_A['h0 (kJ/kg)'].tolist(), columns=['h0'], index=r_turbine.values.tolist())
-        # plt.plot(h0_r['h0'])
-        # plt.title('Entalpía de remanso a la entrada - Relación de presiones')
-        # plt.ylabel(r'$h_{0in}$ (kJ/kg)')
-        # plt.xlabel(r'$P_{0B}/P_{0A}$ (-)')
-        # plt.minorticks_on()
-        # plt.grid(which='both')
-        # plt.show()
-        #
-        # T0_r = pd.DataFrame(df_a_pt_A['T0 (K)'].tolist(), columns=['T0'], index=r_turbine.values.tolist())
-        # plt.plot(T0_r['T0'])
-        # plt.title('Temperatura de remanso a la entrada - Relación de presiones')
-        # plt.ylabel(r'$T_{0in}$ (K)')
-        # plt.xlabel(r'$P_{0B}/P_{0A}$ (-)')
-        # plt.minorticks_on()
-        # plt.grid(which='both')
-        # plt.show()
-
-        # df_b = pd.read_csv(b_filename)
-        # eta_TT_m_dot = pd.DataFrame((df_b['eta_TT (-)']).values.tolist(), columns=['eta_TT'], index=df_c.index)
-        # eta_TE_m_dot = pd.DataFrame((df_b['eta_TE (-)']).values.tolist(), columns=['eta_TE'], index=df_c.index)
-        # xi_est_m_dot = pd.DataFrame((df_b['Y_est (kJ/kg)']/(0.0005*(df_a_pt_2['C (m/s)'] *
-        #                                                             df_a_pt_2['C (m/s)']))).values.tolist(),
-        #                             columns=['xi_est'], index=df_c.index)
-        # xi_rot_m_dot = pd.DataFrame((df_b['Y_rot (kJ/kg)']/(0.0005*(df_a_pt_B['omega (m/s)'] *
-        #                                                             df_a_pt_B['omega (m/s)']))).values.tolist(),
-        #                             columns=['xi_rot'], index=df_c.index)
-        # plt.plot(eta_TT_m_dot['eta_TT'], label='Rendimiento total a total')
-        # plt.plot(eta_TE_m_dot['eta_TE'], label='Rendimiento total a estático')
-        # plt.plot(xi_est_m_dot['xi_est'], label='Coeficiente adimensional de pérdidas en estátor')
-        # plt.plot(xi_rot_m_dot['xi_rot'], label='Coeficiente adimensional de pérdidas en rótor')
-        # plt.minorticks_on()
-        # plt.grid(which='both')
-        # plt.show()
 
 
 if __name__ == '__main__':

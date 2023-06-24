@@ -15,7 +15,7 @@
 modo = 'visualizar_recorrido';
 
 # Información adicional para el modo 'recorrer_variable' ó 'visualizar_recorrido'.
-var_to_sweep = 'p_inlet';    sweep_resolution = 20;    req_vars = None;   csv_filename_extension = 'sweeping_p_inlet_v3.csv';
+var_to_sweep = 'p_inlet';    sweep_resolution = 20;    req_vars = None;   csv_filename_extension = 'sweeping_p_inlet_v2.csv';
 independent_variable = 'r_turbina';      dependent_variables = ['C', 'm_dot', 'eta_maq', 'P_total', 'P_total_ss', 'alfa', 'eta_TT', 'eta_TE'];
 
 # Any dependend and non dependend variable whose value depends on axial direction or on the step evaluated has to be added to the dictionary at the next line.   
