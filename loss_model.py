@@ -318,8 +318,8 @@ class Ainley_and_Mathieson_Loss_Model:  # Ver paper: https://apps.dtic.mil/sti/p
 
         self.crown_num, geom, relative_error = num, self.cfg.geom, self.cfg.relative_error
 
-        lista_local = [geom[i][num] for i in ['areas', 's', 'k', 'H', 'r_r', 'r_c', 'b', 't_e']]
-        A_1, s, K_i, H, r_r, r_c, b, t_e = lista_local
+        lista_local = [geom[i][num] for i in ['areas', 's', 'k', 'H', 'r_h', 'r_t', 'b', 't_e']]
+        A_1, s, K_i, H, r_h, r_t, b, t_e = lista_local
         clave_BA = 'alfap_i_est' if num % 2 == 0 else 'alfap_i_rot'
         A_1, A_2 = A_1 * cos(self.cfg.geom[clave_BA][num//2]), geom['areas'][num+1]*cos(radians(tau_2))
 
@@ -334,7 +334,7 @@ class Ainley_and_Mathieson_Loss_Model:  # Ver paper: https://apps.dtic.mil/sti/p
 
             tau_2, tau_1 = radians(tau_2), radians(tau_1)
 
-            x = ((A_2*cos(tau_2)/(A_1*cos(tau_1)))**2)/(1+(r_r/r_c))
+            x = ((A_2*cos(tau_2)/(A_1*cos(tau_1)))**2)/(1+(r_h/r_t))
             lambda_ = self.sec_losses[1](x)
             tau_m = atan((tan(tau_1)+tan(tau_2))/2)
             C_L = 2*(s/b)*(tan(tau_1) - tan(tau_2))*cos(tau_m)

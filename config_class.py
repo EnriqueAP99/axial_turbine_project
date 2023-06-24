@@ -129,7 +129,7 @@ class config_class:
                                fijando el radio medio y las alturas. Si no se define un paso, se establecerá
                                automáticamente el paso óptimo según el criterio de Zweifel.
                                Las claves son: Rm (radio medio), H (alturas), areas, b_z (cuerda axial),
-                               t_max (espesor máximo de un álabe), r_r (radio raiz), r_c (radio cabeza),
+                               t_max (espesor máximo de un álabe), r_h (radio hub), r_t (radio tip),
                                t_e (espesor del borde de salida), K (holgura en el extremo del álabe),
                                s (paso, distancia entre álabes de la misma corona),
                                o (distancia de la garganta, "Blade opening"),
@@ -149,7 +149,7 @@ class config_class:
             else:
                 raise InputDataError('Se precisa definir de alguna manera la deflexión de cada álabe.')
 
-        list_items2, local_dict2 = ['t_max', 'r_r', 'r_c', 't_e', ], {}
+        list_items2, local_dict2 = ['t_max', 'r_h', 'r_t', 't_e', ], {}
         for key in ['roughness_ptv', 'lashing_wires', 'wire_diameter', 'b_z', 'delta', 'k', ]:
             if kwargs.get(key, None) is not None:
                 list_items2.append(key)

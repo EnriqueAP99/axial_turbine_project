@@ -176,7 +176,7 @@ def problem_data_viewer(solver: solver_object, req_vars=None) -> None:
 
 
 def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_sweep: str, C_inx=None,
-                 m_dot=None, p_out=None, C_inx_ref=None, sweep_resolution=None, req_vars: list = None):
+                 m_dot=None, p_out=None, C_inx_ref=None, sweep_resolution=200, req_vars: list = None):
     """ El rango debe ser creciente. """
     t_1 = time()
     k = 0
@@ -217,8 +217,6 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
         elif var_to_sweep == 'axial_inlet_velocity':
             C_inx = value
 
-    if sweep_resolution is None:
-        sweep_resolution = 200
     jump = (sweeping_data[var_to_sweep][1] - sweeping_data[var_to_sweep][0]) / (sweep_resolution - 1)
     while k < sweep_resolution:
 
@@ -322,8 +320,8 @@ def main():
             TE_rotor = data_dictionary['rotor_trailing_edge_angle']
             theta_stator = data_dictionary['stator_blade_curvature']
             theta_rotor = data_dictionary['rotor_blade_curvature']
-            root_radius = data_dictionary['root_radius']
-            head_radius = data_dictionary['head_radius']
+            hub_radius = data_dictionary['hub_radius']
+            tip_radius = data_dictionary['tip_radius']
             Rm = data_dictionary['radio_medio']
             heights = data_dictionary['heights']
             areas = data_dictionary['areas']
@@ -345,8 +343,8 @@ def main():
 
         settings.set_geometry(B_A_est=LE_stator, theta_est=theta_stator, B_A_rot=LE_rotor, theta_rot=theta_rotor,
                               H=heights, B_S_est=TE_stator, B_S_rot=TE_rotor, areas=areas, cuerda=chord, radio_medio=Rm,
-                              e=e_param, b_z=chord_proj_z, o=blade_opening, s=pitch, t_max=t_max, r_r=root_radius,
-                              delta=tip_clearance, r_c=head_radius, k=tip_clearance, t_e=t_e,
+                              e=e_param, b_z=chord_proj_z, o=blade_opening, s=pitch, t_max=t_max, r_h=hub_radius,
+                              delta=tip_clearance, r_t=tip_radius, k=tip_clearance, t_e=t_e,
                               roughness_ptv=blade_roughness_peak_to_valley, lashing_wires=lashing_wires,
                               wire_diameter=wire_diameter, holgura_radial=holgura_radial, design_factor=design_factor)
         return settings
@@ -508,12 +506,21 @@ def main():
             if l_key in lista_a:
                 step_point = WtE[l_key]['point']
                 var_id = l_key
-                plt.plot(custom_df[var_id], label=label)
+                if label is None:
+                    plt.plot(custom_df[var_id])
+                else:
+                    plt.plot(custom_df[var_id], label=label)
             elif l_key in lista_b:
                 step_id = WtE[l_key]['step']
-                plt.plot(custom_df[f'{l_key}_{step_id}'], label=label)
+                if label is None:
+                    plt.plot(custom_df[f'{l_key}_{step_id}'])
+                else:
+                    plt.plot(custom_df[f'{l_key}_{step_id}'], label=label)
             else:
-                plt.plot(custom_df[l_key], label=label)
+                if label is None:
+                    plt.plot(custom_df[l_key])
+                else:
+                    plt.plot(custom_df[l_key], label=label)
 
         for key in dependent_vars:
             skip = False
