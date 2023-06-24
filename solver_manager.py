@@ -466,16 +466,15 @@ def main():
                                          'process saved data to be plotted. Please, check items that need to be added '
                                          'to "where_to_evaluate" dictionary.')
             else:
-                if item in lista_c:
-                    custom_df[item] = df_c[item + tpl_t_units[tpl_t_keys.index(item)]]
-                    if item == independent_var:
-                        custom_df.set_index(independent_var)
-                        x_label_name = item
-                        x_label_name_and_units = x_label_name + tpl_t_units[tpl_t_keys.index(item)]
-                    else:
-                        y_label_name_dict[item] = item
-                        y_label_name_dict[item + '_u'] = item + tpl_t_units[tpl_t_keys.index(item)]
-                        y_label_name_dict[item + '_multiplot'] = y_label_name_dict[item + '_u']
+                custom_df[item] = df_c[item + tpl_t_units[tpl_t_keys.index(item)]]
+                if item == independent_var:
+                    custom_df.set_index(independent_var)
+                    x_label_name = item
+                    x_label_name_and_units = x_label_name + tpl_t_units[tpl_t_keys.index(item)]
+                else:
+                    y_label_name_dict[item] = item
+                    y_label_name_dict[item + '_u'] = item + tpl_t_units[tpl_t_keys.index(item)]
+                    y_label_name_dict[item + '_multiplot'] = y_label_name_dict[item + '_u']
 
         if WtE is not None:
             for key in WtE.keys():
