@@ -25,7 +25,7 @@ s_units = ' (K), (Pa), (kg/m^3), (kJ/kgK), (kJ/kg), (kJ/kg), (m/s), (°), (m/s),
           '(-), (kJ/kg), (kW), (-), (-), (-), (-), (-), (-), (kJ/kg), (-), (-), (kJ/kg), (kJ/kg), (kJ/kg), (m/s), ' \
           '(K), (kJ/kg), (m/s), (K), (K), (K), (kJ/kg), (kJ/kg), (kJ/kg), (m/s)'
 
-t_keys = 'DELTA_h, w_total, P_total, s_A, s_B, p0_B, T0_B, T0_Bss, h0_Bss, Y_maq, w_ss_total, eta_maq, p0_A, T0_A, ' \
+t_keys = 'DELTA_h, w_total, P_total, s_A, s_B, p0_B, T0_B, T0_Bss, h0_Bss, Y_maq, w_ss_total, eta_s, p0_A, T0_A, ' \
          'eta_p, r_turbine, m_dot, r0_turbine, P_total_ss'
 
 t_units = '(kJ/kg), (kJ/kg), (kW), (kJ/kgK), (kJ/kgK), (Pa), (K), (K), (kJ/kg), (kJ/kg), (kJ/kg), (-), (Pa), (K), ' \
@@ -37,7 +37,7 @@ tpl_s_units, tpl_t_units = tuple(s_units.split(',')), tuple(t_units.split(','))
 global_list_a = ['M', 'C', 'Cx', 'Cu', 'omega', 'omegax', 'omegau', 'alfa', 'beta', 'h', 'h0', 'T', 'T0',
                  'p', 'p0', 'rho', ]
 global_list_b = ['GR', 'w_esc', 'w_s_esc', 'w_ss_esc', 'eta_TT', 'eta_TE', 'Y_est', 'Y_rot', 'U']
-global_list_c = ['w_total', 'w_ss_total', 'eta_maq', 'P_total', 'r_turbine', 'm_dot', 'r0_turbine', ]
+global_list_c = ['w_total', 'w_ss_total', 'eta_s', 'P_total', 'r_turbine', 'm_dot', 'r0_turbine', ]
 
 
 # https://www.freecodecamp.org/news/with-open-in-python-with-statement-syntax-example/ (funcionamiento de with open as)
