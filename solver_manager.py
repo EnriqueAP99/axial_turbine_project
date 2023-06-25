@@ -582,6 +582,9 @@ def main():
             plt.grid(which='both')
             plt.show()
 
+    else:
+        raise InputDataError('No predefined mode selected.')
+
 
 if __name__ == '__main__':
     main()

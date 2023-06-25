@@ -12,7 +12,7 @@
 # First of all, it is defined the action to be executed or mode, using double or simple quotation marks.
 
 # To be chosen between: 'process_nominal_values', 'solve', 'display_values', 'sweep_variable' and 'display_graphs_with_sweep_data'.
-mode = 'display_graphs_with_sweep_data';
+mode = 'sweep variable';
 
 # Additional information for 'sweep variable' and 'display_graphs_with_sweep_data' modes:
 var_to_sweep = 'p_inlet';    sweep_resolution = 450;    req_vars = None;   csv_filename_extension = 'sweeping_240623_v2.csv';
@@ -44,7 +44,7 @@ rotor_blade_curvature = None;                               stator_trailing_edge
 tip_radius = 0.670;                                         hub_radius = [0.636, 0.621, 0.611, 0.595];                    mean_radius = [0.65275,  0.64543, 0.63985, 0.63162];
 heights = [0.03187, 0.03651, 0.06135, 0.05661, 0.09405];    areas = None;                                                 chord = [0.03044, 0.03067, 0.04718, 0.04703];
 maximum_thickness = $[0.2*b for b in chord];                pitch = [0.05202, 0.04939, 0.07318,  0.06945];                outlet_thickness = $[0.02*s for s in pitch];
-blade_opening = $[0.75*s for s in pitch];                   blade_mean_radius_of_curvature = $[0.6*s for s in pitch];     tip_clearance = [0.0015, 0.0019];
+blade_opening = $[0.75*s for s in pitch];                   blade_mean_radius_of_curvature = $[0.8*s for s in pitch];     tip_clearance = [0.0015, 0.0019];
 chord_z = $[0.9 * b for b in chord];                        wire_diameter = None;                                         lashing_wires = None;
 radial_clearance = False;                                   blade_roughness_peak_to_valley = $[0.00005 for _ in chord];   design_factor = 0.67;
 ##############################################################################################################################################################################
