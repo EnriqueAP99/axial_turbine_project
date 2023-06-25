@@ -538,18 +538,18 @@ def main():
             indep_id = independent_var
         custom_df.set_index(indep_id, inplace=True)  # Index will be plotted as independent variable.
 
-        for dep_var_id, lista_IDs_DV in dep_ids_dict:
+        for dep_var_id in dep_ids_dict:
             # Section for plotting only one independent variable at the time.
             skip = False
             for lista in plot_together:
-                if lista_IDs_DV[0] in lista:
+                if dep_ids_dict[dep_var_id][0] in lista:
                     skip = True  # Skipping this to retake it later at multiplot section.
             if not skip:
-                plt.plot(dep_var_id)
-                title_str = lista_IDs_DV[0] + '   -   ' + x_label_name
+                plt.plot(custom_df[dep_var_id])
+                title_str = dep_ids_dict[dep_var_id][0] + '   -   ' + x_label_name
                 plt.title(title_str)
                 plt.xlabel(x_label_name_and_units)
-                plt.ylabel(lista_IDs_DV[1])
+                plt.ylabel(dep_ids_dict[dep_var_id][1])
                 plt.minorticks_on()
                 plt.grid(which='both')
                 plt.show()
@@ -557,11 +557,11 @@ def main():
             multiplot_legend_dict = {}
             y_label_ref_u = []
             for item in lista:
-                for dep_var_id, lista_IDs_DV in dep_ids_dict:
-                    if lista_IDs_DV[0] == item:
-                        multiplot_legend_dict[dep_var_id] = lista_IDs_DV[2]
-                        if lista_IDs_DV[3] not in y_label_ref_u:
-                            y_label_ref_u.append(lista_IDs_DV[3])
+                for dep_var_id in dep_ids_dict:
+                    if dep_ids_dict[dep_var_id][0] == item:
+                        multiplot_legend_dict[dep_var_id] = dep_ids_dict[dep_var_id][2]
+                        if dep_ids_dict[dep_var_id][3] not in y_label_ref_u:
+                            y_label_ref_u.append(dep_ids_dict[dep_var_id][3])
             y_label_ref = lista
             y_label_ref_as_str = y_label_ref_u_as_str = ''
             for number, ref in enumerate(y_label_ref):
@@ -572,7 +572,7 @@ def main():
                     y_label_ref_u_as_str += y_label_ref_u[number]
                     y_label_ref_as_str += ref
             title_str = f'{y_label_ref_as_str}   -   {x_label_name}'
-            for var_id, leyend in multiplot_legend_dict:
+            for var_id in multiplot_legend_dict:
                 plt.plot(custom_df[var_id], label=multiplot_legend_dict[var_id])
             plt.legend(loc='upper left')
             plt.title(title_str)
