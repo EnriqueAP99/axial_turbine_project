@@ -426,8 +426,7 @@ def main():
 
     elif mode == 'display_graphs_with_sweep_data':
         x_label_name_and_units = x_label_name = None
-        indep_id = None
-        y_label_name_dict = {}
+        dep_ids_dict: dict = {}
         try:
             req_vars = data_dictionary['req_vars']
             plot_together = data_dictionary['plot_together']
@@ -465,86 +464,105 @@ def main():
                     raise InputDataError('It is needed complementary information for any variable at the text file to '
                                          'process saved data to be plotted. Please, check items that need to be added '
                                          'to "where_to_evaluate" dictionary.')
-            else:
-                custom_df[item] = df_c[item + tpl_t_units[tpl_t_keys.index(item)]]
+            elif item in lista_c:
+                units_extension = tpl_t_units[tpl_t_keys.index(item)]
+                custom_df[item] = df_c[item + units_extension]
                 if item == independent_var:
-                    custom_df.set_index(independent_var)
                     x_label_name = item
-                    x_label_name_and_units = x_label_name + tpl_t_units[tpl_t_keys.index(item)]
+                    x_label_name_and_units = x_label_name + units_extension
                 else:
-                    y_label_name_dict[item] = item
-                    y_label_name_dict[item + '_u'] = item + tpl_t_units[tpl_t_keys.index(item)]
-                    y_label_name_dict[item + '_multiplot'] = y_label_name_dict[item + '_u']
+                    dep_ids_dict[item] = [item]
+                    dep_ids_dict[item].append(item + units_extension)  # For y-labels when not multiplotting.
+                    dep_ids_dict[item].append(item)  # This one is for leyends when needed.
+                    dep_ids_dict[item].append(item + units_extension)  # For y-labels when multiplotting.
+            else:
+                sentence = f'{item} is not considered as a possible input. Use req_vars for considering variables ' \
+                           f'listed in the handbook.'
+                raise InputDataError(sentence)
 
         if WtE is not None:
             for key in WtE.keys():
                 if key in lista_a:
                     step_point = WtE[key]['point']
                     step_id = WtE[key]['step']
-                    old_var_id = key + tpl_s_units[tpl_s_keys.index(f'{key}_{step_point}')]
-                    var_id = key + f'_step{step_id}_pt{step_point}'
-                    custom_df[var_id] = df_a[df_a['Spec_Index'] == f'Step_{step_id}_pt_{step_point}'][old_var_id]
-                    if key == independent_var:
-                        x_label_name = f'{key} (step {step_id}, point {step_point})'
-                        x_label_name_and_units = x_label_name + tpl_s_units[tpl_s_keys.index(f'{key}_{step_point}')]
-                    else:
-                        y_label_name_dict[key] = f'{key} (step {step_id}, point {step_point})'
-                        y_label_name_dict[key + '_u'] = y_label_name_dict[key] + tpl_s_units[tpl_s_keys.index(
-                            f'{key}_{step_point}')]
-                        y_label_name_dict[key + '_multiplot'] = old_var_id
+                    if not isinstance(step_id, list) and not isinstance(step_point, list):
+                        step_point, step_id = [step_point], [step_id]
+                    for num, st_id in enumerate(step_id):
+                        units_extension = tpl_s_units[tpl_s_keys.index(f'{key}_{step_point[num]}')]
+                        old_var_id = key + units_extension
+                        var_id = f'{key} (step {st_id}, point {step_point[num]})'
+                        custom_df[var_id] = df_a[
+                            df_a['Spec_Index'] == f'Step_{st_id}_pt_{step_point[num]}'][old_var_id]
+                        if key == independent_var and num == 0:
+                            custom_df.set_index(var_id, inplace=True)  # Index will be plotted as independent variable.
+                            x_label_name = var_id
+                            x_label_name_and_units = x_label_name + units_extension
+                        else:
+                            dep_ids_dict[var_id] = [key]
+                            dep_ids_dict[var_id].append(var_id + units_extension)  # For y-labels when plotting.
+                            dep_ids_dict[var_id].append(old_var_id)  # This one is for leyends when needed.
+                            dep_ids_dict[var_id].append(key + units_extension)  # For y-labels when multiplotting.
                 elif key in lista_b:
                     step_id = WtE[key]['step']
-                    old_var_id = key + tpl_s_units[tpl_s_keys.index(key)]
-                    var_id = f'{key}_step{step_id}'
-                    custom_df[var_id] = df_b[df_b['Spec_Index'] == step_id][old_var_id]
-                    if key == independent_var:
-                        custom_df.set_index(var_id)
-                        x_label_name = f'{key} (step {step_id})'
-                        x_label_name_and_units = x_label_name + tpl_s_units[tpl_s_keys.index(key)]
-                    else:
-                        y_label_name_dict[key] = f'{key} (step {step_id})'
-                        y_label_name_dict[key + '_u'] = y_label_name_dict[key] + tpl_s_units[tpl_s_keys.index(key)]
-                        y_label_name_dict[key + '_multiplot'] = old_var_id
+                    units_extension = tpl_s_units[tpl_s_keys.index(key)]
+                    old_var_id = key + units_extension
+                    if not isinstance(step_id, list):
+                        step_id = [step_id]
+                    for num, st_id in enumerate(step_id):
+                        var_id = f'{key} (step {st_id})'
+                        custom_df[var_id] = df_b[df_b['Spec_Index'] == st_id][old_var_id]
+                        if key == independent_var and num == 0:
+                            x_label_name = var_id
+                            x_label_name_and_units = x_label_name + units_extension
+                        else:
+                            dep_ids_dict[var_id] = [key]
+                            dep_ids_dict[var_id].append(var_id + units_extension)  # This one is for y-labels (plot).
+                            dep_ids_dict[var_id].append(old_var_id)  # This one is for leyends when needed.
+                            dep_ids_dict[var_id].append(key + units_extension)  # For y-labels (multiplot).
 
+        # This next section is needed after declaring all columns of custom_df in order setting
+        # the index for custom_df and keeping all values of its columns.
+        indep_id = None
         if independent_var in lista_a:
             step_point = WtE[independent_var]['point']
             step_id = WtE[independent_var]['step']
-            indep_id = f'{independent_var}_step{step_id}_pt{step_point}'
+            if not isinstance(step_id, list) and not isinstance(step_point, list):
+                step_point, step_id = [step_point], [step_id]
+            indep_id = f'{independent_var} (step {step_id[0]}, point {step_point[0]})'
         elif independent_var in lista_b:
             step_id = WtE[independent_var]['step']
-            indep_id = f'{independent_var}_step{step_id}'
+            if not isinstance(step_id, list):
+                step_id = [step_id]
+            indep_id = f'{independent_var} (step {step_id[0]})'
         elif independent_var in lista_c:
             indep_id = independent_var
+        custom_df.set_index(indep_id, inplace=True)  # Index will be plotted as independent variable.
 
-        for key in dependent_vars:
+        for dep_var_id, lista_IDs_DV in dep_ids_dict:
+            # Section for plotting only one independent variable at the time.
             skip = False
             for lista in plot_together:
-                if key in lista:
-                    skip = True
+                if lista_IDs_DV[0] in lista:
+                    skip = True  # Skipping this to retake it later at multiplot section.
             if not skip:
-                if key in lista_a:
-                    step_id = WtE[key]['step']
-                    step_point = WtE[key]['point']
-                    dep_id = f'{key}_step{step_id}_pt{step_point}'
-                elif key in lista_b:
-                    step_id = WtE[key]['step']
-                    dep_id = f'{key}_step{step_id}'
-                else:
-                    dep_id = key
-                custom_df.plot(x=indep_id, y=dep_id, legend=False)
-                plt.gca.legend_ = None
-                title_str = y_label_name_dict[key] + '   -   ' + x_label_name
+                plt.plot(dep_var_id)
+                title_str = lista_IDs_DV[0] + '   -   ' + x_label_name
                 plt.title(title_str)
                 plt.xlabel(x_label_name_and_units)
-                plt.ylabel(y_label_name_dict[key + '_u'])
+                plt.ylabel(lista_IDs_DV[1])
                 plt.minorticks_on()
                 plt.grid(which='both')
                 plt.show()
-        for lista in plot_together:
-            y_label_ref = [item for number, item in enumerate(lista) if
-                           (number+1 < len(lista) and item != lista[number+1]) or item != lista[number-1]]
-            y_label_ref_u = [y_label_name_dict[item+'_multiplot'] for number, item in enumerate(lista) if
-                             (number+1 < len(lista) and item != lista[number+1]) or item != lista[number-1]]
+        for lista in plot_together:  # Multiplotting section.
+            multiplot_legend_dict = {}
+            y_label_ref_u = []
+            for item in lista:
+                for dep_var_id, lista_IDs_DV in dep_ids_dict:
+                    if lista_IDs_DV[0] == item:
+                        multiplot_legend_dict[dep_var_id] = lista_IDs_DV[2]
+                        if lista_IDs_DV[3] not in y_label_ref_u:
+                            y_label_ref_u.append(lista_IDs_DV[3])
+            y_label_ref = lista
             y_label_ref_as_str = y_label_ref_u_as_str = ''
             for number, ref in enumerate(y_label_ref):
                 if number < len(y_label_ref)-1:
@@ -554,20 +572,8 @@ def main():
                     y_label_ref_u_as_str += y_label_ref_u[number]
                     y_label_ref_as_str += ref
             title_str = f'{y_label_ref_as_str}   -   {x_label_name}'
-            list_ids = []
-            list_legend = []
-            for key in lista:
-                if key in lista_a:
-                    step_point = WtE[key]['point']
-                    step_id = WtE[key]['step']
-                    list_ids.append(f'{key}_step{step_id}_pt{step_point}')
-                elif key in lista_b:
-                    step_id = WtE[key]['step']
-                    list_ids.append(f'{key}_step{step_id}')
-                else:
-                    list_ids.append(key)
-                list_legend.append(y_label_name_dict[key])
-            custom_df.plot(x=indep_id, y=list_ids, label=list_legend)
+            for var_id, leyend in multiplot_legend_dict:
+                plt.plot(custom_df[var_id], label=multiplot_legend_dict[var_id])
             plt.legend(loc='upper left')
             plt.title(title_str)
             plt.xlabel(x_label_name_and_units)
