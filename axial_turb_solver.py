@@ -287,7 +287,7 @@ def step_decorator(cfg: config_class, step_corrector_memory):
 
         relative_error = cfg.relative_error
 
-        def get_sif_output(iter_mode: bool = None, iter_end: bool = None, xi=None, rho_seed: list = None, Re=None):
+        def get_sif_output(iter_mode: bool = False, iter_end: bool = False, xi=None, rho_seed: list = None, Re=None):
             """ Se recibe la copia del output generado y se devuelve. """
             return step_inner_function(iter_mode, iter_end, xi, rho_seed, Re)
 
