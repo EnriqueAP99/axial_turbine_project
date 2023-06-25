@@ -500,7 +500,7 @@ def main():
                         else:
                             dep_ids_dict[var_id] = [key]
                             dep_ids_dict[var_id].append(var_id + units_extension)  # For y-labels when plotting.
-                            dep_ids_dict[var_id].append(old_var_id)  # This one is for leyends when needed.
+                            dep_ids_dict[var_id].append(var_id)  # This one is for leyends when needed.
                             dep_ids_dict[var_id].append(key + units_extension)  # For y-labels when multiplotting.
                 elif key in lista_b:
                     step_id = WtE[key]['step']
@@ -517,7 +517,7 @@ def main():
                         else:
                             dep_ids_dict[var_id] = [key]
                             dep_ids_dict[var_id].append(var_id + units_extension)  # This one is for y-labels (plot).
-                            dep_ids_dict[var_id].append(old_var_id)  # This one is for leyends when needed.
+                            dep_ids_dict[var_id].append(var_id)  # This one is for leyends when needed.
                             dep_ids_dict[var_id].append(key + units_extension)  # For y-labels (multiplot).
 
         # This next section is needed after declaring all columns of custom_df in order setting
@@ -574,7 +574,7 @@ def main():
             title_str = f'{y_label_ref_as_str}   -   {x_label_name}'
             for var_id in multiplot_legend_dict:
                 plt.plot(custom_df[var_id], label=multiplot_legend_dict[var_id])
-            plt.legend(loc='upper left')
+            plt.legend(loc='lower right')
             plt.title(title_str)
             plt.xlabel(x_label_name_and_units)
             plt.ylabel(y_label_ref_u_as_str)
