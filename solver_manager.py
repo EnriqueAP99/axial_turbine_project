@@ -265,7 +265,7 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
 
 
 def txt_reader():
-    with open('turbine_data_template_v2.txt') as file:
+    with open('turbine_data_template_v1.txt') as file:
         for line in file:
             declaration = ''
             for char in line.strip():

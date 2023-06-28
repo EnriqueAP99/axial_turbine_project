@@ -15,7 +15,7 @@
 mode = 'display_graphs_with_sweep_data';
 
 # Additional information for 'sweep variable' and 'display_graphs_with_sweep_data' modes:
-var_to_sweep = 'p_inlet';    sweep_resolution = 450;    req_vars = None;   csv_filename_extension = 'sweeping_240623_v2.csv';
+var_to_sweep = 'p_inlet';    sweep_resolution = 450;    req_vars = None;   csv_filename_extension = 'sweeping_280623_v2.csv';
 independent_variable = 'r_turbine';      dependent_variables = ['C', 'm_dot', 'eta_ss', 'P_total', 'P_total_ss', 'alfa', 'eta_TT', 'eta_TE'];
 logic_limit_for_independent_variable = True;  # It limits the displayed values using as condition that global energy exchange is from the gas to the turbine.
 

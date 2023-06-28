@@ -12,10 +12,10 @@
 # First of all, it is defined the action to be executed or mode, using double or simple quotation marks.
 
 # To be chosen between: 'process_nominal_values', 'solve', 'display_values', 'sweep_variable' and 'display_graphs_with_sweep_data'.
-mode = 'display_graphs_with_sweep_data';
+mode = 'sweep_variable';
 
 # Additional information for 'sweep variable' and 'display_graphs_with_sweep_data' modes:
-var_to_sweep = 'p_inlet';    sweep_resolution = 450;    req_vars = None;   csv_filename_extension = 'sweeping_240623_v2.csv';
+var_to_sweep = 'p_inlet';    sweep_resolution = 400;    req_vars = None;   csv_filename_extension = 'sweeping_240623_v2.csv';
 independent_variable = 'r_turbine';      dependent_variables = ['C', 'm_dot', 'eta_ss', 'P_total', 'P_total_ss', 'alfa', 'eta_TT', 'eta_TE'];
 logic_limit_for_independent_variable = True;  # It limits the displayed values using as condition that global energy exchange is from the gas to the turbine.
 
@@ -30,7 +30,7 @@ plot_together = [['C'],['alfa'], ['eta_TT', 'eta_TE'], ['P_total', 'P_total_ss']
 ##############################################################################################################################################################################
 # Secondly, everything about the program configuration is defined:
 
-iter_limit_at_inner_loops=600;                     iter_limit_at_outer_loops=25;                       thermod_mode_in_gas_model_module = 'ig';
+iter_limit_at_inner_loops=800;                     iter_limit_at_outer_loops=25;                       thermod_mode_in_gas_model_module = 'ig';
 relative_error=1E-8;         ideal_gas=True;       chain_mode=False;        loss_model='Aungier';      n_steps=2;           jump=4.0;   
 max_trend_changes=30;        T_nominal=750;        p_nominal=150_000;       n_rpm_nominal=20_000;      inlet_velocity_range=[0.01, 140.69];
 preloading_for_small_input_deviations = False;     resolution_for_small_input_deviations = 500; 
