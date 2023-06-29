@@ -521,8 +521,8 @@ def main():
                             dep_ids_dict[var_id].append(var_id)  # This one is for leyends when needed.
                             dep_ids_dict[var_id].append(key + units_extension)  # For y-labels (multiplot).
 
-        # This next section is needed after declaring all columns of custom_df in order setting
-        # the index for custom_df and keeping all values of its columns.
+        # This next section is needed after declaring all columns of custom_df in order to set the index for
+        # custom_df and keeping the integrity of every value of its columns.
         indep_id = None
         if independent_var in lista_a:
             step_point = WtE[independent_var]['point']
@@ -539,38 +539,60 @@ def main():
             indep_id = independent_var
         custom_df.set_index(indep_id, inplace=True)  # Index will be plotted as independent variable.
 
-        IV_limits_refs = None
+        IV_limits_refs = DV_limits = None
 
         # The following function stablishes the range of values of the independent variable to be displayed
         # using as condition that resulting exchange of energy is given from the gas to the turbine.
         def x_axis_limits_algorithm():
-            def bottom_limit_finder():
+            def IV_limits_finder():
                 nonlocal IV_limits_refs
                 IV_limits_refs = []
                 for i in range(custom_df.shape[0]):
                     if i == 0 and df_c['w_total (kJ/kg)'][0] > 0:
                         IV_limits_refs.append(i)
-                    elif i > 0 and df_c['w_total (kJ/kg)'][i]*df_c['w_total (kJ/kg)'][i-1] > 0:
+                    elif i > 0 and df_c['w_total (kJ/kg)'][i]*df_c['w_total (kJ/kg)'][i-1] < 0:
                         if df_c['w_total (kJ/kg)'][i] > 0:
                             IV_limits_refs.append(i)
                         else:
                             IV_limits_refs.append(i-1)
-                    if i == custom_df.shape[0]-1 and df_c['w_total (kJ/kg)'][i] > 0 and len(IV_limits_refs) == 1:
+                    if i == custom_df.shape[0]-1 and df_c['w_total (kJ/kg)'][i]*df_c['w_total (kJ/kg)'][i-1] > 0 and \
+                            len(IV_limits_refs) == 1:
                         IV_limits_refs.append(i)
                 if IV_limits_refs is None:
                     raise InputDataError('No data meets the condition. There is no value to be displayed.')
                 else:
                     p1, p2 = IV_limits_refs[0], IV_limits_refs[1]
-                    if custom_df[indep_id][p2] < custom_df[indep_id][p1]:
+                    if custom_df.index[p2] < custom_df.index[p1]:
                         IV_limits_refs[0], IV_limits_refs[1] = IV_limits_refs[1], IV_limits_refs[0]
                 return
             if not isinstance(IV_limits_refs, list):
-                bottom_limit_finder()
-            plt.xlim(custom_df[indep_id][IV_limits_refs[0]], custom_df[indep_id][IV_limits_refs[1]])
+                IV_limits_finder()
+            plt.xlim(custom_df.index[IV_limits_refs[0]], custom_df.index[IV_limits_refs[1]])
             return
 
+        # The following function adapts the range of values of the axis for the dependent variable to the .
+        # The function "x_axis_limits_algorithm()" is expected to be executed before.
+        def y_axis_limits_algorithm(DV_identifiers_list: list[str]):
+            nonlocal DV_limits
+            DV_limits = []
+
+            def DV_limits_finder():
+                nonlocal DV_limits
+                if isinstance(IV_limits_refs, list):
+                    for DV_ID in DV_identifiers_list:
+                        for i in range(int(IV_limits_refs[0]), int(IV_limits_refs[1]+1)):
+                            if len(DV_limits) < 2:
+                                DV_limits.append(custom_df[DV_ID][i])
+                            else:
+                                if custom_df[DV_ID][i] < DV_limits[0]:
+                                    DV_limits[0] = custom_df[DV_ID][i]
+                                if custom_df[DV_ID][i] > DV_limits[1]:
+                                    DV_limits[1] = custom_df[DV_ID][i]
+            DV_limits_finder()
+            diff = 0.5*(DV_limits[1]-DV_limits[0])
+            plt.ylim(DV_limits[0]-diff, DV_limits[1]+diff)
+        # Section for plotting only one independent variable at the time.
         for dep_var_id in dep_ids_dict:
-            # Section for plotting only one independent variable at the time.
             skip = False
             for lista in plot_together:
                 if dep_ids_dict[dep_var_id][0] in lista:
@@ -579,6 +601,7 @@ def main():
                 plt.plot(custom_df[dep_var_id])
                 if logic_limit_for_independent_variable:
                     x_axis_limits_algorithm()
+                    y_axis_limits_algorithm([dep_var_id, ])
                 title_str = dep_ids_dict[dep_var_id][0] + '   -   ' + x_label_name
                 plt.title(title_str)
                 plt.xlabel(x_label_name_and_units)
@@ -586,7 +609,8 @@ def main():
                 plt.minorticks_on()
                 plt.grid(which='both')
                 plt.show()
-        for lista in plot_together:  # Multiplotting section.
+        # Multiplotting section.
+        for lista in plot_together:
             multiplot_legend_dict = {}
             y_label_ref_u = []
             for item in lista:
@@ -609,6 +633,7 @@ def main():
                 plt.plot(custom_df[var_id], label=multiplot_legend_dict[var_id])
             if logic_limit_for_independent_variable:
                 x_axis_limits_algorithm()
+                y_axis_limits_algorithm(list(multiplot_legend_dict.keys()))
             plt.legend(loc='lower right')
             plt.title(title_str)
             plt.xlabel(x_label_name_and_units)
