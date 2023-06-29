@@ -550,7 +550,7 @@ def main():
                 for i in range(custom_df.shape[0]):
                     if i == 0 and df_c['w_total (kJ/kg)'][0] > 0:
                         IV_limits_refs.append(i)
-                    elif df_c['w_total (kJ/kg)'][i]*df_c['w_total (kJ/kg)'][i-1] > 0:
+                    elif i > 0 and df_c['w_total (kJ/kg)'][i]*df_c['w_total (kJ/kg)'][i-1] > 0:
                         if df_c['w_total (kJ/kg)'][i] > 0:
                             IV_limits_refs.append(i)
                         else:
