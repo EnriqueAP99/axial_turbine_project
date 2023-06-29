@@ -560,7 +560,7 @@ def main():
                 if IV_limits_refs is None:
                     raise InputDataError('No data meets the condition. There is no value to be displayed.')
                 else:
-                    p1, p2 = IV_limits_refs[0][0], IV_limits_refs[1][0]
+                    p1, p2 = IV_limits_refs[0], IV_limits_refs[1]
                     if custom_df[indep_id][p2] < custom_df[indep_id][p1]:
                         IV_limits_refs[0], IV_limits_refs[1] = IV_limits_refs[1], IV_limits_refs[0]
                 return
