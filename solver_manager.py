@@ -570,7 +570,8 @@ def main():
             plt.xlim(custom_df.index[IV_limits_refs[0]], custom_df.index[IV_limits_refs[1]])
             return
 
-        # The following function adapts the range of values of the axis for the dependent variable to the .
+        # The following function adapts the range of values of the axis for the dependent variable to the plotted
+        # function interval.
         # The function "x_axis_limits_algorithm()" is expected to be executed before.
         def y_axis_limits_algorithm(DV_identifiers_list: list[str]):
             nonlocal DV_limits
@@ -580,16 +581,24 @@ def main():
                 nonlocal DV_limits
                 if isinstance(IV_limits_refs, list):
                     for DV_ID in DV_identifiers_list:
-                        for i in range(int(IV_limits_refs[0]), int(IV_limits_refs[1]+1)):
+                        for i in range(IV_limits_refs[0], IV_limits_refs[1]+1):
                             if len(DV_limits) < 2:
-                                DV_limits.append(custom_df[DV_ID][i])
+                                DV_limits.append(custom_df.iloc[i][DV_ID])
                             else:
-                                if custom_df[DV_ID][i] < DV_limits[0]:
-                                    DV_limits[0] = custom_df[DV_ID][i]
-                                if custom_df[DV_ID][i] > DV_limits[1]:
-                                    DV_limits[1] = custom_df[DV_ID][i]
-            DV_limits_finder()
-            diff = 0.5*(DV_limits[1]-DV_limits[0])
+                                if custom_df.iloc[i][DV_ID] < DV_limits[0]:
+                                    DV_limits[0] = custom_df.iloc[i][DV_ID]
+                                if custom_df.iloc[i][DV_ID] > DV_limits[1]:
+                                    DV_limits[1] = custom_df.iloc[i][DV_ID]
+            eta_checker = False
+            for DV_ident in DV_identifiers_list:
+                if 'eta' in DV_ident:
+                    eta_checker = True
+            if eta_checker:
+                DV_limits = [0, 1]
+                diff = 0
+            else:
+                DV_limits_finder()
+                diff = 0.15*(DV_limits[1]-DV_limits[0])
             plt.ylim(DV_limits[0]-diff, DV_limits[1]+diff)
         # Section for plotting only one independent variable at the time.
         for dep_var_id in dep_ids_dict:
