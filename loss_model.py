@@ -166,7 +166,10 @@ class Ainley_and_Mathieson_Loss_Model:  # Ver paper: https://apps.dtic.mil/sti/p
         pitch = self.cfg.geom['s']
         mean_radius_curvature = self.cfg.geom['e']
         for i in range(self.cfg.n_steps*2):
-            x_value = degrees(acos(throat_distance[i] / pitch[i]))
+            if fabs(throat_distance[i] / pitch[i]) < 1:
+                x_value = degrees(acos(throat_distance[i] / pitch[i]))
+            else:
+                x_value = degrees(acos(fabs(throat_distance[i] / pitch[i])/(throat_distance[i] / pitch[i])))
             if x_value < 35 or x_value > 80:
                 record.warning('El valor de acos(o/s) excede los límites de la correlación. Valor: %.1f; Límites: %s',
                                x_value, [35, 80])
