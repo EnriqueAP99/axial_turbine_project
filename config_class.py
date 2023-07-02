@@ -216,11 +216,14 @@ class config_class:
         object.__setattr__(self, 'geom', geom)
         return
 
-    def edit_geom(self, key, values: tuple):
+    def edit_geom(self, key, values):
         """ Se permite modificar parámetros ya introducidos mediante este método. """
 
         geom = self.geom
-        geom[key] = values
+        if isinstance(values, (list, tuple)):
+            geom[key] = values
+        else:
+            geom[key] = [values for _ in self.geom[key]]
         object.__setattr__(self, 'geom', geom)
         return
 

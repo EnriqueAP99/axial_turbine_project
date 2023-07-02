@@ -265,7 +265,7 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
 
 
 def txt_reader():
-    with open('turbine_data_template_v2.txt') as file:
+    with open('turbine_data_template_v3.txt') as file:
         for line in file:
             declaration = ''
             for char in line.strip():
@@ -361,12 +361,15 @@ def main():
 
     elif mode == 'solve':
         try:
+            settings = aux_reading_operations()
+            gas_model = gas_model_to_solver(thermod_mode=data_dictionary.get('thermod_mode_in_gas_model_module',
+                                                                             'ig'))
             try:
+                # Keeping existing seeds if pkl file is available but taking changes into account
                 solver = solver_data_reader('process_object.pkl')
+                solver.cfg = settings
+                solver.prd = gas_model
             except FileNotFoundError:
-                settings = aux_reading_operations()
-                gas_model = gas_model_to_solver(thermod_mode=data_dictionary.get('thermod_mode_in_gas_model_module',
-                                                                                 'ig'))
                 solver = solver_object(settings, gas_model)
             if data_dictionary['chain_mode']:
                 output = solver.problem_solver(
