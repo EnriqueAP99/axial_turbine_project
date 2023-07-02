@@ -31,7 +31,7 @@ def Reynolds(num: int, rho_2: float, C_2: float, T_2: float, config: config_clas
         c_len = config.geom['b'][num]
 
     mu = productos.get_din_visc(T_2)
-    Re = int((rho_2 * C_2 * c_len / mu).__round__(0))
+    Re = int(rho_2 * C_2 * c_len / mu)
     return Re
 
 
@@ -43,42 +43,11 @@ def f_sp(x_list: list, y_list: list, order: int):
     return InterpolatedUnivariateSpline(x_list, y_list, k=order)
 
 
-# def lineal_interpolation(x_target=None, x=None, series=None, y=None):
-#     if y is None:
-#         serie_x = [parameter for _, _, parameter in series]
-#         serie_y = [float(funcion(x)) for _, funcion, _ in series]
-#     else:
-#         serie_x, serie_y = x, y
-#     f_param = InterpolatedUnivariateSpline(serie_x, serie_y, k=2)
-#     return f_param(x_target)
-# #
-def lineal_interpolation(x_target=None, x=None, series=None, y=None):
-    output = None
-    if y is None:
-        serie_x = [parameter for _, _, parameter in series]
-        serie_y = [float(funcion(x)) for _, funcion, _ in series]
-    else:
-        serie_x, serie_y = x, y
-    if serie_x[0] < x_target < serie_x[-1]:
-        n_1, n_2 = 0, len(serie_x)-1
-        while n_2 - n_1 > 1:
-            n_c = int((n_2 + n_1)//2)
-            if x_target < serie_x[n_c]:
-                n_2 = n_c
-            else:
-                n_1 = n_c
-        xparam, xnparam = serie_x[n_1], serie_x[n_2]
-        diff = (x_target - xparam) * (serie_y[n_2] - serie_y[n_1]) / (xnparam - xparam)
-        output = serie_y[n_1] + diff
-    elif serie_x[0] > x_target:
-        xparam, xnparam = serie_x[0], serie_x[1]
-        diff = (x_target - xparam) * (serie_y[1] - serie_y[0]) / (xnparam - xparam)
-        output = serie_y[0] + diff
-    elif serie_x[-2] < x_target:
-        xparam, xnparam = serie_x[-2], serie_x[-1]
-        diff = (x_target - xparam) * (serie_y[-1] - serie_y[-2]) / (xnparam - xparam)
-        output = serie_y[-2] + diff
-    return output
+def interpola_series_en_x(param, x, series):
+    serie_parameter = [parameter for _, _, parameter in series]
+    serie_y = [float(funcion(x)) for _, funcion, _ in series]
+    f_param = InterpolatedUnivariateSpline(serie_parameter, serie_y, k=2)
+    return f_param(param)
 
 
 class Ainley_and_Mathieson_Loss_Model:  # Ver paper: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf
@@ -228,8 +197,8 @@ class Ainley_and_Mathieson_Loss_Model:  # Ver paper: https://apps.dtic.mil/sti/p
                                'El valor es %.2f y los límites son [-1.1, 1].', alfap_1 / alpha_2_sc075)
                 self.limit_mssg[0] = False
 
-        is_sc075 = lineal_interpolation(x_target=alpha_2_sc075, x=alfap_1 / alpha_2_sc075, series=self.is_b1a2_sc_075)
-        delta_is = lineal_interpolation(x_target=tau_2, x=s / b, series=self.d_i_s_s_c)
+        is_sc075 = interpola_series_en_x(param=alpha_2_sc075, x=alfap_1/alpha_2_sc075, series=self.is_b1a2_sc_075)
+        delta_is = interpola_series_en_x(param=tau_2, x=s/b, series=self.d_i_s_s_c)
         i_s = delta_is + is_sc075
         i_is = (tau_1 - alfap_1) / i_s
 
@@ -254,8 +223,8 @@ class Ainley_and_Mathieson_Loss_Model:  # Ver paper: https://apps.dtic.mil/sti/p
         i_is = self.calculating_incidence_stall_incidence_fraction(tau_1, tau_2)
 
         yp_f = self.yp_f_i_f[1](i_is)
-        Yp_i0_b1kn = lineal_interpolation(x_target=tau_2, x=s / b, series=self.yp_s_c_b1kn)
-        Yp_i0_b1kb2k = lineal_interpolation(x_target=tau_2, x=s / b, series=self.yp_s_c_b1kb2k)
+        Yp_i0_b1kn = interpola_series_en_x(param=tau_2, x=s/b, series=self.yp_s_c_b1kn)
+        Yp_i0_b1kb2k = interpola_series_en_x(param=tau_2, x=s/b, series=self.yp_s_c_b1kb2k)
 
         t_max_b = t_max / b
 
@@ -318,8 +287,8 @@ class Ainley_and_Mathieson_Loss_Model:  # Ver paper: https://apps.dtic.mil/sti/p
 
         self.crown_num, geom, relative_error = num, self.cfg.geom, self.cfg.relative_error
 
-        lista_local = [geom[i][num] for i in ['areas', 's', 'k', 'H', 'r_h', 'r_t', 'b', 't_e']]
-        A_1, s, K_i, H, r_h, r_t, b, t_e = lista_local
+        lista_local = [geom[i][num] for i in ['areas', 's', 'k', 'H', 'r_r', 'r_c', 'b', 't_e']]
+        A_1, s, K_i, H, r_r, r_c, b, t_e = lista_local
         clave_BA = 'alfap_i_est' if num % 2 == 0 else 'alfap_i_rot'
         A_1, A_2 = A_1 * cos(self.cfg.geom[clave_BA][num//2]), geom['areas'][num+1]*cos(radians(tau_2))
 
@@ -334,7 +303,7 @@ class Ainley_and_Mathieson_Loss_Model:  # Ver paper: https://apps.dtic.mil/sti/p
 
             tau_2, tau_1 = radians(tau_2), radians(tau_1)
 
-            x = ((A_2*cos(tau_2)/(A_1*cos(tau_1)))**2)/(1+(r_h/r_t))
+            x = ((A_2*cos(tau_2)/(A_1*cos(tau_1)))**2)/(1+(r_r/r_c))
             lambda_ = self.sec_losses[1](x)
             tau_m = atan((tan(tau_1)+tan(tau_2))/2)
             C_L = 2*(s/b)*(tan(tau_1) - tan(tau_2))*cos(tau_m)
@@ -410,7 +379,7 @@ class Aungier_Loss_Model(Ainley_and_Mathieson_Loss_Model):
             pass
         else:
             X_delta = (2*Mout) - 1
-            delta_0 = delta_0*(1 - (10*(X_delta**3)) + (15*(X_delta**4)) - (6*(X_delta**5)))
+            delta_0 = delta_0*(1-(10*(X_delta**3)) + (15*(X_delta**4)) - (6*(X_delta**5)))
 
         taud_1, taud_2 = degrees(tau_1), 90 - (beta_g + delta_0)
         if fabs(taud_2) < self.cfg.relative_error:
@@ -420,7 +389,7 @@ class Aungier_Loss_Model(Ainley_and_Mathieson_Loss_Model):
         i_is = self.calculating_incidence_stall_incidence_fraction(taud_1, taud_2)
         k_inc = self.yp_f_i_f[1](i_is)
 
-        k_m = 1 if (s_j / e_j) < 0.105 or Mout < 0.6 else lineal_interpolation(Mout, s_j / e_j, self.km_series)
+        k_m = 1 if (s_j / e_j) < 0.105 or Mout < 0.6 else interpola_series_en_x(Mout, s_j / e_j, self.km_series)
 
         Minmod = (Min + 0.566 - fabs(0.566 - Min))/2
         Moutmod = (Mout + 1 - fabs(Mout - 1))/2
@@ -444,15 +413,14 @@ class Aungier_Loss_Model(Ainley_and_Mathieson_Loss_Model):
             else:
                 k_Re = ((log10(500_000))/((log10(Re_r))**2.58))
 
-        Yp1 = lineal_interpolation(taud_2, s_j / b_j, self.yp_s_c_b1kn)
-        Yp2 = lineal_interpolation(taud_2, s_j / b_j, self.yp_s_c_b1kb2k)
+        Yp1 = interpola_series_en_x(taud_2, s_j/b_j, self.yp_s_c_b1kn)
+        Yp2 = interpola_series_en_x(taud_2, s_j/b_j, self.yp_s_c_b1kb2k)
         ksi = self.ap_1[num]/taud_2
 
         Y_TE_002s = (0.02*s_j/((s_j*sin(radians(beta_g)))-(0.02*s_j)))**2
         delta_Y_TE = Y_TE_002s
 
-        Yp = self.cfg.geom['design_factor'] * k_inc * k_m * k_p * k_Re * \
-            (((Yp1 + ((ksi**2)*(Yp2-Yp1))) * ((5*t_max/b_j)**ksi))-delta_Y_TE)
+        Yp = 0.67 * k_inc * k_m * k_p * k_Re * (((Yp1 + ((ksi**2)*(Yp2-Yp1)))*((5*t_max/b_j)**ksi))-delta_Y_TE)
         self.Yp_iter_mode = Yp
 
         CL = 2*(tan(tau_1) + tan(tau_2))*s_j/b_j
