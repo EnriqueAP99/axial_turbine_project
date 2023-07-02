@@ -45,7 +45,7 @@ rotor_blade_curvature = None;                               stator_trailing_edge
 tip_radius = 0.670;                                         hub_radius = [0.636, 0.621, 0.611, 0.595];                            mean_radius = [0.65275,  0.64543, 0.63985, 0.63162];
 heights = [0.03187, 0.03651, 0.06135, 0.05661, 0.09405];    areas = None;                                                         chord = [0.03247, 0.03979, 0.05623, 0.06832];
 maximum_thickness = $[0.12*b for b in chord];               pitch = None;                                                         outlet_thickness = $[0.004*c/0.03 for c in chord];
-blade_opening = $[0.015*c/0.03 for c in chord];            blade_mean_radius_of_curvature = $[0.015*c/0.03 for c in chord];     tip_clearance = [0.0025, 0.0025, 0.0025, 0.0025];
+blade_opening = $[0.015*c/0.03 for c in chord];             blade_mean_radius_of_curvature = $[0.015*c/0.03 for c in chord];     tip_clearance = [0.0025, 0.0025, 0.0025, 0.0025];
 chord_z = $[0.9 * b for b in chord];                        wire_diameter = None;                                                 lashing_wires = None;
 radial_clearance = False;                                   blade_roughness_peak_to_valley = $[0.00008 for _ in chord];           design_factor = 0.67;
 ##############################################################################################################################################################################

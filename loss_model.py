@@ -404,7 +404,10 @@ class Aungier_Loss_Model(Ainley_and_Mathieson_Loss_Model):
             beta_g = degrees(asin(o_s))
         else:
             beta_g = degrees(asin(o_s/fabs(o_s)))
-        delta_0 = (degrees(asin(o_s*(1+((1-o_s)*((beta_g/90)**2)))))) - beta_g
+        in_asin = o_s*(1+((1-o_s)*((beta_g/90)**2)))
+        if fabs(in_asin) > 1:
+            in_asin = fabs(in_asin)/in_asin
+        delta_0 = (degrees(asin(in_asin))) - beta_g
 
         if Mout <= 0.5:
             pass

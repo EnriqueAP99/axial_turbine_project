@@ -15,7 +15,7 @@
 mode = 'sweep_variable';
 
 # Additional information for 'sweep_variable' and 'display_graphs_with_sweep_data' modes:
-var_to_sweep = 'p_inlet';    sweep_resolution = 300;    req_vars = None;   csv_filename_extension = 'sweeping_020723_v1.csv';
+var_to_sweep = 'p_inlet';    sweep_resolution = 450;    req_vars = None;   csv_filename_extension = 'sweeping_020723_v1.csv';
 independent_variable = 'r_turbine';      dependent_variables = ['C', 'm_dot', 'eta_ss', 'P_total', 'P_total_ss', 'alfa', 'eta_TT', 'eta_TE'];
 logic_limit_for_independent_variable = False;  # It limits the displayed values using as condition that global energy exchange is from the gas to the turbine.
 
@@ -43,7 +43,7 @@ preloading_for_small_input_deviations = False;     resolution_for_small_input_de
 stator_leading_edge_angle = [0, 5];                         rotor_leading_edge_angle = [38, 50];                                  stator_blade_curvature = 55;
 rotor_blade_curvature = [80, 100];                         stator_trailing_edge_angle = None;                                    rotor_trailing_edge_angle = None;
 tip_radius = 0.570;                                         hub_radius = [0.536, 0.521, 0.511, 0.495];                            mean_radius = [0.55275,  0.54543, 0.53985, 0.53162];
-heights = [0.037, 0.041, 0.055, 0.052, 0.081];              areas = None;                                                         chord = [0.03247, 0.03979, 0.05623, 0.06832];
+heights = [0.037, 0.041, 0.047, 0.046, 0.060];              areas = None;                                                         chord = [0.03247, 0.03979, 0.05623, 0.06832];
 maximum_thickness = $[0.1*b for b in chord];                pitch = None;                                                         outlet_thickness = $[0.006*c/0.03 for c in chord];
 blade_opening = $[0.012 for _ in chord];                     blade_mean_radius_of_curvature = $[0.015*c/0.03 for c in chord];      tip_clearance = [0.0025, 0.0025, 0.0025, 0.0025];
 chord_z = $[0.9 * b for b in chord];                        wire_diameter = None;                                                 lashing_wires = None;
@@ -51,5 +51,5 @@ radial_clearance = False;                                   blade_roughness_peak
 ##############################################################################################################################################################################
 # Finally, only the values that will restrict the operating point to be evaluated are defined, the rest are assigned "None":
 
-T_inlet=1400;     p_inlet=[700_000, 545_000];     rpm=400;     p_outlet=540_000;     mass_flow=None;     axial_inlet_velocity=None;     reference_inlet_velocity=10;
+T_inlet=1400;     p_inlet=[1_000_000, 600_000];     rpm=400;     p_outlet=540_000;     mass_flow=None;     axial_inlet_velocity=None;     reference_inlet_velocity=10;
 ##############################################################################################################################################################################
