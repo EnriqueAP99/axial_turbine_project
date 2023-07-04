@@ -44,34 +44,12 @@ def f_sp(x_list: list, y_list: list, order: int):
 
 
 def lineal_interpolation(x_target=None, x=None, series=None, y=None):
-    output = None
     if y is None:
         serie_x = [parameter for _, _, parameter in series]
         serie_y = [float(funcion(x)) for _, funcion, _ in series]
     else:
         serie_x, serie_y = x, y
-    if serie_x[0] > serie_x[-1]:
-        record.error('Non-valid input for interpolation function.')
-    if serie_x[0] < x_target < serie_x[-1]:
-        n_1, n_2 = 0, len(serie_x)-1
-        while n_2 - n_1 > 1:
-            n_c = int((n_2 + n_1)//2)
-            if x_target < serie_x[n_c]:
-                n_2 = n_c
-            else:
-                n_1 = n_c
-        xparam, xnparam = serie_x[n_1], serie_x[n_2]
-        diff = (x_target - xparam) * (serie_y[n_2] - serie_y[n_1]) / (xnparam - xparam)
-        output = serie_y[n_1] + diff
-    elif serie_x[0] > x_target:
-        xparam, xnparam = serie_x[0], serie_x[1]
-        diff = (x_target - xparam) * (serie_y[1] - serie_y[0]) / (xnparam - xparam)
-        output = serie_y[0] + diff
-    elif serie_x[-2] < x_target:
-        xparam, xnparam = serie_x[-2], serie_x[-1]
-        diff = (x_target - xparam) * (serie_y[-1] - serie_y[-2]) / (xnparam - xparam)
-        output = serie_y[-2] + diff
-    return output
+    return InterpolatedUnivariateSpline(serie_x, serie_y, k=2)(x_target)
 
 
 class Ainley_and_Mathieson_Loss_Model:  # Ver paper: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf
@@ -397,7 +375,8 @@ class Aungier_Loss_Model(Ainley_and_Mathieson_Loss_Model):
             beta_g = degrees(asin((o_j/s_j)/fabs(o_j/s_j)))
         Y_TE = (t_e/((s_j*sin(radians(beta_g)))-t_e))**2
 
-        F_AR = 0.8 + (0.2*(d2*V_2x/(d1*V_1x)))
+        rel_position = self.cfg.geom['gauge_adimensional_position'][num]
+        F_AR = 1 - rel_position + (rel_position*(d2*V_2x/(d1*V_1x)))
         F_TE = 1 + (Y_TE * (pr0_2 - p_2) / pr0_2)
         o_s = F_TE*F_AR*o_j/s_j
         if fabs(o_s) < 1:

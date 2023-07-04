@@ -171,13 +171,13 @@ def problem_data_viewer(solver: solver_object, req_vars=None) -> None:
             print(df_b, '\n')
         if df_c is not None:
             print(df_c, '\n')
-
     return
 
 
-def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_sweep: str, C_inx=None,
-                 m_dot=None, p_out=None, C_inx_ref=None, sweep_resolution=200, req_vars: list = None):
+def var_sweeping(solver: solver_object, n_rpm_, T_in_: float | list, p_in_, var_to_sweep: str, C_inx_=None,
+                 m_dot_=None, p_out_=None, C_inx_ref=None, sweep_resolution=200, req_vars: list = None):
     """ El rango debe ser creciente. """
+    T_in, p_in, n_rpm, p_out, m_dot, C_inx = T_in_, p_in_, n_rpm_, p_out_, m_dot_, C_inx_
     t_1 = time()
     k = 0
     sweeping_data = {}
@@ -224,13 +224,8 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
         set_value(value_k)
 
         try:
-            if not solver.cfg.preloading_for_small_input_deviations:
-                solver.problem_solver(T_in=T_in, p_in=p_in, n_rpm=n_rpm,
-                                      m_dot=m_dot, C_inx=C_inx, p_out=p_out,
-                                      C_inx_ref=C_inx_ref)
-            else:
-                solver.problem_solver(T_in=T_in, p_in=p_in, n_rpm=n_rpm,
-                                      m_dot=m_dot, C_inx=C_inx, p_out=p_out)
+            solver.problem_solver(T_in=T_in, p_in=p_in, n_rpm=n_rpm, m_dot=m_dot, C_inx=C_inx, p_out=p_out,
+                                  C_inx_ref=C_inx_ref)
         except GasLibraryAdaptedException:
             record.error('An error has been handled during variable sweeping operation. Evaluated point '
                          'has been omited.')
@@ -246,14 +241,12 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
             lista_df_b.append(copy.deepcopy(df_b))
             lista_df_c.append(copy.deepcopy(df_c))
         record.info('Barrido de la variable completo en un %d%s', 100*(k+1)/sweep_resolution, '%')
+        resetting_lossmodel_attribute(solver)
         k += 1
 
-    df_a_packg = pd.concat(
-        [*lista_df_a], keys=[f'{v}' for v in range(sweep_resolution)], names=['Aux_Index', 'Spec_Index'])
-    df_b_packg = pd.concat(
-        [*lista_df_b], keys=[f'{v}' for v in range(sweep_resolution)], names=['Aux_Index', 'Spec_Index'])
-    df_c_packg = pd.concat(
-        [*lista_df_c], keys=[f'{v}' for v in range(sweep_resolution)], names=['Aux_Index', 'Spec_Index'])
+    df_a_pkg = pd.concat(lista_df_a, keys=[f'{v}' for v in range(sweep_resolution)], names=['Aux_Index', 'Spec_Index'])
+    df_b_pkg = pd.concat(lista_df_b, keys=[f'{v}' for v in range(sweep_resolution)], names=['Aux_Index', 'Spec_Index'])
+    df_c_pkg = pd.concat(lista_df_c, keys=[f'{v}' for v in range(sweep_resolution)], names=['Aux_Index', 'Spec_Index'])
 
     t_2 = (time() - t_1).__round__(0)
     m, s = divmod(t_2, 60)
@@ -261,7 +254,7 @@ def var_sweeping(solver: solver_object, n_rpm, T_in: float | list, p_in, var_to_
     record.info('El tiempo de cálculo durante todo el barrido ha sido: %s horas, %s minutos y %s segundos.',
                 int(h), int(m), int(s))
 
-    return df_a_packg, df_b_packg, df_c_packg
+    return df_a_pkg, df_b_pkg, df_c_pkg
 
 
 def txt_reader():
@@ -290,6 +283,14 @@ def txt_reader():
                         exec(declaration)
                     declaration = ''
         return locals()
+
+
+def resetting_lossmodel_attribute(solver_obj: solver_object):
+    if solver_obj.cfg.loss_model == 'Ainley_and_Mathieson':
+        solver_obj.loss_model_object = Ainley_and_Mathieson_Loss_Model(solver_obj.cfg)
+        solver_obj.loss_model_object.AM_diameter_def()
+    else:
+        solver_obj.loss_model_object = Aungier_Loss_Model(solver_obj.cfg)
 
 
 def main():
@@ -340,6 +341,7 @@ def main():
             holgura_radial = data_dictionary['radial_clearance']
             blade_roughness_peak_to_valley = data_dictionary['blade_roughness_peak_to_valley']
             design_factor = data_dictionary['design_factor']
+            gauge_position = data_dictionary['gauge_adimensional_position']
         except NameError:
             raise InputDataError('Non-valid text file, please, stick to the template.')
 
@@ -348,7 +350,8 @@ def main():
                               e=e_param, b_z=chord_proj_z, o=blade_opening, s=pitch, t_max=t_max, r_h=hub_radius,
                               delta=tip_clearance, r_t=tip_radius, k=tip_clearance, t_e=t_e,
                               roughness_ptv=blade_roughness_peak_to_valley, lashing_wires=lashing_wires,
-                              wire_diameter=wire_diameter, holgura_radial=holgura_radial, design_factor=design_factor)
+                              wire_diameter=wire_diameter, holgura_radial=holgura_radial, design_factor=design_factor,
+                              gauge_adimensional_position=gauge_position)
         return settings
 
     mode = data_dictionary['mode']
@@ -362,8 +365,7 @@ def main():
     elif mode == 'solve':
         try:
             settings = aux_reading_operations()
-            gas_model = gas_model_to_solver(thermod_mode=data_dictionary.get('thermod_mode_in_gas_model_module',
-                                                                             'ig'))
+            gas_model = gas_model_to_solver(thermod_mode=data_dictionary.get('thermod_mode_in_gas_model_module', 'ig'))
             try:
                 # Keeping existing seeds if pkl file is available but taking changes into account
                 solver = solver_data_reader('process_object.pkl')
@@ -371,6 +373,7 @@ def main():
                 solver.prd = gas_model
             except FileNotFoundError:
                 solver = solver_object(settings, gas_model)
+            resetting_lossmodel_attribute(solver)
             if data_dictionary['chain_mode']:
                 output = solver.problem_solver(
                     T_in=data_dictionary['T_inlet'],
@@ -410,13 +413,13 @@ def main():
                                                   ['df_a_', 'df_b_', 'df_c_']]
             df_a, df_b, df_c = var_sweeping(
                 solver,
-                T_in=data_dictionary['T_inlet'],
-                p_in=data_dictionary['p_inlet'],
-                n_rpm=data_dictionary['rpm'],
-                m_dot=data_dictionary['mass_flow'],
-                C_inx=data_dictionary['axial_inlet_velocity'],
+                T_in_=data_dictionary['T_inlet'],
+                p_in_=data_dictionary['p_inlet'],
+                n_rpm_=data_dictionary['rpm'],
+                m_dot_=data_dictionary['mass_flow'],
+                C_inx_=data_dictionary['axial_inlet_velocity'],
+                p_out_=data_dictionary['p_outlet'],
                 C_inx_ref=data_dictionary['reference_inlet_velocity'],
-                p_out=data_dictionary['p_outlet'],
                 req_vars=data_dictionary['req_vars'],
                 var_to_sweep=data_dictionary['var_to_sweep'],
                 sweep_resolution=data_dictionary['sweep_resolution'])
@@ -425,7 +428,6 @@ def main():
         df_a.to_csv(a_filename)
         df_b.to_csv(b_filename)
         df_c.to_csv(c_filename)
-        solver_data_saver('process_object.pkl', solver)
 
     elif mode == 'display_graphs_with_sweep_data':
         x_label_name_and_units = x_label_name = None

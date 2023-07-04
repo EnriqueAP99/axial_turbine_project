@@ -101,8 +101,8 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                 return
 
             solver_relative_error = cfg.relative_error
-            #  It must be noted that, when problem has convergence, the numerical error from all methods being
-            #  used is smaller the more iterations are performed for the same input values.
+            #  It must be noted that, when problem has convergence, the numerical error of all methods being
+            #  used is smaller the more iterations are performed for the same evaluation.
 
             record.info('Searching for a range containing the solution.')
             # The search begins.
@@ -665,7 +665,7 @@ class solver_object:
                 if self.rho_seed_list is not None and len(self.rho_seed_list) >= count+1:
                     rho_seed = self.rho_seed_list[count]
                 else:
-                    rho_seed = [rho_1*0.85, rho_1*0.65]
+                    rho_seed = [rho_1*0.9, rho_1*0.75]
                     if count == 0:
                         self.rho_seed_list = []
 

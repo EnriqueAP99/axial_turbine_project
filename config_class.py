@@ -150,12 +150,11 @@ class config_class:
                 raise InputDataError('Se precisa definir de alguna manera la deflexión de cada álabe.')
 
         list_items2, local_dict2 = ['t_max', 'r_h', 'r_t', 't_e', ], {}
-        for key in ['roughness_ptv', 'lashing_wires', 'wire_diameter', 'b_z', 'delta', 'k', ]:
+        for key in ['roughness_ptv', 'lashing_wires', 'wire_diameter', 'b_z', 'delta', 'k',
+                    'gauge_adimensional_position', 'o', 'e']:
             if kwargs.get(key, None) is not None:
+                # Conditional is like this because variables can be set as None
                 list_items2.append(key)
-        if kwargs.get('o', None) is not None and kwargs.get('e', None) is not None:
-            list_items2.append('o')
-            list_items2.append('e')
         for par_id in list_items2:
             local_dict2[par_id] = kwargs.get(par_id, 0.0)
         local_dict2['b'], local_dict2['Rm'] = cuerda, radio_medio
