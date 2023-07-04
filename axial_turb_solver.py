@@ -1095,7 +1095,8 @@ def main():
     settings.set_geometry(B_A_est=0, theta_est=70, B_A_rot=36, theta_rot=100, areas=areas, cuerda=chord,
                           radio_medio=Rm, e=e_param, o=blade_opening, s=pitch, H=heights, b_z=chord_proj_z,
                           t_max=t_max, r_r=0.002, r_c=0.001, t_e=t_e, k=tip_clearance, delta=tip_clearance,
-                          roughness_ptv=blade_roughness_peak_to_valley, holgura_radial=False)
+                          roughness_ptv=blade_roughness_peak_to_valley, holgura_radial=False,
+                          gauge_adimensional_position=0.2)
 
     gas_model = gas_model_to_solver(thermod_mode="ig")
     solver = solver_object(settings, gas_model)
