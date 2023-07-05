@@ -258,7 +258,7 @@ def var_sweeping(solver: solver_object, n_rpm_, T_in_: float | list, p_in_, var_
 
 
 def txt_reader():
-    with open('turbine_data_template_v3.txt') as file:
+    with open('turbine_data_template_v4.txt') as file:
         for line in file:
             declaration = ''
             for char in line.strip():
@@ -371,9 +371,9 @@ def main():
                 solver = solver_data_reader('process_object.pkl')
                 solver.cfg = settings
                 solver.prd = gas_model
+                resetting_lossmodel_attribute(solver)
             except FileNotFoundError:
                 solver = solver_object(settings, gas_model)
-            resetting_lossmodel_attribute(solver)
             if data_dictionary['chain_mode']:
                 output = solver.problem_solver(
                     T_in=data_dictionary['T_inlet'],

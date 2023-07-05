@@ -30,28 +30,28 @@ plot_together = [['C'],['alfa'], ['eta_TT', 'eta_TE'], ['P_total', 'P_total_ss']
 ##############################################################################################################################################################################
 # Secondly, everything about the program configuration is defined:
 
-iter_limit_at_inner_loops=5000;                     iter_limit_at_outer_loops=30;                     thermod_mode_in_gas_model_module = 'ig';
-relative_error=1E-9;         ideal_gas=True;       chain_mode=False;        loss_model='Aungier';     n_steps=2;           jump=4.0;   
-max_trend_changes=30;        T_nominal=1300;        p_nominal=390_000;       n_rpm_nominal=25_500;    inlet_velocity_range=[0.01, 140.69];
-preloading_for_small_input_deviations = False;     resolution_for_small_input_deviations = 500; 
+iter_limit_at_inner_loops=5000;                     iter_limit_at_outer_loops=30;                        thermod_mode_in_gas_model_module = 'ig';
+relative_error=1E-9;         ideal_gas=True;        chain_mode=False;        loss_model='Aungier';       n_steps=2;           jump=4.0;   
+max_trend_changes=30;        T_nominal=1300;        p_nominal=390_000;       n_rpm_nominal=25_500;       inlet_velocity_range=[0.01, 140.69];
+preloading_for_small_input_deviations = False;      resolution_for_small_input_deviations = 500; 
 
 # preloading_for_small_input_deviations: if true, there will be done several evaluations, in order to being able to approximate the solution directly when in 'solve' mode.
 ##############################################################################################################################################################################
 # The geometry is then defined with all the necessary parameters, depending on the loss model used.
 # More information on the variables to be defined can be found in the code documentation.
 
-stator_leading_edge_angle = [0, 5];                         rotor_leading_edge_angle = 60;                                        stator_blade_curvature = 70;
-rotor_blade_curvature = 120;                         stator_trailing_edge_angle = None;                                    rotor_trailing_edge_angle = None;
-tip_radius = 0.470;                                         hub_radius = [0.436, 0.421, 0.411, 0.395];                            mean_radius = [0.45275,  0.44543, 0.43985, 0.43162];
-heights = [0.037, 0.038, 0.041, 0.044, 0.048];              areas = None;                                                         chord = [0.03247, 0.03979, 0.05623, 0.06832];
-maximum_thickness = $[0.1*b for b in chord];                pitch = None;                                                         outlet_thickness = $[0.006*c/0.03 for c in chord];
-blade_opening = 0.012;                                      blade_mean_radius_of_curvature = 0.019;      tip_clearance = [0.0025, 0.0025, 0.0025, 0.0025];
-chord_z = $[0.85 * b for b in chord];                        wire_diameter = None;                                                 lashing_wires = None;
-radial_clearance = False;                                   blade_roughness_peak_to_valley = $[0.00008 for _ in chord];           design_factor = 0.67;
-gauge_adimensional_position = 0.23;
+stator_leading_edge_angle = [0, 45];                        stator_blade_curvature = [55, 60];                                    stator_trailing_edge_angle = None;
+rotor_leading_edge_angle = [40, 10];                        rotor_blade_curvature = [95, 55];                                     rotor_trailing_edge_angle = None;
+tip_radius = 0.47;                                          hub_radius = [0.410, 0.390, 0.370, 0.360];                            mean_radius = $[(0.47+hr)/2 for hr in hub_radius];
+heights = [0.038, 0.033, 0.030, 0.026, 0.024];              areas = None;                                                         chord = [0.030, 0.030, 0.031, 0.036];
+maximum_thickness = $[0.15*b for b in chord];               pitch = [0.0244, 0.0244, 0.017, 0.017];                               outlet_thickness = $[0.003*c/0.030 for c in chord];
+blade_opening = [0.013, 0.013, 0.015, 0.014];               blade_mean_radius_of_curvature = 0.027;                               tip_clearance = [0.001, 0.007, 0.0006, 0.0006];
+chord_z = $[0.85 * b for b in chord];                       wire_diameter = None;                                                 lashing_wires = None;
+radial_clearance = False;                                   blade_roughness_peak_to_valley = $[0.00004 for _ in chord];           design_factor = 0.67;
+gauge_adimensional_position = [0.22, 0.22, 0.18, 0.18];
 ##############################################################################################################################################################################
 # Finally, only the values that will restrict the operating point to be evaluated are defined, the rest are assigned "None":
 
-T_inlet=1400;     p_inlet=700_000;     rpm=600;     p_outlet=None;     mass_flow=None;     axial_inlet_velocity=35;     reference_inlet_velocity=None;
-# T_inlet=1400;     p_inlet=[700_000, 550_000];     rpm=600;     p_outlet=350_000;     mass_flow=None;     axial_inlet_velocity=None;     reference_inlet_velocity=30;
+T_inlet=1400;     p_inlet=800_000;     rpm=650;     p_outlet=None;     mass_flow=None;     axial_inlet_velocity=55;     reference_inlet_velocity=None;
+# T_inlet=1200;     p_inlet=[700_000, 550_000];     rpm=600;     p_outlet=350_000;     mass_flow=None;     axial_inlet_velocity=None;     reference_inlet_velocity=30;
 ##############################################################################################################################################################################

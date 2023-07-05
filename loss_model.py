@@ -144,13 +144,15 @@ class Ainley_and_Mathieson_Loss_Model:  # Ver paper: https://apps.dtic.mil/sti/p
         pitch = self.cfg.geom['s']
         mean_radius_curvature = self.cfg.geom['e']
         for i in range(self.cfg.n_steps*2):
-            if fabs(throat_distance[i] / pitch[i]) < 1:
+            if -1 < throat_distance[i] / pitch[i] < 1:
                 x_value = degrees(acos(throat_distance[i] / pitch[i]))
+            elif throat_distance[i] / pitch[i] > 1:
+                x_value = 0
             else:
-                x_value = degrees(acos(fabs(throat_distance[i] / pitch[i])/(throat_distance[i] / pitch[i])))
+                x_value = 90
             if x_value < 35 or x_value > 80:
-                record.warning('El valor de acos(o/s) excede los límites de la correlación. Valor: %.1f; Límites: %s',
-                               x_value, [35, 80])
+                record.warning('El valor de acos(o/s) en el escalonamiento número %s excede los límites de la '
+                               'correlación. Valor: %.1f; Límites: %s', (i+2)//2, x_value, [35, 80])
             tau_2_ast_value = self.tau_2_ast[1](x_value)
             flow_angle = tau_2_ast_value + 4 * (pitch[i] / mean_radius_curvature[i])
             self.outlet_angle_before_mod.append(radians(flow_angle))
