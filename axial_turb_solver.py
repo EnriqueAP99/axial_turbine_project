@@ -665,7 +665,7 @@ class solver_object:
                                 :param rho_seed: Densidad que se emplea como valor semilla en blade_outlet_calculator
                                                  (kg/m^3).
                     :param xi_est: Valor opcional que permite al decorador aplicar recursividad para efectuar la
-                                  corrección por dependencia de Reynolds usando el modelo AM.
+                                  corrección por dependencia de Reynolds, en el contexto del empleo del modelo AM.
                     :param iter_mode: Permite diferenciar si se está aplicando recursividad para la corrección por
                                  dependencia de Reynolds y así conocer las instrucciones más convenientes.
                     :param iter_end: Permite omitir cálculos innecesarios durante la corrección por dependencia de
