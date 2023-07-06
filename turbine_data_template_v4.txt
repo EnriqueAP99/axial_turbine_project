@@ -15,7 +15,7 @@
 mode = 'sweep_variable';
 
 # Additional information for 'sweep_variable' and 'display_graphs_with_sweep_data' modes:
-var_to_sweep = 'p_inlet';    sweep_resolution = 300;    req_vars = None;   csv_filename_extension = 'sweeping_020723_v1.csv';
+var_to_sweep = 'p_inlet';    sweep_resolution = 300;    req_vars = None;   csv_filename_extension = 'sweeping_060723_v1.csv';
 independent_variable = 'r_turbine';      dependent_variables = ['C', 'm_dot', 'eta_ss', 'P_total', 'P_total_ss', 'alfa', 'eta_TT', 'eta_TE'];
 logic_limit_for_independent_variable = False;  # It limits the displayed values using as condition that global energy exchange is from the gas to the turbine.
 
@@ -40,17 +40,17 @@ preloading_for_small_input_deviations = False;      resolution_for_small_input_d
 # The geometry is then defined with all the necessary parameters, depending on the loss model used.
 # More information on the variables to be defined can be found in the code documentation.
 
-stator_leading_edge_angle = [0, 35];                        stator_blade_curvature = [60, 95];                                   stator_trailing_edge_angle = None;
-rotor_leading_edge_angle = [30, 15];                        rotor_blade_curvature = [90, 75];                                   rotor_trailing_edge_angle = None;
+stator_leading_edge_angle = [0, 35];                        stator_blade_curvature = [60, 95];                                    stator_trailing_edge_angle = None;
+rotor_leading_edge_angle = [20, 15];                        rotor_blade_curvature = [90, 75];                                     rotor_trailing_edge_angle = None;
 tip_radius = 0.67;                                          hub_radius = [0.640, 0.639, 0.631, 0.629];                            mean_radius = $[0.235+hr*0.5 for hr in hub_radius];
-heights = $[0.025] + [0.67-hr for hr in hub_radius];         areas = None;                                                        chord = [0.030, 0.030, 0.031, 0.036];
+heights = $[0.025] + [0.67-hr for hr in hub_radius];        areas = None;                                                         chord = [0.030, 0.030, 0.031, 0.035];
 maximum_thickness = $[0.12*b for b in chord];               pitch = [0.030, 0.030, 0.025, 0.025];                                 outlet_thickness = $[0.003*c/0.030 for c in chord];
-blade_opening = [0.0135, 0.0135, 0.013, 0.013];               blade_mean_radius_of_curvature = 0.020;                               tip_clearance = [0.001, 0.007, 0.0006, 0.0006];
+blade_opening = [0.0135, 0.0135, 0.013, 0.013];             blade_mean_radius_of_curvature = 0.020;                               tip_clearance = [0.001, 0.001, 0.0007, 0.0007];
 chord_z = $[0.85 * b for b in chord];                       wire_diameter = None;                                                 lashing_wires = None;
 radial_clearance = False;                                   blade_roughness_peak_to_valley = $[0.00004 for _ in chord];           design_factor = 0.67;
-gauge_adimensional_position = [0.20, 0.20, 0.20, 0.20];
+gauge_adimensional_position = [0.18, 0.18, 0.22, 0.22];
 ##############################################################################################################################################################################
 # Finally, only the values that will restrict the operating point to be evaluated are defined, the rest are assigned "None":
 
-T_inlet=1300;     p_inlet=[400_000, 150_000];     rpm=2_000;     p_outlet=100_000;     mass_flow=None;     axial_inlet_velocity=None;     reference_inlet_velocity=110;
+T_inlet=1300;     p_inlet=[400_000, 200_000];     rpm=2_000;     p_outlet=120_000;     mass_flow=None;     axial_inlet_velocity=None;     reference_inlet_velocity=90;
 ##############################################################################################################################################################################

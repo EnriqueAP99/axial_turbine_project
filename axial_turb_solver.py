@@ -12,19 +12,20 @@ from time import time
 from loss_model import *
 
 
-def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: float | None,
+def solver_decorator(solver, p_out: float | None, C_inx_estimated: float | None,
                      small_deviations_data: list | None):
     """
     Outer decorator of solver's main method in order to define the necessary arguments to handle it and allow
     to determine the operating conditions given the pressure at the outlet.
 
     Args:
-        cfg: This is an object containing the configuration set.
+        solver: This is an object for a resolutional purpose.
         p_out: Pressure at the turbine outlet (Pa).
         C_inx_estimated: Estimated inlet velocity to be received when the outlet pressure is set (m/s).
         small_deviations_data: When this variable is not None, it consists on a list of velocity values evaluated,
         a numpy array with outlet pressures resulting and arrays with partial derivatives at each velocity evaluated.
     """
+    cfg = solver.cfg
 
     def solver_inner_decorator(inner_funtion_from_problem_solver):
         """ Inner decorator that manages the internal function of the problem_solver method from solver_class.
@@ -89,6 +90,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
 
             def first_iter_exception_task():
                 nonlocal C_inx_a, C_inx_b
+                solver.seed_reset()
                 raise OuterLoopConvergenceError('Try another seed value.')
 
             def post_exception_tasks():
@@ -98,6 +100,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                 C_inx_a, C_inx_b = pre_C_inx_a, pre_C_inx_b
                 # Then, reducing the relative jump.
                 delta /= 2.5
+                solver.seed_reset()
                 return
 
             solver_relative_error = cfg.relative_error
@@ -146,6 +149,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                             p_out_iter_a = p_out_iter
                             from_a = False
                         else:
+                            solver.seed_reset()
                             raise OuterLoopConvergenceError('Something went wrong.')
 
                     # It is evaluated whether the new range contains the solution.
@@ -161,6 +165,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                                     p_out_iter_a, p_out_iter_b, p_out)
 
                 if iter_count > cfg.iter_limit_OL:
+                    solver.seed_reset()
                     raise OuterLoopConvergenceError('Search took too many evaluations, check inlet velocity seed '
                                                     'value or iter limit for outer loops.')
 
@@ -192,8 +197,10 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                 except InnerLoopConvergenceError:
                     # This event will most likely only happen when limits are not high enough.
                     C_inx_b, C_inx_a = pre_C_inx_b, pre_C_inx_a
+                    solver.seed_reset()
                 except GasLibraryAdaptedException:
                     C_inx_b, C_inx_a = pre_C_inx_b, pre_C_inx_a
+                    solver.seed_reset()
                 else:
                     pre_C_inx_b, pre_C_inx_a = C_inx_b, C_inx_a  # Old values are stored
                     p_out_iter = read_ps_list()
@@ -238,6 +245,7 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
                             'Valor objetivo: %.2f Pa', rel_error, p_out_iter, p_out)
 
                 if iter_count > cfg.iter_limit_OL:
+                    solver.seed_reset()
                     raise OuterLoopConvergenceError('Recursive calculation does not reach convergence when fixing the '
                                                     'desired outlet pressure.')
 
@@ -272,12 +280,13 @@ def solver_decorator(cfg: config_class, p_out: float | None, C_inx_estimated: fl
     return solver_inner_decorator
 
 
-def step_decorator(cfg: config_class, step_corrector_memory):
+def step_decorator(solver, step_corrector_memory):
     """ Decorador del decorador real, permite referenciar los parámetros necesarios para manipular la salida de la
     función decorada.
-                :param cfg: Objeto que contiene datos sobre la configuración que se ha establecido.
+                :param solver: This is an object for a resolutional purpose.
                 :param step_corrector_memory: Lista con las variables de la ejecución previa.
                             :return: Se devuelve el decorador real. """
+    cfg = solver.cfg
 
     def Reynolds_corrector(step_inner_function):
         """ Decorador real, gestiona la función interna del método gen_steps de la clase solver y posibilita
@@ -337,6 +346,7 @@ def step_decorator(cfg: config_class, step_corrector_memory):
                         f2, rho_seed_2 = sif2[1] - target_efficiency, sif2[3]
                 bolz_c = f1 * f2
                 if iter_counter > cfg.iter_limit_OL:
+                    solver.seed_reset()
                     raise OuterLoopConvergenceError('Search for Reynolds correction took too many evaluations, '
                                                     'it may help checking iter limit for outer loops.')
 
@@ -358,8 +368,10 @@ def step_decorator(cfg: config_class, step_corrector_memory):
                 else:
                     jam_counter += 1
                     if jam_counter > cfg.iter_limit_OL:
+                        solver.seed_reset()
                         raise OuterLoopConvergenceError()
                 if iter_counter > cfg.iter_limit_OL:
+                    solver.seed_reset()
                     raise OuterLoopConvergenceError()
                 sifc = get_sif_output(True, False, xi_ec, rho_seed_c)
                 fc, rho_seed_c = sifc[1]-target_efficiency, sifc[3]
@@ -386,6 +398,7 @@ def step_decorator(cfg: config_class, step_corrector_memory):
             while relative_deviation is None or relative_deviation > relative_error:
                 iter_counter += 1
                 if iter_counter > cfg.iter_limit_OL:
+                    solver.seed_reset()
                     raise OuterLoopConvergenceError('Reynolds no se estabiliza para el límite de iteraciones '
                                                     'establecido.')
                 Re_n = Re
@@ -453,6 +466,10 @@ class solver_object:
 
         if self.cfg.preloading_for_small_input_deviations:
             self.data_collector_for_small_input_deviations()
+
+    def seed_reset(self):
+        self.corrector_seed = self.rho_seed_list = self.ref_values = self.AU_Re_register = None
+        self.first_seeds_boc = self.C_inx_register = None
 
     def data_collector_for_small_input_deviations(self):
         record.debug('Almacenando parámetros para relacionar la presión a la salida con la velocidad a la entrada...')
@@ -546,7 +563,7 @@ class solver_object:
                 self.small_input_deviation_data[6] = p_in
                 self.small_input_deviation_data[7] = n_rpm
 
-        @solver_decorator(self.cfg, p_out, self.C_inx_register, self.small_input_deviation_data)
+        @solver_decorator(self, p_out, self.C_inx_register, self.small_input_deviation_data)
         def inner_solver(var_C_inx=None, solverdec_search_mode=False):
             nonlocal m_dot, C_inx, ps_list
 
@@ -642,7 +659,7 @@ class solver_object:
             else:
                 corrector_memory = None
 
-        @step_decorator(self.cfg, corrector_memory)
+        @step_decorator(self, corrector_memory)
         def inner_funct(iter_mode=False, iter_end=False, xi_est=None, rho_seed=None, Re_out=None):
             """ Esta función interna se crea para poder comunicar al decorador instancias de la clase.
                                 :param rho_seed: Densidad que se emplea como valor semilla en blade_outlet_calculator
