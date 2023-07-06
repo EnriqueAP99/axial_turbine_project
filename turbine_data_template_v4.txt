@@ -42,7 +42,7 @@ preloading_for_small_input_deviations = False;      resolution_for_small_input_d
 
 stator_leading_edge_angle = [0, 59];                        stator_blade_curvature = [65, 110];                                   stator_trailing_edge_angle = None;
 rotor_leading_edge_angle = [7, 30];                         rotor_blade_curvature = [79, 100];                                    rotor_trailing_edge_angle = None;
-tip_radius = 0.67;                                          hub_radius = [0.640, 0.645, 0.640, 0.620];                            mean_radius = $[0.235+hr*0.5 for hr in hub_radius];
+tip_radius = 0.67;                                          hub_radius = [0.640, 0.645, 0.640, 0.620];                            mean_radius = $[(0.67+hr)*0.5 for hr in hub_radius];
 heights = $[0.67-hr for hr in hub_radius];                  areas = None;                                                         chord = [0.030, 0.030, 0.031, 0.036];
 maximum_thickness = $[0.15*b for b in chord];               pitch = 0.033, 0.033, 0.014, 0.014;                                 outlet_thickness = $[0.003*c/0.030 for c in chord];
 blade_opening = [0.013, 0.013, 0.012, 0.012];               blade_mean_radius_of_curvature = 0.027;                               tip_clearance = [0.001, 0.007, 0.0006, 0.0006];
