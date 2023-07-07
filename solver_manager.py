@@ -280,7 +280,11 @@ def txt_reader():
                         splitted_str[1] = splitted_str[1].replace('for', ' for ').replace('in', ' in ').replace('$', '')
                         exec(splitted_str[0] + ' = ' + splitted_str[1])
                     else:
-                        exec(declaration)
+                        if 'legend_location' in declaration:
+                            exec(declaration.replace('center', 'center ').replace('upper', 'upper ').
+                                 replace('lower', 'lower '))
+                        else:
+                            exec(declaration)
                     declaration = ''
         return locals()
 
@@ -439,6 +443,7 @@ def main():
             WtE: dict = data_dictionary['where_to_evaluate']
             independent_var = data_dictionary['independent_variable']
             dependent_vars = data_dictionary['dependent_variables']
+            legend_loc = data_dictionary['legend_location']
             a_filename, b_filename, c_filename = [root + data_dictionary['csv_filename_extension'] for root in
                                                   ['df_a_', 'df_b_', 'df_c_']]
         except NameError:
@@ -610,7 +615,7 @@ def main():
                 diff = 0
             else:
                 DV_limits_finder()
-                diff = 0.15*(DV_limits[1]-DV_limits[0])
+                diff = 0.22*(DV_limits[1]-DV_limits[0])
             plt.ylim(DV_limits[0]-diff, DV_limits[1]+diff)
         # Section for plotting only one independent variable at the time.
         for dep_var_id in dep_ids_dict:
@@ -655,7 +660,7 @@ def main():
             if logic_limit_for_independent_variable:
                 x_axis_limits_algorithm()
                 y_axis_limits_algorithm(list(multiplot_legend_dict.keys()))
-            plt.legend(loc='lower right')
+            plt.legend(loc=legend_loc)
             plt.title(title_str)
             plt.xlabel(x_label_name_and_units)
             plt.ylabel(y_label_ref_u_as_str)
