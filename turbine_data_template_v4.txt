@@ -12,17 +12,17 @@
 # First of all, it is defined the action to be executed or mode, using double or simple quotation marks.
 
 # To be chosen between: 'process_nominal_values', 'solve', 'display_values', 'sweep_variable' and 'display_graphs_with_sweep_data'.
-mode = 'sweep_variable';
+mode = 'display_graphs_with_sweep_data';
 
 # Additional information for 'sweep_variable' and 'display_graphs_with_sweep_data' modes:
-var_to_sweep = 'p_inlet';    sweep_resolution = 300;    req_vars = None;   csv_filename_extension = 'sweeping_060723_v1.csv';
+var_to_sweep = 'p_inlet';    sweep_resolution = 900;    req_vars = None;   csv_filename_extension = 'sweeping_060723_v1.csv';
 independent_variable = 'r_turbine';      dependent_variables = ['C', 'm_dot', 'eta_ss', 'P_total', 'P_total_ss', 'alfa', 'eta_TT', 'eta_TE'];
-logic_limit_for_independent_variable = False;  # It limits the displayed values using as condition that global energy exchange is from the gas to the turbine.
+logic_limit_for_independent_variable = True;  # It limits the displayed values using as condition that global energy exchange is from the gas to the turbine.
 
 # Any dependend and non dependend variable whose value depends on axial direction or on the step evaluated has to be added to the dictionary at the next line.
 # Notice that it is not possible to have repeated keys in the dictionary and values need to be listed as follows.
 # When last sentence applies to independent variable, it must be indicated the first one.
-where_to_evaluate = {'C': {'step': [1, 1], 'point': [1, 3]}, 'alfa': {'step': [1, 1], 'point': [1, 3]}, 'eta_TT': {'step': 1}, 'eta_TE': {'step': 1}};
+where_to_evaluate = {'C': {'step': [1, 2], 'point': [1, 3]}, 'alfa': {'step': [1, 2], 'point': [1, 3]}, 'eta_TT': {'step': [1, 2]}, 'eta_TE': {'step': [1, 2]}};
 
 # In case it is necessary to plot any dependent variables together, all of them must be packaged as follows.
 # In case variables that share a key are indicated, all previously chosen variables sharing the key will be represented together.
@@ -52,5 +52,5 @@ gauge_adimensional_position = [0.18, 0.18, 0.22, 0.22];
 ##############################################################################################################################################################################
 # Finally, only the values that will restrict the operating point to be evaluated are defined, the rest are assigned "None":
 
-T_inlet=1300;     p_inlet=[400_000, 200_000];     rpm=2_000;     p_outlet=120_000;     mass_flow=None;     axial_inlet_velocity=None;     reference_inlet_velocity=90;
+T_inlet=1300;     p_inlet=[800_000, 200_000];     rpm=2_000;     p_outlet=120_000;     mass_flow=None;     axial_inlet_velocity=None;     reference_inlet_velocity=120;
 ##############################################################################################################################################################################

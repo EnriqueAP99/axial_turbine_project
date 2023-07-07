@@ -487,7 +487,7 @@ def main():
                 raise InputDataError(sentence)
 
         if WtE is not None:
-            for key in WtE.keys():
+            for key in WtE:
                 if key in lista_a:
                     step_point = WtE[key]['point']
                     step_id = WtE[key]['step']
@@ -544,14 +544,16 @@ def main():
             indep_id = independent_var
         custom_df.set_index(indep_id, inplace=True)  # Index will be plotted as independent variable.
 
-        IV_limits_refs = DV_limits = None
+        IV_limits_refs = []
 
         # The following function stablishes the range of values of the independent variable to be displayed
         # using as condition that resulting exchange of energy is given from the gas to the turbine.
         def x_axis_limits_algorithm():
+            nonlocal IV_limits_refs
+            IV_limits_refs = []
+
             def IV_limits_finder():
                 nonlocal IV_limits_refs
-                IV_limits_refs = []
                 for i in range(custom_df.shape[0]):
                     if i == 0 and df_c['w_total (kJ/kg)'][0] > 0:
                         IV_limits_refs.append(i)
@@ -563,15 +565,16 @@ def main():
                     if i == custom_df.shape[0]-1 and df_c['w_total (kJ/kg)'][i]*df_c['w_total (kJ/kg)'][i-1] > 0 and \
                             len(IV_limits_refs) == 1:
                         IV_limits_refs.append(i)
-                if IV_limits_refs is None:
+                if len(IV_limits_refs) == 0:
                     raise InputDataError('No data meets the condition. There is no value to be displayed.')
+                elif len(IV_limits_refs) == 1:
+                    raise InputDataError('Only one value available, plotting process cannot be completed.')
                 else:
                     p1, p2 = IV_limits_refs[0], IV_limits_refs[1]
                     if custom_df.index[p2] < custom_df.index[p1]:
                         IV_limits_refs[0], IV_limits_refs[1] = IV_limits_refs[1], IV_limits_refs[0]
                 return
-            if not isinstance(IV_limits_refs, list):
-                IV_limits_finder()
+            IV_limits_finder()
             plt.xlim(custom_df.index[IV_limits_refs[0]], custom_df.index[IV_limits_refs[1]])
             return
 
@@ -579,21 +582,25 @@ def main():
         # function interval.
         # The function "x_axis_limits_algorithm()" is expected to be executed before.
         def y_axis_limits_algorithm(DV_identifiers_list: list[str]):
-            nonlocal DV_limits
             DV_limits = []
 
             def DV_limits_finder():
-                nonlocal DV_limits
-                if isinstance(IV_limits_refs, list):
-                    for DV_ID in DV_identifiers_list:
-                        for i in range(IV_limits_refs[0], IV_limits_refs[1]+1):
-                            if len(DV_limits) < 2:
+                for DV_ID in DV_identifiers_list:
+                    ivra, ivrb = IV_limits_refs[0], IV_limits_refs[1]
+                    if ivra > ivrb:
+                        ivra, ivrb = ivrb, ivra
+                    for i in range(ivra, ivrb+1):
+                        if len(DV_limits) == 0:
+                            if i == ivra+1:
+                                DV_limits.append(custom_df.iloc[i-1][DV_ID])
                                 DV_limits.append(custom_df.iloc[i][DV_ID])
-                            else:
-                                if custom_df.iloc[i][DV_ID] < DV_limits[0]:
-                                    DV_limits[0] = custom_df.iloc[i][DV_ID]
-                                if custom_df.iloc[i][DV_ID] > DV_limits[1]:
-                                    DV_limits[1] = custom_df.iloc[i][DV_ID]
+                                if custom_df.iloc[i][DV_ID] < custom_df.iloc[i-1][DV_ID]:
+                                    DV_limits[0], DV_limits[1] = DV_limits[1], DV_limits[0]
+                        else:
+                            if custom_df.iloc[i][DV_ID] < DV_limits[0]:
+                                DV_limits[0] = custom_df.iloc[i][DV_ID]
+                            if custom_df.iloc[i][DV_ID] > DV_limits[1]:
+                                DV_limits[1] = custom_df.iloc[i][DV_ID]
             eta_checker = False
             for DV_ident in DV_identifiers_list:
                 if 'eta' in DV_ident:
@@ -615,7 +622,7 @@ def main():
                 plt.plot(custom_df[dep_var_id])
                 if logic_limit_for_independent_variable:
                     x_axis_limits_algorithm()
-                    y_axis_limits_algorithm([dep_var_id, ])
+                    y_axis_limits_algorithm([dep_var_id])
                 title_str = dep_ids_dict[dep_var_id][0] + '   -   ' + x_label_name
                 plt.title(title_str)
                 plt.xlabel(x_label_name_and_units)
@@ -655,7 +662,6 @@ def main():
             plt.minorticks_on()
             plt.grid(which='both')
             plt.show()
-
     else:
         raise InputDataError('No predefined mode selected.')
 
