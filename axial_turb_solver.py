@@ -763,7 +763,7 @@ class solver_object:
             h_03 = h_3 + (0.001 * (C_3**2) / 2)
             local_list_1 = [T_3, p_3, rho_3, s_3, h_3, h_03, C_3, alfa_3]
 
-            if h_02 - h_03 < 0:
+            if h_02 - h_03 <= 0:
                 record.warning('No se extrae energía del fluido.')
 
             if self.cfg.loss_model == 'Ainley_and_Mathieson':
@@ -774,6 +774,9 @@ class solver_object:
                                  'escalonamiento: %d', Re_12, Re_23, Re)
                     if Re < 50_000:
                         record.warning('El número de Reynolds es demasiado bajo.')
+            else:
+                if Re_23 < 50_000:
+                    record.warning('El número de Reynolds es demasiado bajo (%d).', Re_23)
 
             if not iter_mode and not iter_end:
                 if len(self.rho_seed_list) < self.cfg.n_steps:
