@@ -320,6 +320,7 @@ def main():
                 resolution_for_small_input_deviations=data_dictionary['resolution_for_small_input_deviations'],
                 inlet_velocity_range=data_dictionary['inlet_velocity_range'],
                 n_rpm_nominal=data_dictionary['n_rpm_nominal'],
+
                 )
             LE_stator = data_dictionary['stator_leading_edge_angle']
             LE_rotor = data_dictionary['rotor_leading_edge_angle']

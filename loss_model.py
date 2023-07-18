@@ -312,8 +312,8 @@ class Ainley_and_Mathieson_Loss_Model:  # Ver paper: https://apps.dtic.mil/sti/p
 
             x = ((A_2*cos(tau_2)/(A_1*cos(tau_1)))**2)/(1+(r_h/r_t))
             lambda_ = self.sec_losses[1](x)
-            tau_m = atan((tan(tau_1)+tan(tau_2))/2)
-            C_L = 2*(s/b)*(tan(tau_1) - tan(tau_2))*cos(tau_m)
+            tau_m = atan((tan(tau_1)-tan(tau_2))/2)
+            C_L = 2*(s/b)*(tan(tau_1) + tan(tau_2))*cos(tau_m)
             Z = ((C_L*b/s)**2)*((cos(tau_2)**2)/(cos(tau_m)**3))
             Ys = lambda_*Z
             Yk = 0.0

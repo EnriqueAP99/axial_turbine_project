@@ -767,7 +767,7 @@ class solver_object:
                 record.warning('No se extrae energía del fluido.')
 
             if self.cfg.loss_model == 'Ainley_and_Mathieson':
-                # Media aritmética de Re a la entrada y a la salida recomendada por AM para la corrección.
+                # Media aritmética de Re a la entrada y a la salida +- recomendada por AM para la corrección.
                 if not iter_mode and not iter_end:
                     Re = (Re_12 + Re_23)/2
                     record.debug('Reynolds a la entrada: %d, Reynolds a la salida: %d, Reynolds promedio del '
