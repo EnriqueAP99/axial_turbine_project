@@ -159,6 +159,7 @@ class config_class:
             local_dict2[par_id] = kwargs.get(par_id, 0.0)
         local_dict2['b'], local_dict2['Rm'] = cuerda, radio_medio
         s = kwargs.get('s', None)
+        N_blades = kwargs.get('N_blades', None)
         if s is not None:
             local_dict2['s'] = s
 
@@ -194,9 +195,14 @@ class config_class:
                 raise InputDataError('No se verifica la hipótesis de bidimensionalidad.')
 
         if s is None:
-            ap_i_est, ap_i_rot, cuerda = geom['alfap_i_est'], geom['alfap_i_rot'], geom['b']
-            geom['s'] = [cuerda[(i // 2) * 2] * 0.4 / ((tan(ap_i_est[i // 2]) + tan(ap_i_rot[i // 2])) *
-                                                       (cos(ap_i_rot[i//2])**2)) for i in range(ns*2)]
+            if N_blades is not None:
+                if isinstance(N_blades, (int, float)):
+                    N_blades = [N_blades for _ in range(2*ns)]
+                local_dict2['s'] = [2*pi*Rm[i]/N_blades[i] for i in range(2*ns)]
+            else:
+                ap_i_est, ap_i_rot, cuerda = geom['alfap_i_est'], geom['alfap_i_rot'], geom['b']
+                geom['s'] = [cuerda[(i // 2) * 2] * 0.4 / ((tan(ap_i_est[i // 2]) + tan(ap_i_rot[i // 2])) *
+                                                           (cos(ap_i_rot[i//2])**2)) for i in range(ns*2)]
 
         for B_S, B_S_name, B_A_name, theta_name in [[B_S_rot, 'alfap_o_rot', 'alfap_i_rot', 'theta_r'],
                                                     [B_S_est, 'alfap_o_est', 'alfap_i_est', 'theta_e']]:

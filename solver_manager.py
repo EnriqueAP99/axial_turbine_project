@@ -331,6 +331,7 @@ def main():
             hub_radius = data_dictionary['hub_radius']
             tip_radius = data_dictionary['tip_radius']
             Rm = data_dictionary['mean_radius']
+            N_blades = data_dictionary['N_blades']
             heights = data_dictionary['heights']
             areas = data_dictionary['areas']
             chord = data_dictionary['chord']
@@ -356,7 +357,7 @@ def main():
                               delta=tip_clearance, r_t=tip_radius, k=tip_clearance, t_e=t_e,
                               roughness_ptv=blade_roughness_peak_to_valley, lashing_wires=lashing_wires,
                               wire_diameter=wire_diameter, holgura_radial=holgura_radial, design_factor=design_factor,
-                              gauge_adimensional_position=gauge_position)
+                              gauge_adimensional_position=gauge_position, N_blades=N_blades)
         return settings
 
     mode = data_dictionary['mode']

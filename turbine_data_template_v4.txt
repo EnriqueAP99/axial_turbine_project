@@ -5,16 +5,16 @@
 # Each pair variable-definition must be followed by a semicolon.
 # When the read stream reaches "#" it jumps to the next line.
 # When defining a variable does not apply, it must be assigned "None".
-# Space character is ignored, therefore, when using list-comprehension, it needs to be indicated by "$".
+# Space character is ignored (not tab), therefore, when using list-comprehension, it needs to be indicated by "$".
 # Units of variables to be entered must be: Kelvin, Pascals, degrees, meters/seconds.
 ##############################################################################################################################################################################
 # First of all, it is defined the action to be executed or mode, using double or simple quotation marks.
 
 # To be chosen between: 'process_nominal_values', 'solve', 'display_values', 'sweep_variable' and 'display_graphs_with_sweep_data'.
-mode = 'display_graphs_with_sweep_data';
+mode = 'sweep_variable';
 
 # Additional information for 'sweep_variable' and 'display_graphs_with_sweep_data' modes:
-var_to_sweep = 'p_inlet';    sweep_resolution = 900;    req_vars = None;   csv_filename_extension = 'sweeping_060723_v1.csv';
+var_to_sweep = 'p_inlet';    sweep_resolution = 250;    req_vars = None;   csv_filename_extension = 'sweeping_070723_v1.csv';
 independent_variable = 'r_turbine';      dependent_variables = ['C', 'm_dot', 'eta_ss', 'P_total', 'P_total_ss', 'alfa', 'eta_TT', 'eta_TE'];
 logic_limit_for_independent_variable = True;  # It limits the displayed values using as condition that global energy exchange is from the gas to the turbine.
 
@@ -47,10 +47,10 @@ heights = $[0.025] + [0.67-hr for hr in hub_radius];        areas = None;       
 maximum_thickness = $[0.12*b for b in chord];               pitch = [0.030, 0.030, 0.025, 0.025];                                 outlet_thickness = $[0.003*c/0.030 for c in chord];
 blade_opening = [0.0135, 0.0135, 0.013, 0.013];             blade_mean_radius_of_curvature = 0.020;                               tip_clearance = [0.001, 0.001, 0.0007, 0.0007];
 chord_z = $[0.85 * b for b in chord];                       wire_diameter = None;                                                 lashing_wires = None;
-radial_clearance = False;                                   blade_roughness_peak_to_valley = $[0.00004 for _ in chord];           design_factor = 0.67;
-gauge_adimensional_position = [0.18, 0.18, 0.22, 0.22];
+radial_clearance = False;                                   blade_roughness_peak_to_valley = $[0.000035 for _ in chord];          design_factor = 0.67;
+gauge_adimensional_position = 0.2;                          N_blades = None;
 ##############################################################################################################################################################################
 # Finally, only the values that will restrict the operating point to be evaluated are defined, the rest are assigned "None":
 
-T_inlet=1300;     p_inlet=[800_000, 200_000];     rpm=2_000;     p_outlet=120_000;     mass_flow=None;     axial_inlet_velocity=None;     reference_inlet_velocity=120;
+T_inlet=1300;     p_inlet=[420_000, 200_000];     rpm=2_000;     p_outlet=120_000;     mass_flow=None;     axial_inlet_velocity=None;     reference_inlet_velocity=140;
 ##############################################################################################################################################################################
