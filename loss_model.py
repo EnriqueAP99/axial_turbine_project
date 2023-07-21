@@ -22,14 +22,7 @@ def Reynolds(num: int, rho_2: float, C_2: float, T_2: float, config: config_clas
             :param productos: objeto que modela los productos como clase mixpm del módulo gas_modeling.
                     :return: Se devuelve el número de Reynolds."""
 
-    if config.loss_model == 'soderberg_correlation':
-        alfa_key = 'alfap_i_est' if num % 2 == 0 else 'alfap_o_rot'
-        s, H, alfa = config.geom['s'][num], config.geom['H'][num], config.geom[alfa_key][num//2]
-        D_h = 2 * s * H * cos(alfa) / (s * cos(alfa) + H)
-        c_len = D_h
-    else:
-        c_len = config.geom['b'][num]
-
+    c_len = config.geom['b'][num]
     mu = productos.get_din_visc(T_2)
     Re = int((rho_2 * C_2 * c_len / mu).__round__(0))
     return Re
