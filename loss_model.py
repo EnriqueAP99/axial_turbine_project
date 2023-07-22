@@ -1,6 +1,6 @@
 """
 En este módulo se caracteriza el modelo de pérdidas que se va a emplear en el módulo "axial_turb_solver.py", además se
-calcula el número de Reynolds.
+hace el cálculo del número de Reynolds, necesario para ambos modelos de pérdidas adoptados.
 """
 from config_class import *
 from math import cos, atan, tan, radians, degrees, pi, acos, fabs, sqrt, log10, sin, asin

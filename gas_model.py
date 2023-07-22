@@ -308,6 +308,8 @@ class mixpm:
                 mu_0, T_0, S_mu = 1.663E-5, 273, 107
             elif comp == 'O2':
                 mu_0, T_0, S_mu = 1.919E-5, 273, 139
+            elif comp == 'steam':
+                mu_0, T_0, S_mu = 1.12-5, 350, 1064
             mu = mu_0 * ((T / T_0) ** (3 / 2)) * (T_0 + S_mu) / (T + S_mu)
             return mu
 
@@ -322,10 +324,9 @@ class mixpm:
                 eta_frac += self.xni[i] * self.mu_elem[i] / den
             return eta_frac
 
-        frac = 647.096 / T
-        mu_w = sqrt(1 / frac) / (0.0167752 + 0.0220462 * frac + 0.0063666 * (frac ** 2) - 0.0024161 * (frac ** 3))
         mu_CO2, mu_N2, mu_O2 = Sutherlands_law('CO2'), Sutherlands_law('N2'), Sutherlands_law('O2')
-        self.mu_elem = [mu_CO2, mu_w, mu_N2, mu_O2]
+        mu_steam = Sutherlands_law('steam')
+        self.mu_elem = [mu_CO2, mu_steam, mu_N2, mu_O2]
         self.mu_mix = Wilke_mix_rule()
 
         return self.mu_mix
