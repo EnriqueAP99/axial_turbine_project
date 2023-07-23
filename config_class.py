@@ -219,12 +219,11 @@ class config_class:
 
         if self.loss_model == 'Aungier':
             geom['design_factor'] = kwargs.get('design_factor', 0.67)
-
-        if kwargs['gauge_adimensional_position'] is None:
-            geom['gauge_adimensional_position'] = []
-            for i in range(ns):
-                relative_position = math.degrees(math.acos(geom['o'][i]/geom['s'][i]))
-                geom['gauge_adimensional_position'].append(relative_position)
+            if kwargs['gauge_adimensional_position'] is None:
+                geom['gauge_adimensional_position'] = []
+                for i in range(2*ns):
+                    relative_position = 1-(math.sin(math.acos(geom['o'][i]/geom['s'][i]))*geom['o'][i]/geom['b_z'][i])
+                    geom['gauge_adimensional_position'].append(relative_position)
 
         object.__setattr__(self, 'geom', geom)
         return
