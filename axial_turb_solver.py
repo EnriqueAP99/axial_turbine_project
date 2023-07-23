@@ -720,10 +720,10 @@ class solver_object:
 
             args = ['est', A_tpl[1], alfa_1, h_02, m_dot, s_1, rho_seed[0], M_1, rho_1, C_1, C_1x, T_1]
             if (not iter_mode and not iter_end) or self.cfg.loss_model == 'Aungier':
-                outputs = self.blade_outlet_calculator(*args, Re_out=Re_out)
+                outputs = self.blade_row_outlet_calculator(*args, Re_out=Re_out)
                 p_2, h_2, T_2, C_2, rho_2, h_2s, T_2s, C_2x, M_2, alfa_2, xi_est, Re_12 = outputs
             else:
-                outputs = self.blade_outlet_calculator(*args, xi=xi_est)
+                outputs = self.blade_row_outlet_calculator(*args, xi=xi_est)
                 p_2, h_2, T_2, C_2, rho_2, h_2s, T_2s, C_2x, M_2, alfa_2 = outputs
 
             s_2 = self.prd.get_prop(known_props={'p': p_2, 'T': T_2}, req_prop='s')
@@ -742,7 +742,7 @@ class solver_object:
             h_r3 = h_r2 = h_2 + ((10 ** (-3)) * (omega_2 ** 2) / 2)
             self.ref_values = (T_2, p_2 * 0.95)
 
-            outputs = self.blade_outlet_calculator(
+            outputs = self.blade_row_outlet_calculator(
                 blade='rot', area_b=A_tpl[2], tau_a=beta_2, h_tb=h_r3,
                 m_dot=m_dot, s_a=s_2, rho_outer_seed=rho_seed[1], M_a=M_2,
                 rho_a=rho_2, C_a=C_2, C_ax=C_2x, T_a=T_2, Re_out=Re_out
@@ -867,9 +867,9 @@ class solver_object:
         ll_1 = inner_funct()
         return ll_1.copy()
 
-    def blade_outlet_calculator(self, blade: str, area_b: float, tau_a: float, h_tb: float, m_dot: float, s_a: float,
-                                rho_outer_seed: float, M_a: float, rho_a: float, C_a: float, C_ax: float, T_a: float,
-                                xi=None, Re_in=None, Re_out=None):
+    def blade_row_outlet_calculator(self, blade: str, area_b: float, tau_a: float, h_tb: float, m_dot: float,
+                                    s_a: float, rho_outer_seed: float, M_a: float, rho_a: float, C_a: float,
+                                    C_ax: float, T_a: float, xi=None, Re_in=None, Re_out=None):
         """ Se hace un cálculo iterativo para conocer las propiedades a la salida del estátor y del rótor (según el
         caso, estátor / rótor, se proporciona el valor de la entalpía total / rotalpía y del ángulo que forma la
         velocidad absoluta / relativa del fluido con la dirección del eje de la turbina axial, respectivamente).

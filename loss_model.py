@@ -370,8 +370,13 @@ class Aungier_Loss_Model(Ainley_and_Mathieson_Loss_Model):
             beta_g = degrees(asin((o_j/s_j)/fabs(o_j/s_j)))
         Y_TE = (t_e/((s_j*sin(radians(beta_g)))-t_e))**2
 
+        # Approximating V_pre2x
+        pr0_pre2 = pr0_2 - Y_TE*(pr0_2 - p_2)
+        U_pre2 = sqrt(2*(pr0_pre2 - p_2)/d2)
+        V_pre2x = V_2x*U_pre2/U_2 if U_pre2 > U_2 else V_2x
+
         rel_position = self.cfg.geom['gauge_adimensional_position'][num]
-        F_AR = rel_position + ((1-rel_position)*(d2*V_2x/(d1*V_1x)))
+        F_AR = rel_position + ((1-rel_position)*(d2*V_pre2x/(d1*V_1x)))
         F_TE = 1 + (Y_TE * (pr0_2 - p_2) / pr0_2)
         o_s = F_TE*F_AR*o_j/s_j
         if fabs(o_s) < 1:
