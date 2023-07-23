@@ -6,6 +6,8 @@ clase que facilita el intercambio del módulo "gas_model.py" por otro similar.
 """
 
 import logging  # https://docs.python.org/es/3/howto/logging.html
+import math
+
 from gas_model import mixpm
 import pyromat as pm
 from math import pi, radians, cos, tan
@@ -153,7 +155,7 @@ class config_class:
         for key in ['roughness_ptv', 'lashing_wires', 'wire_diameter', 'b_z', 'delta', 'k',
                     'gauge_adimensional_position', 'o', 'e']:
             if kwargs.get(key, None) is not None:
-                # Conditional is like this because variables can be set as None
+                # Conditional sentence is like this because variables can be set as None from txt file
                 list_items2.append(key)
         for par_id in list_items2:
             local_dict2[par_id] = kwargs.get(par_id, 0.0)
@@ -217,6 +219,12 @@ class config_class:
 
         if self.loss_model == 'Aungier':
             geom['design_factor'] = kwargs.get('design_factor', 0.67)
+
+        if kwargs['gauge_adimensional_position'] is None:
+            geom['gauge_adimensional_position'] = []
+            for i in range(ns):
+                relative_position = math.degrees(math.acos(geom['o'][i]/geom['s'][i]))
+                geom['gauge_adimensional_position'].append(relative_position)
 
         object.__setattr__(self, 'geom', geom)
         return
