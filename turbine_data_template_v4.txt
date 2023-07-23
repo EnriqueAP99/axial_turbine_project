@@ -48,7 +48,7 @@ maximum_thickness = $[0.12*b for b in chord];               pitch = [0.030, 0.03
 blade_opening = [0.0135, 0.0135, 0.013, 0.013];             blade_mean_radius_of_curvature = 0.020;                               tip_clearance = [0.001, 0.001, 0.0007, 0.0007];
 chord_z = $[0.85 * b for b in chord];                       wire_diameter = None;                                                 lashing_wires = None;
 radial_clearance = False;                                   blade_roughness_peak_to_valley = $[0.000035 for _ in chord];          design_factor = 0.67;
-gauge_adimensional_position = 0.2;                          N_blades = None;
+gauge_adimensional_position = 0.8;                          N_blades = None;
 ##############################################################################################################################################################################
 # Finally, only the values that will restrict the operating point to be evaluated are defined, the rest are assigned "None":
 
