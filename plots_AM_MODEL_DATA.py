@@ -21,7 +21,7 @@ def lineal_interpolation(x_target=None, x=None, series=None, y=None):
     return InterpolatedUnivariateSpline(serie_x, serie_y, k=2)(x_target)
 
 
-class Ainley_and_Mathieson_Loss_Model:  # Ver paper: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf
+class Loss_Model_Data:  # Ver paper: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf
     """ Clase que contiene instancias necesarias para aplicar la correlación de Ainley and Mathieson, haciendo uso de
     interpolación por splines generados por la librería Scipy. Notar que una vez creado el objeto no se estará
     interpolando con cada llamada al módulo actual, sino que se llamará a una instancia del objeto que se inicializó
@@ -99,17 +99,30 @@ class Ainley_and_Mathieson_Loss_Model:  # Ver paper: https://apps.dtic.mil/sti/p
 
         cos_m1, tau_2_ast = [35.5, 79], [30, 80]
         self.tau_2_ast = [x_sp(cos_m1), f_sp(cos_m1, tau_2_ast, 1)]
+        s_e = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
+        k_m_1 = [1.0, 1.0, 1.2, 1.45, 1.8, 2.3, 3.0, 3.8, 5.0]
+        k_m_09 = [1.0, 1.0, 1.1, 1.23, 1.38, 1.6, 1.85, 2.15, 2.5]
+        k_m_08 = [1.0, 1.0, 1.03, 1.08, 1.14, 1.21, 1.29, 1.39, 1.5]
+        s_e_07 = [0.0, 0.2, 0.8]
+        k_m_07 = [1.0, 1.0, 1.17]
+
+        serie_k_m_1 = [x_sp(s_e), f_sp(s_e, k_m_1, 3), 1.0]
+        serie_k_m_09 = [x_sp(s_e), f_sp(s_e, k_m_09, 3), 0.9]
+        serie_k_m_08 = [x_sp(s_e), f_sp(s_e, k_m_08, 3), 0.8]
+        serie_k_m_07 = [x_sp(s_e_07), f_sp(s_e_07, k_m_07, 2), 0.7]
+
+        self.km_series = [serie_k_m_07, serie_k_m_08, serie_k_m_09, serie_k_m_1]
 
 
 if __name__ == '__main__':
-    AMobj = Ainley_and_Mathieson_Loss_Model()
-    for item in [AMobj.is_b1a2_sc_075, AMobj.d_i_s_s_c, AMobj.yp_s_c_b1kn, AMobj.yp_s_c_b1kb2k]:
+    LMDobj = Loss_Model_Data()
+    for item in [LMDobj.km_series, LMDobj.is_b1a2_sc_075, LMDobj.d_i_s_s_c, LMDobj.yp_s_c_b1kn, LMDobj.yp_s_c_b1kb2k]:
         for [i, j, k] in item:
             plt.plot(i, j(i))
         plt.grid()
         plt.show()
 
-    for item in [AMobj.ji_Te_te_s, AMobj.alfa2rel_s_c, AMobj.yp_f_i_f, AMobj.sec_losses, AMobj.tau_2_ast]:
+    for item in [LMDobj.ji_Te_te_s, LMDobj.alfa2rel_s_c, LMDobj.yp_f_i_f, LMDobj.sec_losses, LMDobj.tau_2_ast]:
         plt.plot(item[0], item[1](item[0]))
         plt.grid()
         plt.show()
