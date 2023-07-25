@@ -721,7 +721,10 @@ class solver_object:
             args = ['est', A_tpl[1], alfa_1, h_02, m_dot, s_1, rho_seed[0], M_1, rho_1, C_1, C_1x, T_1]
             if (not iter_mode and not iter_end) or self.cfg.loss_model == 'Aungier':
                 outputs = self.blade_row_outlet_calculator(*args, Re_out=Re_out)
-                p_2, h_2, T_2, C_2, rho_2, h_2s, T_2s, C_2x, M_2, alfa_2, xi_est, Re_12 = outputs
+                if self.cfg.loss_model == 'Aungier':
+                    p_2, h_2, T_2, C_2, rho_2, h_2s, T_2s, C_2x, M_2, alfa_2, xi_est = outputs
+                else:
+                    p_2, h_2, T_2, C_2, rho_2, h_2s, T_2s, C_2x, M_2, alfa_2, xi_est, Re_12 = outputs
             else:
                 outputs = self.blade_row_outlet_calculator(*args, xi=xi_est)
                 p_2, h_2, T_2, C_2, rho_2, h_2s, T_2s, C_2x, M_2, alfa_2 = outputs
@@ -748,7 +751,7 @@ class solver_object:
                 rho_a=rho_2, C_a=C_2, C_ax=C_2x, T_a=T_2, Re_out=Re_out
             )
 
-            if (not iter_mode and not iter_end) or self.cfg.loss_model == 'Aungier':
+            if (not iter_mode and not iter_end) and self.cfg.loss_model != 'Aungier':
                 p_3, h_3, T_3, omega_3, rho_3, h_3s, T_3s, C_3x, M_3r, beta_3, xi_rot, Re_23 = outputs
             else:
                 p_3, h_3, T_3, omega_3, rho_3, h_3s, T_3s, C_3x, M_3r, beta_3, xi_rot = outputs
@@ -756,7 +759,9 @@ class solver_object:
             omega_3u = omega_3 * sin(beta_3)
             omega_3x = omega_3 * cos(beta_3)
             C_3u = omega_3u - U
-            C_3 = sqrt((C_3u**2) + (C_3x**2))
+            C_3 = (sqrt((C_3u**2) + (C_3x**2))).real
+            if self.cfg.loss_model == 'Aungier':
+                Re_23 = self.AU_Re_register = Reynolds(count, rho_3, C_3, T_3, self.cfg, self.prd)
             alfa_3 = asin(C_3u / C_3)
 
             s_3 = self.prd.get_prop(known_props={'T': T_3, 'p': p_3}, req_prop='s')
@@ -1047,20 +1052,16 @@ class solver_object:
         record.debug('Pérdidas:  ...  Y_total: %.4f  ...  Yp: %.4f   ',
                      Y_total, Yp)
 
-        if self.cfg.loss_model == 'Aungier':
-            if blade == 'rot':
-                Re = Reynolds(num, rho_b, C_bx, T_b, self.cfg, self.prd)
-
         self.first_seeds_boc = [T_b, T_bs, p_b].copy()
         return_vars = [p_b, h_b, T_b, U_b, rho_b, h_bs, T_bs, C_bx, M_b, tau_b]
 
-        if blade == 'est':
-            if (not self.step_iter_mode and not self.step_iter_end) or self.cfg.loss_model == 'Aungier':
+        if blade == 'est' and self.cfg.loss_model != 'Aungier':
+            if not self.step_iter_mode and not self.step_iter_end:
                 return *return_vars, xi, Re
             else:
                 return return_vars
         else:
-            if (not self.step_iter_mode and not self.step_iter_end) or self.cfg.loss_model == 'Aungier':
+            if not self.step_iter_mode and not self.step_iter_end and self.cfg.loss_model != 'Aungier':
                 return *return_vars, xi, Re
             else:
                 return *return_vars, xi
