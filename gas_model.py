@@ -309,7 +309,7 @@ class mixpm:
             elif comp == 'O2':
                 mu_0, T_0, S_mu = 1.919E-5, 273, 139
             elif comp == 'steam':
-                mu_0, T_0, S_mu = 1.12-5, 350, 1064
+                mu_0, T_0, S_mu = 1.12E-5, 350, 1064
             mu = mu_0 * ((T / T_0) ** (3 / 2)) * (T_0 + S_mu) / (T + S_mu)
             return mu
 
