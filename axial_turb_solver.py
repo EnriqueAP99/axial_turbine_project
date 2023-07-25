@@ -1049,7 +1049,7 @@ class solver_object:
 
         if self.cfg.loss_model == 'Aungier':
             if blade == 'rot':
-                Re = Reynolds(num, rho_b, U_b, T_b, self.cfg, self.prd)
+                Re = Reynolds(num, rho_b, C_bx, T_b, self.cfg, self.prd)
 
         self.first_seeds_boc = [T_b, T_bs, p_b].copy()
         return_vars = [p_b, h_b, T_b, U_b, rho_b, h_bs, T_bs, C_bx, M_b, tau_b]

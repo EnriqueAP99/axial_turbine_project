@@ -11,20 +11,20 @@ import numpy as np
 # https://www.youtube.com/watch?v=tTG5Re5G7B8&ab_channel=Petr%C3%B3leoyprogramaci%C3%B3nSMAE
 
 
-def Reynolds(num: int, rho_2: float, C_2: float, T_2: float, config: config_class, productos: gas_model_to_solver):
+def Reynolds(num: int, rho: float, C: float, T: float, config: config_class, productos: gas_model_to_solver):
     """ Se calcula el número de Reynolds usando el diámetro hidráulico y las propiedades del fluido a la salida del
     estátor.
             :param num: Número identificador de la corona que se evalúa.
-            :param rho_2: Densidad a la salida del estátor (kg/m^3).
-            :param C_2: Velocidad a la salida del estátor (m/s).
-            :param T_2: Temperatura a la salida del estátor (K).
+            :param rho: Densidad (kg/m^3).
+            :param C: Velocidad (m/s).
+            :param T: Temperatura (K).
             :param config: Objeto con información necesaria para la ejecución.
             :param productos: objeto que modela los productos como clase mixpm del módulo gas_modeling.
                     :return: Se devuelve el número de Reynolds."""
 
     c_len = config.geom['b'][num]
-    mu = productos.get_din_visc(T_2)
-    Re = int((rho_2 * C_2 * c_len / mu).__round__(0))
+    mu = productos.get_din_visc(T)
+    Re = int((rho * C * c_len / mu).__round__(0))
     return Re
 
 
