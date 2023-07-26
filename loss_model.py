@@ -439,7 +439,7 @@ class Aungier_Loss_Model(Ainley_and_Mathieson_Loss_Model):
 
         CL = 2*(tan(tau_1) + tan(tau_2))*s_j/b_j
 
-        apm = (pi/2) - atan((1/((tan((pi/2) - tau_1 - (1/tan((pi/2) - tau_2))))*2)))
+        apm = (pi/2) - atan((tan(tau_1) - tan(tau_2))/2)
         Z = ((CL*b_j/s_j)**2) * ((cos(tau_2))**2) / ((sin(apm))**3)
 
         F_AR = b_j/h_j if h_j/b_j >= 2 else (0.5*((2*b_j/h_j)**0.7))
