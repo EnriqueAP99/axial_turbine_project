@@ -445,7 +445,7 @@ class Aungier_Loss_Model(Ainley_and_Mathieson_Loss_Model):
         F_AR = b_j/h_j if h_j/b_j >= 2 else (0.5*((2*b_j/h_j)**0.7))
         Y_s_pre = 0.0334 * F_AR * Z * (cos(tau_2)) / cos(radians(self.ap_1[num]))
 
-        k_s = 1 - ((1-k_p)*((b_z/h_j)**2)/(1+((b_j/h_j)**2)))  # bm ¿medio?
+        k_s = 1 - ((1-k_p)*((b_z/h_j)**2)/(1+((b_j/h_j)**2)))
 
         Ys = k_Re*k_s*sqrt((Y_s_pre**2)/(1+(7.5*(Y_s_pre**2))))
 
