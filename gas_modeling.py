@@ -10,7 +10,8 @@ pm.config['unit_pressure'] = 'Pa'
 
 
 class mixpm:
-    """ Esta clase define objetos como productos de combustión cuyos componentes se van a modelar con PyroMat"""
+    """ Esta clase define un objeto que modela los productos de una combustión completa. Las propiedades termodinámicas
+     de los componentes de la mezcla se van a calcular mediante el empleo de la librería PyroMat"""
 
     def __init__(self, mode: str):
         """ :param mode: Cadena de caracteres que indica el modo de funcionamiento según si se emplea, o no, modelo de
