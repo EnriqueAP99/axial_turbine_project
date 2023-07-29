@@ -11,7 +11,7 @@
 # First of all, it is defined the action to be executed or mode, using double or simple quotation marks.
 
 # To be chosen between: 'process_nominal_values', 'solve', 'display_values', 'sweep_variable' and 'display_graphs_with_sweep_data'.
-mode = 'sweep_variable';
+mode = 'display_graphs_with_sweep_data';
 
 # Additional information for 'sweep_variable' and 'display_graphs_with_sweep_data' modes:
 var_to_sweep = 'p_inlet';    sweep_resolution = 80;    req_vars = None;   csv_filename_extension = 'sweeping_070723_v1.csv';
