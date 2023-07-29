@@ -126,11 +126,9 @@ class mixpm:
                 if len(known_props) == 2:
                     if list(known_props.keys())[1] == 'T':
                         k_0, v_0 = list(known_props.keys())[1], list(known_props.values())[1]
-
         if v_0 is None:
             k_0, v_0 = list(known_props.keys())[0], list(known_props.values())[0]
         var_list_gr = [req_prop, k_0]
-
         if not ('T' in known_props and req_prop == 'h' and self.mode == "ig") or self.mode == "mp":
             k_1 = list(known_props.keys())[1]
             v_1 = list(known_props.values())[1]
@@ -152,7 +150,6 @@ class mixpm:
                     elif var_list_gr[j] in ['h', 's']:
                         exp = exp * (-1)  # De esta manera resultan kg de productos en denominador y la suma es el total
                 xj[j].append(xji ** exp)
-
         for i in range(len(self.xmi)):  # i = 0, 1, 2, 3
             if v_1 is None:
                 code_get_sumando = f'self.sumprops_Tpd = xa[i]*float(self.components[i].{req_prop}({k_0}=' \
