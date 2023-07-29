@@ -150,7 +150,8 @@ def solver_decorator(solver, p_out: float | None, C_inx_estimated: float | None,
                             from_a = False
                         else:
                             solver.seed_reset()
-                            raise OuterLoopConvergenceError('Something went wrong.')
+                            record.error('Something went wrong.')
+                            raise OuterLoopConvergenceError()
 
                     # It is evaluated whether the new range contains the solution.
                     if (p_out_iter_b-p_out)*(p_out_iter_a-p_out) < 0:
@@ -166,8 +167,9 @@ def solver_decorator(solver, p_out: float | None, C_inx_estimated: float | None,
 
                 if iter_count > cfg.iter_limit_OL:
                     solver.seed_reset()
-                    raise OuterLoopConvergenceError('Search took too many evaluations, check inlet velocity seed '
-                                                    'value or iter limit for outer loops.')
+                    record.error('Search took too many evaluations, check inlet velocity seed value or iter limit for '
+                                 'outer loops.')
+                    raise OuterLoopConvergenceError()
 
             rel_error = pre_rel_error = None
             p_out_iter = None
@@ -246,8 +248,9 @@ def solver_decorator(solver, p_out: float | None, C_inx_estimated: float | None,
 
                 if iter_count > cfg.iter_limit_OL:
                     solver.seed_reset()
-                    raise OuterLoopConvergenceError('Recursive calculation does not reach convergence when fixing the '
-                                                    'desired outlet pressure.')
+                    record.error('Recursive calculation does not reach convergence when fixing the desired outlet '
+                                 'pressure.')
+                    raise OuterLoopConvergenceError()
 
             if not cfg.chain_mode:
                 solver_iter = False
