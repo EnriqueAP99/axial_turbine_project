@@ -21,7 +21,7 @@ def lineal_interpolation(x_target=None, x=None, series=None, y=None):
     return InterpolatedUnivariateSpline(serie_x, serie_y, k=2)(x_target)
 
 
-class Loss_Model_Data:  # Ver paper: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf
+class Loss_Model_Data:
     """ Clase que contiene instancias necesarias para aplicar la correlación de Ainley and Mathieson, haciendo uso de
     interpolación por splines generados por la librería Scipy. Notar que una vez creado el objeto no se estará
     interpolando con cada llamada al módulo actual, sino que se llamará a una instancia del objeto que se inicializó

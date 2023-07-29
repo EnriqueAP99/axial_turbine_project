@@ -8,16 +8,6 @@ from math import fabs, sqrt
 
 pm.config['unit_pressure'] = 'Pa'
 
-''' 
-El modelo de ig que trae la librería PyroMat alcanza valores más altos de temperatura que el del Çengel.
-Todos usan ig2 en este caso (NASA polynomial) 
-Referencias a 5.2.1 del Handbook (manual de la librería, pg. 91) y documento NASA_TM_4513. 
-
-Cita de la pg. oficial de PyroMat:
-'Computing states follows the state principle which requires that any two properties fully define the state. 
-That means that only two properties can be specified at one time.'
-'''
-
 
 class mixpm:
     """ Esta clase define objetos como productos de combustión cuyos componentes se van a modelar con PyroMat"""
@@ -56,7 +46,6 @@ class mixpm:
                     self.components.append(pm.get(f'ig.{comp}'))
             self.components = tuple(self.components)
 
-    # den es la masa total por kmol de combustible en combustión completa
     def setmix(self, x: float, y: float, N: float):
         """ Se determinan las propiedades del objeto que contienen las fracciones molares (xni) y másicas (xmi) de los
         productos de una combustión completa del hidrocarburo indicado.
@@ -65,6 +54,7 @@ class mixpm:
                 :param N: Exceso de aire que se considera en el ajuste estequiométrico.
                         :return: No se devuelve nada. """
         self.x, self.y, self.N = x, y, N
+        # den es la masa total por kmol de combustible en combustión completa
         den = (x * self.components[0].mw()) + (y * self.components[1].mw() / 2) + \
               (self.components[2].mw() * N * (x + y / 4) * 79.0 / 21.0) + (
                       self.components[3].mw() * (N - 1) * (x + y / 4))
@@ -119,7 +109,6 @@ class mixpm:
         else:
             return a, C_p, C_v, gamma
 
-    # https://es.stackoverflow.com/questions/383654/llamar-din%C3%A1micamente-a-m%C3%A9todos-dentro-de-una-clase-con-python
     def get_props_by_Tpd(self, known_props: dict, req_prop: str):
         """ Con este método, habiendo determinado el estado de la mezcla empleando una o dos propiedades de entre 'T',
         'p' o 'd' (Temperatura, presión o densidad), se podrá obtener cualquiera que se desconozca junto con 'h' y 's'.
@@ -294,10 +283,6 @@ class mixpm:
         psat = H2O.p(T=T, x=0.00001)
         return psat  # Pa
 
-    # https://efrainpuerto.com/tag/sutherland/
-    # https://www.youtube.com/watch?v=tTG5Re5G7B8&ab_channel=Petr%C3%B3leoyprogramaci%C3%B3nSMAE
-    # https://doc.comsol.com/5.5/doc/com.comsol.help.cfd/cfd_ug_fluidflow_high_mach.08.27.html
-    # https://repositorio.upct.es/bitstream/handle/10317/6091/tfm-mu%C3%B1-est.pdf?sequence=1 (Wilke)
     def Wilke_visc_calculator(self, T: float):
 
         def Sutherlands_law(comp: str):
