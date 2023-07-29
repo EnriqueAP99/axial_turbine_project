@@ -113,7 +113,7 @@ class mixpm:
     def get_props_by_Tpd(self, known_props: dict, req_prop: str):
         """ Con este método, habiendo determinado el estado de la mezcla empleando una o dos propiedades de entre 'T',
         'p' o 'd' (Temperatura, presión o densidad), se podrá obtener cualquiera que se desconozca junto con 'h' y 's'.
-                :param known_props: Un diccionario que debe contener, como clave, el caracter que represente la/s
+                :param known_props: Un diccionario que debe contener, como clave, el carácter que represente la/s
                                    propiedad/es conocidas y, como valor, el valor de la misma.
                 :param req_prop: El caracter que identifique la propiedad que se requiere.
                         :return: El valor de la propiedad que se requiere con las unidades de Pyromat. """
