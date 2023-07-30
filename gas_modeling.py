@@ -2,6 +2,7 @@
 Se emplea la librería PyroMat para modelar los productos como mezcla de gases ideales no perfectos y determinar
 sus propiedades a partir de las que se proporcionen.
 """
+import math
 
 import pyromat as pm
 from math import fabs, sqrt
@@ -100,10 +101,12 @@ class mixpm:
         self._gammamix = self._cpmix / self._cvmix
         return [float(self._cpmix), float(self._cvmix), float(self._gammamix)]
 
-    def get_a(self, T: float, p=101_300.0, extra=False):  # Este cálculo asume gas ideal
+    def get_a(self, T: float, p=101_300.0, extra=False):
 
         C_p, C_v, gamma = self.get_coeffs(T, p)
-        a = sqrt(gamma * (C_p - C_v) * 1000 * T)
+        theta_T = 3056 / T
+        a = sqrt((C_p-C_v)*1000*T*(1+(
+                 (gamma-1)/(1+((gamma-1) * ((theta_T**2)*((math.e**theta_T)/(((math.e**theta_T)-1)**2))))))))
 
         if not extra:
             return a
