@@ -316,24 +316,21 @@ class mixpm:
 
 
 def main():
-
-    mezcla = mixpm("ig")
-    mezcla.rel_error = 1E-9
-    mezcla.setmix(12.0, 23.5, 2)
-
-    press = mezcla.get_props_by_Tpd({'T': 1800, 'd': 2}, 'p')
-    print(f'Resulta una presión de {(press / 101300):.7f} atm')
-    enthalpy = mezcla.get_props_by_Tpd({'T': 1800, 'd': 2}, 'h')
+    mix = mixpm("ig")
+    mix.rel_error = 1E-9
+    mix.setmix(12.0, 23.5, 2)
+    pressure = mix.get_props_by_Tpd({'T': 1800, 'd': 2}, 'p')
+    print(f'Resulta una presión de {(pressure / 101300):.7f} atm')
+    enthalpy = mix.get_props_by_Tpd({'T': 1800, 'd': 2}, 'h')
     print(f'Resulta una entalpía de {enthalpy:.7f} kJ/kg')
-    entropy = mezcla.get_props_by_Tpd({'T': 1800, 'd': 2}, 's')
+    entropy = mix.get_props_by_Tpd({'T': 1800, 'd': 2}, 's')
     print(f'Resulta una entropía de {entropy:.7f} kJ/kgK')
-    pr = mezcla.get_props_with_hs({'s': entropy, 'T': 1800}, {'p': 10 * 101300})
+    pr = mix.get_props_with_hs({'s': entropy, 'T': 1800}, {'p': 10 * 101300})
     print(f'Resulta una presión de {(pr / 101300):.7f} atm')
-    Temperature = mezcla.get_props_with_hs({'h': enthalpy}, {'T': 1500})
+    Temperature = mix.get_props_with_hs({'h': enthalpy}, {'T': 1500})
     print(f'Resulta una temperatura de {Temperature:.7f} K')
-    entropy2 = mezcla.get_props_by_Tpd({'T': Temperature, 'p': press}, 's')
+    entropy2 = mix.get_props_by_Tpd({'T': Temperature, 'p': pressure}, 's')
     print(f'Resulta una entropía de {entropy2:.7f} kJ/kgK')
-
     return
 
 

@@ -49,7 +49,8 @@ class OuterLoopConvergenceError(Exception):
 
 
 class InputDataError(Exception):
-    """ Excepción para cuando no se ha definido una variable que debía ser definida."""
+    """ Excepción para cuando no se ha definido una variable de la manera que debía ser definida
+    desde el archivo txt."""
     def __init__(self, msg="Variable no definida."):
         self.msg = msg
         super().__init__(self.msg)
