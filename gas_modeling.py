@@ -205,11 +205,8 @@ class mixpm:
                     f1 = self.get_props_by_Tpd({k_g: v_g1}, k_a) - v_a
                     f2 = self.get_props_by_Tpd({k_g: v_g2}, k_a) - v_a
                 else:
-                    if fabs(f1-f2) < self.rel_error*fabs(f1):
-                        fpu = -1
-                    else:
-                        fp = (f2 - f1) / (v_g2 - v_g1)
-                        fpu = fp/fabs(fp)
+                    fp = (f2 - f1) / (v_g2 - v_g1)
+                    fpu = fp/fabs(fp)
                     if f1*fpu > 0:
                         v_g2 = v_g1
                         f2 = f1
@@ -225,11 +222,8 @@ class mixpm:
                     f1 = self.get_props_by_Tpd({k_g: v_g1, k_b: v_b}, k_a) - v_a
                     f2 = self.get_props_by_Tpd({k_g: v_g2, k_b: v_b}, k_a) - v_a
                 else:
-                    if fabs(f1-f2) < self.rel_error*fabs(f1):
-                        fpu = -1
-                    else:
-                        fp = (f2 - f1) / (v_g2 - v_g1)
-                        fpu = fp/fabs(fp)
+                    fp = (f2 - f1) / (v_g2 - v_g1)
+                    fpu = fp/fabs(fp)
                     if f1*fpu > 0:
                         v_g2 = v_g1
                         f2 = f1
