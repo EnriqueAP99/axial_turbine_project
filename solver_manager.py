@@ -227,14 +227,16 @@ def var_sweeping(solver: solver_object, n_rpm_, T_in_: float | list, p_in_, var_
             solver.problem_solver(T_in=T_in, p_in=p_in, n_rpm=n_rpm, m_dot=m_dot, C_inx=C_inx, p_out=p_out,
                                   C_inx_ref=C_inx_ref)
         except GasLibraryAdaptedException:
-            record.error('An error has been handled during variable sweeping operation. Evaluated point '
-                         'has been omited.')
+            # 'An error has been handled during variable sweeping operation. Evaluated point '
+            #              'has been skipped.'
+            record.error('Se ha capturado una excepción durante la operación de barrido. El punto de funcionamiento '
+                         'evaluado se va a omitir.')
         except InnerLoopConvergenceError:
-            record.error('An error has been handled during variable sweeping operation. Evaluated point '
-                         'has been omited.')
+            record.error('Se ha capturado una excepción durante la operación de barrido. El punto de funcionamiento '
+                         'evaluado se va a omitir.')
         except OuterLoopConvergenceError:
-            record.error('An error has been handled during variable sweeping operation. Evaluated point '
-                         'has been omited.')
+            record.error('Se ha capturado una excepción durante la operación de barrido. El punto de funcionamiento '
+                         'evaluado se va a omitir.')
         else:
             df_a, df_b, df_c = data_to_df(solver, req_vars)
             lista_df_a.append(copy.deepcopy(df_a))
