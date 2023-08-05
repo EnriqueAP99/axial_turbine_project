@@ -986,7 +986,7 @@ class solver_object:
 
                 if self.cfg.loss_model == 'Ainley_and_Mathieson':
                     tau_b_n = self.loss_model_object.tau2_corrector(num, M_b)
-                    # Se ejecuta el primer bloque a excepción de si es estátor y step_iter_mode.
+                    # Se ejecuta el primer bloque a excepción de si es estátor y step_iter_mode/end.
                     if (not self.step_iter_mode and not self.step_iter_end) or blade == 'rot':
                         args = [num, degrees(tau_a), degrees(tau_b), self.step_iter_mode or self.step_iter_end]
                         Y_total = self.loss_model_object.Ainley_and_Mathieson_Loss_Model(*args)
@@ -1004,8 +1004,6 @@ class solver_object:
                         V_1x=C_ax, p_2=p_b, pr0_2=pr0_b, d2=rho_b, d1=rho_a, U_2=U_b
                     )
                     xi = Y_total / (1 + (0.5*gamma_b*(M_b**2)))
-                    if not self.step_iter_end:
-                        tau_b = tau_b_n
 
             h_b = (0.001 * xi * (U_b**2) / 2) + h_bs
             rho_b = self.prd.get_prop({'p': p_b, 'h': h_b}, {'d': rho_b})
