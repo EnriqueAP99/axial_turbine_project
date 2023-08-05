@@ -30,11 +30,11 @@ legend_location = 'lower right';    # See: https://matplotlib.org/stable/api/_as
 ##############################################################################################################################################################################
 # Secondly, everything about the program configuration is defined:
 
-iter_limit_at_inner_loops=5000;                     iter_limit_at_outer_loops=50;                     thermod_mode_in_gas_model_module = 'ig';
-relative_error=1E-7;         ideal_gas=True;        chain_mode=False;        loss_model='Aungier';    n_steps=2;           jump=4.0;   
-max_trend_changes=20;        T_nominal=1300;        p_nominal=390_000;       n_rpm_nominal=25_500;    inlet_velocity_range=[0.01, 140.69];
-preloading_for_small_input_deviations = False;      resolution_for_small_input_deviations = 500;      solver_file_name = 'process_object.pkl'
-
+iter_limit_at_inner_loops=5000;                     iter_limit_at_outer_loops=50;                      thermod_mode_in_gas_model_module = 'ig';
+relative_error=1E-7;         ideal_gas=True;        chain_mode=False;        loss_model='Aungier';     n_steps=2;           jump=4.0;   
+max_trend_changes=150;       T_nominal=1300;        p_nominal=390_000;       n_rpm_nominal=25_500;     inlet_velocity_range=[0.01, 140.69];
+preloading_for_small_input_deviations = False;      resolution_for_small_input_deviations = 500;       solver_file_name = 'process_object.pkl';
+ 
 # preloading_for_small_input_deviations: if true, there will be done several evaluations, in order to being able to approximate the solution directly when in 'solve' mode.
 ##############################################################################################################################################################################
 # The geometry is then defined with all the necessary parameters, depending on the loss model used.
