@@ -949,14 +949,15 @@ class solver_object:
                 record.error('It was not possible to reach convengence. Density is too low.')
                 raise InnerLoopConvergenceError
 
-            if iter_count > self.cfg.iter_limit_IL:
-                record.error('Iteración aboratada, no se cumple el criterio de convergencia.')
-                raise InnerLoopConvergenceError
-
             C_bx = m_dot / (area_b * rho_b)  # C_bx: velocidad axial a la salida
             tau_b_n = None
+            tauloop_iter_count = 0
 
             while tau_b_n is None or fabs((tau_b_n - tau_b)/tau_b) > relative_error:
+                tauloop_iter_count += 1
+                if tauloop_iter_count > self.cfg.iter_limit_IL or iter_count > self.cfg.iter_limit_IL:
+                    record.error('Iteración aboratada, no se cumple el criterio de convergencia.')
+                    raise InnerLoopConvergenceError
 
                 if tau_b_n is None:
                     tau_b_n = tau_b
