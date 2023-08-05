@@ -322,7 +322,6 @@ def main():
                 iter_limit_OL=data_dictionary['iter_limit_at_outer_loops'],
                 max_trend_changes=data_dictionary['max_trend_changes'],
                 T_nominal=data_dictionary['T_nominal'],
-                preloading_for_small_input_deviations=data_dictionary['preloading_for_small_input_deviations'],
                 p_nominal=data_dictionary['p_nominal'],
                 resolution_for_small_input_deviations=data_dictionary['resolution_for_small_input_deviations'],
                 inlet_velocity_range=data_dictionary['inlet_velocity_range'],
@@ -384,6 +383,7 @@ def main():
 
     if mode == 'process_nominal_values':
         settings = aux_reading_operations()
+        settings.edit_cfg_prop('preloading_for_small_input_deviations', True)
         gas_model = gas_model_to_solver(thermod_mode=data_dictionary.get('thermo_mode_in_gas_model.py', 'ig'))
         solver = solver_object(settings, gas_model)
         solver_data_saver(solver_file_name, solver)

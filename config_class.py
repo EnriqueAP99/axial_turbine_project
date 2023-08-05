@@ -240,7 +240,7 @@ class config_class:
         object.__setattr__(self, 'geom', geom)
         return
 
-    def edit_cfg_prop(self, key, new_value):
+    def edit_cfg_prop(self, key: str, new_value):
         object.__setattr__(self, key, new_value)
 
 
