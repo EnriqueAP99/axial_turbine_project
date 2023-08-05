@@ -302,6 +302,11 @@ def resetting_lossmodel_attribute(solver_obj: solver_object):
 def main():
     data_dictionary = txt_reader()
     settings = None
+    try:
+        mode = data_dictionary['mode']
+        solver_file_name = data_dictionary['solver_file_name']
+    except NameError:
+        raise InputDataError('Non-valid text file, please, stick to the template.')
 
     def aux_reading_operations():
         nonlocal settings
@@ -322,7 +327,6 @@ def main():
                 resolution_for_small_input_deviations=data_dictionary['resolution_for_small_input_deviations'],
                 inlet_velocity_range=data_dictionary['inlet_velocity_range'],
                 n_rpm_nominal=data_dictionary['n_rpm_nominal'],
-
                 )
             LE_stator = data_dictionary['stator_leading_edge_angle']
             LE_rotor = data_dictionary['rotor_leading_edge_angle']
@@ -362,26 +366,29 @@ def main():
                               gauge_adimensional_position=gauge_position, N_blades=N_blades)
         return settings
 
-    mode = data_dictionary['mode']
+    def operations_for_solver_init():
+        nonlocal settings, gas_model
+        settings = aux_reading_operations()
+        gas_model = gas_model_to_solver(thermod_mode=data_dictionary.get('thermod_mode_in_gas_model_module', 'ig'))
+        try:
+            # Keeping existing seeds if pkl file exists but taking changes into account
+            localsolver = solver_data_reader(solver_file_name)
+            localsolver.cfg = settings
+            localsolver.prd = gas_model
+            resetting_lossmodel_attribute(localsolver)
+        except FileNotFoundError:
+            localsolver = solver_object(settings, gas_model)
+        return localsolver
 
     if mode == 'process_nominal_values':
         settings = aux_reading_operations()
         gas_model = gas_model_to_solver(thermod_mode=data_dictionary.get('thermo_mode_in_gas_model.py', 'ig'))
         solver = solver_object(settings, gas_model)
-        solver_data_saver('process_object.pkl', solver)
+        solver_data_saver(solver_file_name, solver)
 
     elif mode == 'solve':
         try:
-            settings = aux_reading_operations()
-            gas_model = gas_model_to_solver(thermod_mode=data_dictionary.get('thermod_mode_in_gas_model_module', 'ig'))
-            try:
-                # Keeping existing seeds if pkl file is available but taking changes into account
-                solver = solver_data_reader('process_object.pkl')
-                solver.cfg = settings
-                solver.prd = gas_model
-                resetting_lossmodel_attribute(solver)
-            except FileNotFoundError:
-                solver = solver_object(settings, gas_model)
+            solver = operations_for_solver_init()
             if data_dictionary['chain_mode']:
                 output = solver.problem_solver(
                     T_in=data_dictionary['T_inlet'],
@@ -394,6 +401,7 @@ def main():
                 )
                 T_salida, p_salida, C_salida, alfa_out = output
                 print(' T_out', T_salida, '\n', 'p_out', p_salida, '\n', 'C_out', C_salida, '\n', 'alfa_out', alfa_out)
+                # Return output
             else:
                 solver.problem_solver(
                     T_in=data_dictionary['T_inlet'],
@@ -404,18 +412,16 @@ def main():
                     C_inx=data_dictionary['axial_inlet_velocity'],
                     C_inx_ref=data_dictionary['reference_inlet_velocity'],
                 )
-                solver_data_saver('process_object.pkl', solver)
+                solver_data_saver(solver_file_name, solver)
         except NameError:
             raise InputDataError('Non-valid text file, please, stick to the template.')
 
     elif mode == 'display_values':
-        solver = solver_data_reader('process_object.pkl')
+        solver = solver_data_reader(solver_file_name)
         problem_data_viewer(solver)
 
     elif mode == 'sweep_variable':
-        settings = aux_reading_operations()
-        gas_model = gas_model_to_solver(thermod_mode=data_dictionary.get('thermod_mode_in_gas_model_module', 'ig'))
-        solver = solver_object(settings, gas_model)
+        solver = operations_for_solver_init()
         try:
             a_filename, b_filename, c_filename = [root + data_dictionary['csv_filename_extension'] for root in
                                                   ['df_a_', 'df_b_', 'df_c_']]
