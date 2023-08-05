@@ -367,9 +367,11 @@ def main():
         return settings
 
     def operations_for_solver_init():
-        nonlocal settings, gas_model
+        nonlocal settings, gas_model, solver_file_name
         settings = aux_reading_operations()
         gas_model = gas_model_to_solver(thermod_mode=data_dictionary.get('thermod_mode_in_gas_model_module', 'ig'))
+        if solver_file_name is None:
+            solver_file_name = 'DoNotUseThisFileName'
         try:
             # Keeping existing seeds if pkl file exists but taking changes into account
             localsolver = solver_data_reader(solver_file_name)
