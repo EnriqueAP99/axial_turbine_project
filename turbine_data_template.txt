@@ -14,7 +14,7 @@
 mode = 'sweep_variable';
 
 # Additional information for 'sweep_variable' and 'display_graphs_with_sweep_data' modes:
-var_to_sweep = 'p_inlet';    sweep_resolution = 160;    req_vars = None;   csv_filename_extension = 'sweeping_050823_AUNGIER_v2.csv';
+var_to_sweep = 'p_inlet';    sweep_resolution = 180;    req_vars = None;   csv_filename_extension = 'sweeping_070823_AUNGIER_ofic.csv';
 independent_variable = 'r_turbine';      dependent_variables = ['C', 'm_dot', 'eta_ss', 'P_total', 'P_total_ss', 'alfa', 'eta_TT', 'eta_TE'];
 logic_limit_for_independent_variable = True;  # It limits the displayed values using as condition that global energy exchange is from the gas to the turbine.
 
@@ -25,8 +25,8 @@ where_to_evaluate = {'C': {'step': [1, 2], 'point': [1, 3]}, 'alfa': {'step': [1
 
 # In case it is necessary to plot any dependent variables together, all of them must be packaged as follows.
 # In case variables that share a key are indicated, all previously chosen variables sharing the key will be represented together.
-plot_together = [['C'],['alfa'], ['eta_TT', 'eta_TE'], ['P_total', 'P_total_ss']];
-legend_location = None;    # See: https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.legend.html
+plot_together = [['C'],['alfa'], ['eta_TT'], ['eta_TE'], ['P_total', 'P_total_ss']];
+legend_location = 'lower left';    # See: https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.legend.html
 ##########################################################################################################################################################################################
 # Secondly, everything about the program configuration is defined:
 
@@ -52,5 +52,5 @@ gauge_adimensional_position = 0.8;                          N_blades = None;
 ##########################################################################################################################################################################################
 # Finally, only the values that will restrict the operating point to be evaluated are defined, the rest are assigned "None":
 
-T_inlet=1300;     p_inlet=[230_000, 125_000];     rpm=2_800;     p_outlet=120_000;     mass_flow=None;     axial_inlet_velocity=None;     reference_inlet_velocity=140;
+T_inlet=1300;     p_inlet=[250_000, 122_000];     rpm=2_800;     p_outlet=120_000;     mass_flow=None;     axial_inlet_velocity=None;     reference_inlet_velocity=140;
 ##########################################################################################################################################################################################

@@ -175,7 +175,6 @@ def solver_decorator(solver, p_out: float | None, C_inx_estimated: float | None,
             p_out_iter = None
             f_a = f_b = None
             diff_value = None
-            limit_error = None
             iter_count = 0
 
             def update_C_inx():
@@ -221,7 +220,7 @@ def solver_decorator(solver, p_out: float | None, C_inx_estimated: float | None,
                         rel_error = fabs(f_c) / p_out
                         update_C_inx()
 
-                # This is a patch for an observed behaviour caused by discontinuities from the Aungier loss model.
+                # This is a patch for an observed behaviour from the Aungier loss model.
                 if pre_rel_error is not None:
                     if fabs(pre_rel_error - rel_error)/rel_error <= 1e-3:
                         iter_count -= 1
@@ -235,25 +234,6 @@ def solver_decorator(solver, p_out: float | None, C_inx_estimated: float | None,
                                 record.error('Relative error kept the same value too much time and it is not low '
                                              'enough, work point is skipped.')
                                 raise OuterLoopConvergenceError()
-                        if limit_error is None:
-                            limit_error = {}
-                        # Next lines set the operating point with the lower error
-                        if fabs(p_out_iter - p_out_iter_b)/p_out <= 1e-5:
-                            limit_error['b'] = rel_error
-                            if 'a' in limit_error:
-                                if limit_error['b'] < limit_error['a']:
-                                    break
-                                else:
-                                    ps_list = inner_funtion_from_problem_solver(C_inx_a, True)
-                                    break
-                        elif fabs(p_out_iter - p_out_iter_a)/p_out <= 1e-5:
-                            limit_error['a'] = rel_error
-                            if 'b' in limit_error:
-                                if limit_error['a'] < limit_error['b']:
-                                    break
-                                else:
-                                    ps_list = inner_funtion_from_problem_solver(C_inx_b, True)
-                                    break
 
                 record.info('Error de presión a la salida: %.10f  ...  Valor actual: %.2f Pa ...  '
                             'Valor objetivo: %.2f Pa', rel_error, p_out_iter, p_out)
