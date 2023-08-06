@@ -219,21 +219,20 @@ def solver_decorator(solver, p_out: float | None, C_inx_estimated: float | None,
                         p_out_iter_b = p_out_iter
                         rel_error = fabs(f_c) / p_out
                         update_C_inx()
-
-                # This is a patch for an observed behaviour from the Aungier loss model.
-                if pre_rel_error is not None:
-                    if fabs(pre_rel_error - rel_error)/rel_error <= 1e-3:
-                        iter_count -= 1
-                        non_progression_counter += 1
-                        if non_progression_counter > cfg.iter_limit_OL:
-                            if rel_error < 1e-5:
-                                record.warning('Relative error kept the same value too much time and it is low enough,'
-                                               ' work point is admited.')
-                                break
-                            else:
-                                record.error('Relative error kept the same value too much time and it is not low '
-                                             'enough, work point is skipped.')
-                                raise OuterLoopConvergenceError()
+                    # This is a patch for an observed behaviour from the Aungier loss model.
+                    if pre_rel_error is not None:
+                        if fabs(pre_rel_error - rel_error)/rel_error <= 1e-3:
+                            iter_count -= 1
+                            non_progression_counter += 1
+                            if non_progression_counter > cfg.iter_limit_OL:
+                                if rel_error < 1e-5:
+                                    record.warning('Relative error kept the same value too much time and it is low '
+                                                   'enough, work point is admited.')
+                                    break
+                                else:
+                                    record.error('Relative error kept the same value too much time and it is not low '
+                                                 'enough, work point is skipped.')
+                                    raise OuterLoopConvergenceError()
 
                 record.info('Error de presión a la salida: %.10f  ...  Valor actual: %.2f Pa ...  '
                             'Valor objetivo: %.2f Pa', rel_error, p_out_iter, p_out)
