@@ -223,10 +223,10 @@ def solver_decorator(solver, p_out: float | None, C_inx_estimated: float | None,
 
                 # This is a patch for an observed behaviour caused by discontinuities from the Aungier loss model.
                 if pre_rel_error is not None:
-                    if fabs(pre_rel_error - rel_error)/rel_error <= 0.5*1e-6:
+                    if fabs(pre_rel_error - rel_error)/rel_error <= 1e-3:
                         if limit_error is None:
                             limit_error = {}
-                        if fabs(p_out_iter - p_out_iter_b)/p_out <= 0.5*1e-6:
+                        if fabs(p_out_iter - p_out_iter_b)/p_out <= 1e-5:
                             limit_error['b'] = rel_error
                             if 'a' in limit_error:
                                 if limit_error['b'] < limit_error['a']:
@@ -234,7 +234,7 @@ def solver_decorator(solver, p_out: float | None, C_inx_estimated: float | None,
                                 else:
                                     ps_list = inner_funtion_from_problem_solver(C_inx_a, True)
                                     break
-                        elif fabs(p_out_iter - p_out_iter_a)/p_out <= 0.5*1e-6:
+                        elif fabs(p_out_iter - p_out_iter_a)/p_out <= 1e-5:
                             limit_error['a'] = rel_error
                             if 'b' in limit_error:
                                 if limit_error['a'] < limit_error['b']:

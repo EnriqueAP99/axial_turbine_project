@@ -260,7 +260,7 @@ def var_sweeping(solver: solver_object, n_rpm_, T_in_: float | list, p_in_, var_
 
 
 def txt_reader():
-    with open('turbine_data_template_v4.txt') as file:
+    with open('turbine_data_template.txt') as file:
         for line in file:
             declaration = ''
             for char in line.strip():
@@ -672,7 +672,8 @@ def main():
             if logic_limit_for_independent_variable:
                 x_axis_limits_algorithm()
                 y_axis_limits_algorithm(list(multiplot_legend_dict.keys()))
-            plt.legend(loc=legend_loc)
+            if legend_loc is not None:
+                plt.legend(loc=legend_loc)
             plt.title(title_str)
             plt.xlabel(x_label_name_and_units)
             plt.ylabel(y_label_ref_u_as_str)
