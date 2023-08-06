@@ -186,7 +186,7 @@ def solver_decorator(solver, p_out: float | None, C_inx_estimated: float | None,
                 elif diff_value < 0.25 * (C_inx_b - C_inx_a):
                     diff_value = 0.25 * (C_inx_b - C_inx_a)
                 C_inx = C_inx_b - diff_value
-
+            non_progression_counter = 0
             while rel_error is None or rel_error >= cfg.relative_error:  # Applying Regula Falsi
                 iter_count += 1
                 if rel_error is None:
@@ -224,8 +224,20 @@ def solver_decorator(solver, p_out: float | None, C_inx_estimated: float | None,
                 # This is a patch for an observed behaviour caused by discontinuities from the Aungier loss model.
                 if pre_rel_error is not None:
                     if fabs(pre_rel_error - rel_error)/rel_error <= 1e-3:
+                        iter_count -= 1
+                        non_progression_counter += 1
+                        if non_progression_counter > cfg.iter_limit_OL:
+                            if rel_error < 1e-5:
+                                record.warning('Relative error kept the same value too much time and it is low enough,'
+                                               ' work point is admited.')
+                                break
+                            else:
+                                record.error('Relative error kept the same value too much time and it is not low '
+                                             'enough, work point is skipped.')
+                                raise OuterLoopConvergenceError()
                         if limit_error is None:
                             limit_error = {}
+                        # Next lines set the operating point with the lower error
                         if fabs(p_out_iter - p_out_iter_b)/p_out <= 1e-5:
                             limit_error['b'] = rel_error
                             if 'a' in limit_error:
