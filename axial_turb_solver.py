@@ -46,34 +46,26 @@ def solver_decorator(solver, p_out: float | None, C_inx_estimated: float | None,
             """ Function to be used whenever the spline attribute of the solver is not set. """
             C_inx = C_inx_estimated
             ps_list = None
-            solver_iter = True
 
             def read_ps_list():
                 if cfg.chain_mode:
                     return ps_list.copy[1]
                 else:
-                    if solver_iter:
-                        return copy.deepcopy(ps_list)[-1][1]
-                    else:
-                        return copy.deepcopy(ps_list)[-2][1]
-
+                    return copy.deepcopy(ps_list)[-1][1]
             iter_count = 0
             from_b = from_a = False
             start = True
             # Points "a" and "b" such that C_inx_b > C_inx_a.
             delta = cfg.jump
-            C_inx_a = C_inx - (0.5*delta)
-            C_inx_b = C_inx + (0.5*delta)
+            C_inx_a = C_inx - 1
+            C_inx_b = C_inx
             pre_C_inx_a = pre_C_inx_b = C_inx
             p_out_iter_b = p_out_iter_a = None
             ps_list_a = ps_list_b = None
 
             def C_in_algorithm():
                 nonlocal C_inx_a, C_inx_b, from_a, from_b, C_inx, pre_C_inx_a, pre_C_inx_b
-                try:
-                    slope = (p_out_iter_b - p_out_iter_a)/(C_inx_b - C_inx_a)
-                except ZeroDivisionError:
-                    slope = -1
+                slope = (p_out_iter_b - p_out_iter_a)/(C_inx_b - C_inx_a)
                 if (p_out_iter_b > p_out and slope < 0) or (p_out_iter_a < p_out and slope > 0):
                     # Here goes the level to increase velocity at point "b".
                     C_inx_a = C_inx_b
@@ -89,7 +81,6 @@ def solver_decorator(solver, p_out: float | None, C_inx_estimated: float | None,
                 return
 
             def first_iter_exception_task():
-                nonlocal C_inx_a, C_inx_b
                 solver.seed_reset()
                 raise OuterLoopConvergenceError('Try another seed value.')
 
@@ -113,10 +104,10 @@ def solver_decorator(solver, p_out: float | None, C_inx_estimated: float | None,
                 iter_count += 1
                 try:
                     if start:
-                        ps_list_a = inner_funtion_from_problem_solver(C_inx_a, True)
-                        ps_list_b = inner_funtion_from_problem_solver(C_inx_b, True)
+                        ps_list_a = inner_funtion_from_problem_solver(C_inx_a, False)
+                        ps_list_b = inner_funtion_from_problem_solver(C_inx_b, False)
                     else:
-                        ps_list = inner_funtion_from_problem_solver(C_inx, True)
+                        ps_list = inner_funtion_from_problem_solver(C_inx, False)
                 except InnerLoopConvergenceError:
                     if start:
                         first_iter_exception_task()
@@ -171,7 +162,7 @@ def solver_decorator(solver, p_out: float | None, C_inx_estimated: float | None,
                                  'outer loops.')
                     raise OuterLoopConvergenceError()
 
-            rel_error = pre_rel_error = None
+            rel_error = None
             p_out_iter = None
             f_a = f_b = None
             diff_value = None
@@ -180,10 +171,11 @@ def solver_decorator(solver, p_out: float | None, C_inx_estimated: float | None,
             def update_C_inx():
                 nonlocal diff_value, C_inx
                 diff_value = (p_out_iter_b-p_out) * (C_inx_b - C_inx_a) / (p_out_iter_b - p_out_iter_a)
-                if diff_value > 0.75 * (C_inx_b - C_inx_a):
-                    diff_value = 0.75 * (C_inx_b - C_inx_a)
-                elif diff_value < 0.25 * (C_inx_b - C_inx_a):
-                    diff_value = 0.25 * (C_inx_b - C_inx_a)
+                diff_sign = fabs(diff_value)/diff_value
+                if fabs(diff_value) > 0.75 * (C_inx_b - C_inx_a):
+                    diff_value = 0.75 * (C_inx_b - C_inx_a) * diff_sign
+                elif fabs(diff_value) < 0.25 * (C_inx_b - C_inx_a):
+                    diff_value = 0.25 * (C_inx_b - C_inx_a) * diff_sign
                 C_inx = C_inx_b - diff_value
             non_progression_counter = 0
             while rel_error is None or rel_error >= cfg.relative_error:  # Applying Regula Falsi
@@ -194,7 +186,7 @@ def solver_decorator(solver, p_out: float | None, C_inx_estimated: float | None,
                     f_b = p_out_iter_b-p_out
                     update_C_inx()
                 try:
-                    ps_list = inner_funtion_from_problem_solver(C_inx, True)
+                    ps_list = inner_funtion_from_problem_solver(C_inx, False)
                 except InnerLoopConvergenceError:
                     # This event will most likely only happen when limits are not high enough.
                     C_inx_b, C_inx_a = pre_C_inx_b, pre_C_inx_a
@@ -243,9 +235,7 @@ def solver_decorator(solver, p_out: float | None, C_inx_estimated: float | None,
                     raise OuterLoopConvergenceError()
 
             if not cfg.chain_mode:
-                solver_iter = False
-                ps_list = inner_funtion_from_problem_solver(C_inx, False)
-
+                ps_list = inner_funtion_from_problem_solver(C_inx, True)
             return
 
         def wrapper_s():
@@ -557,7 +547,7 @@ class solver_object:
                 self.small_input_deviation_data[7] = n_rpm
 
         @solver_decorator(self, p_out, self.C_inx_register, self.small_input_deviation_data)
-        def inner_solver(var_C_inx=None, solverdec_search_mode=False):
+        def inner_solver(var_C_inx=None, solverdec_lastcall=False):
             nonlocal m_dot, C_inx, ps_list
 
             self.step_iter_mode = self.step_iter_end = False
@@ -588,7 +578,7 @@ class solver_object:
                 self.Re_corrector_counter = 0
                 self.step_counter += 1
 
-            if not self.cfg.chain_mode and not solverdec_search_mode:
+            if not self.cfg.chain_mode and solverdec_lastcall:
                 # Los subindices A y B indican, resp., los pts. inicio y fin de la turbina.
                 p_B, s_B, h_B, h_0B = [ps_list[-1][1]] + ps_list[-1][3:6]
                 h_in = self.prd.get_prop(known_props={'T': T_in, 'p': p_in}, req_prop='h')

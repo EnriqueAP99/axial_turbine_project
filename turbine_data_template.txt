@@ -14,7 +14,7 @@
 mode = 'sweep_variable';
 
 # Additional information for 'sweep_variable' and 'display_graphs_with_sweep_data' modes:
-var_to_sweep = 'p_inlet';    sweep_resolution = 180;    req_vars = None;   csv_filename_extension = 'sweeping_070823_AUNGIER_ofic.csv';
+var_to_sweep = 'p_inlet';    sweep_resolution = 120;    req_vars = None;   csv_filename_extension = 'sweeping_070823_AUNGIER_ofic.csv';
 independent_variable = 'r_turbine';      dependent_variables = ['C', 'm_dot', 'eta_ss', 'P_total', 'P_total_ss', 'alfa', 'eta_TT', 'eta_TE'];
 logic_limit_for_independent_variable = True;  # It limits the displayed values using as condition that global energy exchange is from the gas to the turbine.
 
@@ -52,5 +52,5 @@ gauge_adimensional_position = 0.8;                          N_blades = None;
 ##########################################################################################################################################################################################
 # Finally, only the values that will restrict the operating point to be evaluated are defined, the rest are assigned "None":
 
-T_inlet=1300;     p_inlet=[250_000, 122_000];     rpm=2_800;     p_outlet=120_000;     mass_flow=None;     axial_inlet_velocity=None;     reference_inlet_velocity=140;
+T_inlet=1300;     p_inlet=[300_000, 121_000];     rpm=2_800;     p_outlet=120_000;     mass_flow=None;     axial_inlet_velocity=None;     reference_inlet_velocity=140;
 ##########################################################################################################################################################################################
