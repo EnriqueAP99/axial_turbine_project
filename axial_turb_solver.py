@@ -70,10 +70,7 @@ def solver_decorator(solver, p_out: float | None, C_inx_estimated: float | None,
 
             def C_in_algorithm():
                 nonlocal C_inx_a, C_inx_b, from_a, from_b, C_inx, pre_C_inx_a, pre_C_inx_b
-                try:
-                    slope = (p_out_iter_b - p_out_iter_a)/(C_inx_b - C_inx_a)
-                except ZeroDivisionError:
-                    slope = -1
+                slope = (p_out_iter_b - p_out_iter_a)/(C_inx_b - C_inx_a)
                 if (p_out_iter_b > p_out and slope < 0) or (p_out_iter_a < p_out and slope > 0):
                     # Here goes the level to increase velocity at point "b".
                     C_inx_a = C_inx_b
@@ -89,7 +86,6 @@ def solver_decorator(solver, p_out: float | None, C_inx_estimated: float | None,
                 return
 
             def first_iter_exception_task():
-                nonlocal C_inx_a, C_inx_b
                 solver.seed_reset()
                 raise OuterLoopConvergenceError('Try another seed value.')
 
@@ -180,10 +176,11 @@ def solver_decorator(solver, p_out: float | None, C_inx_estimated: float | None,
             def update_C_inx():
                 nonlocal diff_value, C_inx
                 diff_value = (p_out_iter_b-p_out) * (C_inx_b - C_inx_a) / (p_out_iter_b - p_out_iter_a)
-                if diff_value > 0.75 * (C_inx_b - C_inx_a):
-                    diff_value = 0.75 * (C_inx_b - C_inx_a)
-                elif diff_value < 0.25 * (C_inx_b - C_inx_a):
-                    diff_value = 0.25 * (C_inx_b - C_inx_a)
+                diff_sign = fabs(diff_value)/diff_value
+                if fabs(diff_value) > 0.75 * (C_inx_b - C_inx_a):
+                    diff_value = 0.75 * (C_inx_b - C_inx_a) * diff_sign
+                elif fabs(diff_value) < 0.25 * (C_inx_b - C_inx_a):
+                    diff_value = 0.25 * (C_inx_b - C_inx_a) * diff_sign
                 C_inx = C_inx_b - diff_value
             non_progression_counter = 0
             while rel_error is None or rel_error >= cfg.relative_error:  # Applying Regula Falsi
