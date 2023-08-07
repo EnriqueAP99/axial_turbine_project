@@ -62,8 +62,8 @@ def solver_decorator(solver, p_out: float | None, C_inx_estimated: float | None,
             start = True
             # Points "a" and "b" such that C_inx_b > C_inx_a.
             delta = cfg.jump
-            C_inx_a = C_inx - (0.5*delta)
-            C_inx_b = C_inx + (0.5*delta)
+            C_inx_a = C_inx - 1
+            C_inx_b = C_inx + 1
             pre_C_inx_a = pre_C_inx_b = C_inx
             p_out_iter_b = p_out_iter_a = None
             ps_list_a = ps_list_b = None
