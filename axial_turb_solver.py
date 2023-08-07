@@ -65,14 +65,13 @@ def solver_decorator(solver, p_out: float | None, C_inx_estimated: float | None,
 
             def C_in_algorithm():
                 nonlocal C_inx_a, C_inx_b, from_a, from_b, C_inx, pre_C_inx_a, pre_C_inx_b
-                slope = (p_out_iter_b - p_out_iter_a)/(C_inx_b - C_inx_a)
-                if (p_out_iter_b > p_out and slope < 0) or (p_out_iter_a < p_out and slope > 0):
+                if p_out_iter_b > p_out:
                     # Here goes the level to increase velocity at point "b".
                     C_inx_a = C_inx_b
                     C_inx_b += delta
                     from_b = True  # To indicate where does the process flow come from
                     C_inx = C_inx_b
-                elif (p_out_iter_b > p_out and slope > 0) or (p_out_iter_a < p_out and slope < 0):
+                elif p_out_iter_a < p_out:
                     # Here goes the level to decrease velocity at point "a".
                     C_inx_b = C_inx_a
                     C_inx_a -= delta
@@ -171,11 +170,10 @@ def solver_decorator(solver, p_out: float | None, C_inx_estimated: float | None,
             def update_C_inx():
                 nonlocal diff_value, C_inx
                 diff_value = (p_out_iter_b-p_out) * (C_inx_b - C_inx_a) / (p_out_iter_b - p_out_iter_a)
-                diff_sign = fabs(diff_value)/diff_value
-                if fabs(diff_value) > 0.75 * (C_inx_b - C_inx_a):
-                    diff_value = 0.75 * (C_inx_b - C_inx_a) * diff_sign
-                elif fabs(diff_value) < 0.25 * (C_inx_b - C_inx_a):
-                    diff_value = 0.25 * (C_inx_b - C_inx_a) * diff_sign
+                if diff_value > 0.75 * (C_inx_b - C_inx_a):
+                    diff_value = 0.75 * (C_inx_b - C_inx_a)
+                elif diff_value < 0.25 * (C_inx_b - C_inx_a):
+                    diff_value = 0.25 * (C_inx_b - C_inx_a)
                 C_inx = C_inx_b - diff_value
             non_progression_counter = 0
             while rel_error is None or rel_error >= cfg.relative_error:  # Applying Regula Falsi
@@ -201,12 +199,14 @@ def solver_decorator(solver, p_out: float | None, C_inx_estimated: float | None,
                     pre_rel_error = rel_error
                     if f_b * f_c < 0:
                         f_c = f_a = p_out_iter - p_out
+                        C_inx_b = C_inx_a
                         C_inx_a = C_inx
                         p_out_iter_a = p_out_iter
                         rel_error = fabs(f_c) / p_out
                         update_C_inx()
                     elif f_a * f_c <= 0:
                         f_c = f_b = p_out_iter - p_out
+                        C_inx_a = C_inx_b
                         C_inx_b = C_inx
                         p_out_iter_b = p_out_iter
                         rel_error = fabs(f_c) / p_out
