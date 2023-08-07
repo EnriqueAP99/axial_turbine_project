@@ -219,12 +219,12 @@ def solver_decorator(solver, p_out: float | None, C_inx_estimated: float | None,
                         p_out_iter_b = p_out_iter
                         rel_error = fabs(f_c) / p_out
                         update_C_inx()
-                    # This is a patch for an observed behaviour from the Aungier loss model.
+                    # This is a patch for an observed behaviour from the Aungier loss model:
                     if fabs(pre_rel_error - rel_error)/rel_error <= 1e-3:
                         iter_count -= 1
                         non_progression_counter += 1
                         if non_progression_counter > cfg.iter_limit_OL:
-                            if rel_error < 1e-5:
+                            if rel_error < 5*1e-5:
                                 record.warning('Relative error kept the same value too much time and it is low '
                                                'enough, work point is admited.')
                                 break
