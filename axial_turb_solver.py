@@ -46,17 +46,12 @@ def solver_decorator(solver, p_out: float | None, C_inx_estimated: float | None,
             """ Function to be used whenever the spline attribute of the solver is not set. """
             C_inx = C_inx_estimated
             ps_list = None
-            solver_iter = True
 
             def read_ps_list():
                 if cfg.chain_mode:
                     return ps_list.copy[1]
                 else:
-                    if solver_iter:
-                        return copy.deepcopy(ps_list)[-1][1]
-                    else:
-                        return copy.deepcopy(ps_list)[-2][1]
-
+                    return copy.deepcopy(ps_list)[-1][1]
             iter_count = 0
             from_b = from_a = False
             start = True
@@ -109,10 +104,10 @@ def solver_decorator(solver, p_out: float | None, C_inx_estimated: float | None,
                 iter_count += 1
                 try:
                     if start:
-                        ps_list_a = inner_funtion_from_problem_solver(C_inx_a, True)
-                        ps_list_b = inner_funtion_from_problem_solver(C_inx_b, True)
+                        ps_list_a = inner_funtion_from_problem_solver(C_inx_a, False)
+                        ps_list_b = inner_funtion_from_problem_solver(C_inx_b, False)
                     else:
-                        ps_list = inner_funtion_from_problem_solver(C_inx, True)
+                        ps_list = inner_funtion_from_problem_solver(C_inx, False)
                 except InnerLoopConvergenceError:
                     if start:
                         first_iter_exception_task()
@@ -191,7 +186,7 @@ def solver_decorator(solver, p_out: float | None, C_inx_estimated: float | None,
                     f_b = p_out_iter_b-p_out
                     update_C_inx()
                 try:
-                    ps_list = inner_funtion_from_problem_solver(C_inx, True)
+                    ps_list = inner_funtion_from_problem_solver(C_inx, False)
                 except InnerLoopConvergenceError:
                     # This event will most likely only happen when limits are not high enough.
                     C_inx_b, C_inx_a = pre_C_inx_b, pre_C_inx_a
@@ -240,9 +235,7 @@ def solver_decorator(solver, p_out: float | None, C_inx_estimated: float | None,
                     raise OuterLoopConvergenceError()
 
             if not cfg.chain_mode:
-                solver_iter = False
-                ps_list = inner_funtion_from_problem_solver(C_inx, False)
-
+                ps_list = inner_funtion_from_problem_solver(C_inx, True)
             return
 
         def wrapper_s():
@@ -554,7 +547,7 @@ class solver_object:
                 self.small_input_deviation_data[7] = n_rpm
 
         @solver_decorator(self, p_out, self.C_inx_register, self.small_input_deviation_data)
-        def inner_solver(var_C_inx=None, solverdec_search_mode=False):
+        def inner_solver(var_C_inx=None, solverdec_lastcall=False):
             nonlocal m_dot, C_inx, ps_list
 
             self.step_iter_mode = self.step_iter_end = False
@@ -585,7 +578,7 @@ class solver_object:
                 self.Re_corrector_counter = 0
                 self.step_counter += 1
 
-            if not self.cfg.chain_mode and not solverdec_search_mode:
+            if not self.cfg.chain_mode and solverdec_lastcall:
                 # Los subindices A y B indican, resp., los pts. inicio y fin de la turbina.
                 p_B, s_B, h_B, h_0B = [ps_list[-1][1]] + ps_list[-1][3:6]
                 h_in = self.prd.get_prop(known_props={'T': T_in, 'p': p_in}, req_prop='h')
