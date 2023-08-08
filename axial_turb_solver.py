@@ -199,14 +199,12 @@ def solver_decorator(solver, p_out: float | None, C_inx_estimated: float | None,
                     pre_rel_error = rel_error
                     if f_b * f_c < 0:
                         f_c = f_a = p_out_iter - p_out
-                        C_inx_b = C_inx_a
                         C_inx_a = C_inx
                         p_out_iter_a = p_out_iter
                         rel_error = fabs(f_c) / p_out
                         update_C_inx()
                     elif f_a * f_c <= 0:
                         f_c = f_b = p_out_iter - p_out
-                        C_inx_a = C_inx_b
                         C_inx_b = C_inx
                         p_out_iter_b = p_out_iter
                         rel_error = fabs(f_c) / p_out
