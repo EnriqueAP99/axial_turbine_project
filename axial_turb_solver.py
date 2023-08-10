@@ -678,7 +678,8 @@ class solver_object:
             else:
                 self.Re_corrector_counter += 1
                 if self.Re_corrector_counter > self.cfg.iter_limit_IL:
-                    record.error('Iter limit has been reached.')
+                    record.error('Se ha alcanzado el límite de iteraciones durante la corrección por el número de '
+                                 'Reynolds.')
                     raise InnerLoopConvergenceError
             record.info('Modo de repetición: %s  ...  Llamadas: %s', iter_mode, self.Re_corrector_counter)
 
