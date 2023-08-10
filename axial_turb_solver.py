@@ -682,9 +682,13 @@ class solver_object:
                     raise InnerLoopConvergenceError
             record.info('Modo de repetición: %s  ...  Llamadas: %s', iter_mode, self.Re_corrector_counter)
 
-            if count > 0:
+            if count > 0 and C_1 != 0.0:
                 C_1x = m_dot / (rho_1 * A_tpl[0])
-                alfa_1 = acos(C_1x / C_1)
+                c_rel = C_1x/C_1
+                c_unit = c_rel/fabs(c_rel)
+                if fabs(c_rel) > 1:
+                    c_rel = c_unit
+                alfa_1 = acos(c_rel)
             else:
                 C_1x = C_1
                 alfa_1 = 0.0
