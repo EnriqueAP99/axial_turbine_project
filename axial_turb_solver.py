@@ -57,7 +57,7 @@ def solver_decorator(solver, p_out: float | None, C_inx_estimated: float | None,
             start = True
             # Points "a" and "b" such that C_inx_b > C_inx_a.
             delta = cfg.jump
-            C_inx_a = C_inx - 1
+            C_inx_a = C_inx - 0.5
             C_inx_b = C_inx
             pre_C_inx_a = pre_C_inx_b = C_inx
             p_out_iter_b = p_out_iter_a = None
@@ -805,7 +805,7 @@ class solver_object:
                 h_03ss = self.prd.get_prop(known_props={'T': T_03ss, 'p': p_03}, req_prop='h')
                 Y_esc = h_03 - h_03ss
                 eta_TT = w_esc / (w_esc + Y_esc)
-                C_1u = sqrt((C_1**2) - (C_1x**2))
+                C_1u = sqrt((C_1**2) - (C_1x**2)) if C_1 > C_1x else 0
                 a_1 = self.prd.get_sound_speed(T=T_1, p=p_1)
                 M_1 = C_1 / a_1
                 a_3 = self.prd.get_sound_speed(T=T_3, p=p_3)
