@@ -295,8 +295,11 @@ def resetting_lossmodel_attribute(solver_obj: solver_object):
     if solver_obj.cfg.loss_model == 'Ainley_and_Mathieson':
         solver_obj.loss_model_object = Ainley_and_Mathieson_Loss_Model(solver_obj.cfg)
         solver_obj.loss_model_object.AM_diameter_def()
-    else:
+    elif solver_obj.cfg.loss_model == 'Aungier':
         solver_obj.loss_model_object = Aungier_Loss_Model(solver_obj.cfg)
+    else:
+        raise InputDataError('Los identificadores de los modelos de pérdidas disponibles son "Aungier" y '
+                             '"Ainley_and_Mathieson".')
 
 
 def main():

@@ -363,7 +363,7 @@ def step_decorator(solver, step_corrector_memory):
 
                 pre_rel_error_eta_TT = rel_error_eta_TT
                 rel_error_eta_TT = fc / target_efficiency
-                record.info('Corrección en proceso  ...  eta_TT: %.4f  ...  Error: %.4f', sifc[1], rel_error_eta_TT)
+                record.info('Corrección en proceso  ...  eta_TT: %.4f  ...  Error: %.7f', sifc[1], rel_error_eta_TT)
 
             _, _, _, _, ll_1 = get_sif_output(True, True, xi_ec, rho_seed_c)
             record.info('Corrección finalizada.')
