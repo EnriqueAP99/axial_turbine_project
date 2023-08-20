@@ -338,7 +338,7 @@ def step_decorator(solver, step_corrector_memory):
             xi_ec = None
             jam_counter = iter_counter = 0
 
-            while fabs(rel_error_eta_TT) > cfg.relative_error:
+            while fabs(rel_error_eta_TT) > 1.5*1e-6:
                 iter_counter += 1
                 xi_ec = xi_e2 - (f2 * (xi_e2 - xi_e1) / (f2 - f1))
                 if fabs(pre_rel_error_eta_TT-rel_error_eta_TT) > relative_error*fabs(rel_error_eta_TT):

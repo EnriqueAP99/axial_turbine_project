@@ -488,8 +488,8 @@ def main():
                 if WtE is None or item not in WtE or 'step' not in WtE[item] or \
                         ('point' not in WtE[item] and item in lista_a):
                     raise InputDataError('It is needed complementary information for any variable at the text file to '
-                                         'process saved data to be plotted. Please, check items that need to be added '
-                                         'to "where_to_evaluate" dictionary.')
+                                         'process saved data to be plotted. \nPlease, check items that need to be added'
+                                         ' to "where_to_evaluate" dictionary.')
             elif item in lista_c:
                 units_extension = tpl_t_units[tpl_t_keys.index(item)]
                 custom_df[item] = df_c[item + units_extension]
