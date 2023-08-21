@@ -214,7 +214,7 @@ def solver_decorator(solver, p_out: float | None, C_inx_estimated: float | None,
                         iter_count -= 1
                         non_progression_counter += 1
                         if non_progression_counter > cfg.iter_limit_OL:
-                            if rel_error < 5*1e-5:
+                            if rel_error < 1e-6:
                                 record.warning('Relative error kept the same value too much time and it is low '
                                                'enough, work point is admited.')
                                 break
@@ -227,10 +227,13 @@ def solver_decorator(solver, p_out: float | None, C_inx_estimated: float | None,
                             'Valor objetivo: %.2f Pa', rel_error, p_out_iter, p_out)
 
                 if iter_count > cfg.iter_limit_OL:
-                    solver.seed_reset()
-                    record.error('Recursive calculation does not reach convergence when fixing the desired outlet '
-                                 'pressure.')
-                    raise OuterLoopConvergenceError()
+                    if rel_error > 1e-6:
+                        solver.seed_reset()
+                        record.error('Recursive calculation does not reach convergence when fixing the desired outlet '
+                                     'pressure.')
+                        raise OuterLoopConvergenceError()
+                    else:
+                        break
 
             if not cfg.chain_mode:
                 ps_list = inner_funtion_from_problem_solver(C_inx, True)
