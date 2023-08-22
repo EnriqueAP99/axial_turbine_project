@@ -54,7 +54,7 @@ def solver_decorator(solver, p_out: float | None, C_inx_estimated: float | None,
                     i = 0
                 else:
                     i += 1
-            C_in_resulting = lineal_interpolation(x_target=p_out, x=p_out_vref, y=C_in_eval_list, order=2)
+            C_in_resulting = lineal_interpolation(x_target=p_out, x=p_out_vref, y=C_in_eval_list, order=1)
             return C_in_resulting
 
         def iterate_ps():
@@ -260,7 +260,7 @@ def solver_decorator(solver, p_out: float | None, C_inx_estimated: float | None,
 
             t_1 = time()
             if p_out is None and small_deviations_data is None:
-                _ = inner_funtion_from_problem_solver()
+                _ = inner_funtion_from_problem_solver(None, True)
             else:
                 if small_deviations_data is None:
                     iterate_ps()
@@ -487,7 +487,7 @@ class solver_object:
                         _, p_outlet, _, _ = self.problem_solver(T_in=T_inlet, p_in=p_inlet, n_rpm=n_rpm, C_inx=C_inlet)
                     else:
                         self.problem_solver(T_in=T_inlet, p_in=p_inlet, n_rpm=n_rpm, C_inx=C_inlet)
-                        p_outlet = self.vmmr[-2][1]
+                        p_outlet = copy.deepcopy(self.vmmr)[-2][1]
                 except GasLibraryAdaptedException:
                     output_pressures[k] = np.NAN
                     record.warning('Se ha capturado un error inesperado, se omite esta evaluación.')
@@ -500,15 +500,15 @@ class solver_object:
             return output_pressures.copy()
 
         pressures_ref_inputs = velocity_sweeper(self.cfg.T_nominal, self.cfg.p_nominal, self.cfg.n_rpm_nominal)
-        pressures_T_in_deviated = velocity_sweeper(self.cfg.T_nominal * (1 + 0.0001), self.cfg.p_nominal,
+        pressures_T_in_deviated = velocity_sweeper(self.cfg.T_nominal * (1 + 0.001), self.cfg.p_nominal,
                                                    self.cfg.n_rpm_nominal)
-        pressures_p_in_deviated = velocity_sweeper(self.cfg.T_nominal, self.cfg.p_nominal * (1 + 0.0000001),
+        pressures_p_in_deviated = velocity_sweeper(self.cfg.T_nominal, self.cfg.p_nominal * (1 + 0.0001),
                                                    self.cfg.n_rpm_nominal)
         pressures_rpm_deviated = velocity_sweeper(self.cfg.T_nominal, self.cfg.p_nominal,
-                                                  self.cfg.n_rpm_nominal * (1 + 0.00001))
-        d_pout_d_Tin = (pressures_T_in_deviated - pressures_ref_inputs) / (self.cfg.T_nominal * 0.0001)
-        d_pout_d_pin = (pressures_p_in_deviated - pressures_ref_inputs) / (self.cfg.p_nominal * 0.0000001)
-        d_pout_d_rpm = (pressures_rpm_deviated - pressures_ref_inputs) / (self.cfg.n_rpm_nominal * 0.0000001)
+                                                  self.cfg.n_rpm_nominal * (1 + 0.001))
+        d_pout_d_Tin = (pressures_T_in_deviated - pressures_ref_inputs) / (self.cfg.T_nominal * 0.001)
+        d_pout_d_pin = (pressures_p_in_deviated - pressures_ref_inputs) / (self.cfg.p_nominal * 0.0001)
+        d_pout_d_rpm = (pressures_rpm_deviated - pressures_ref_inputs) / (self.cfg.n_rpm_nominal * 0.001)
 
         self.small_input_deviation_data = copy.deepcopy([C_in, pressures_ref_inputs, d_pout_d_Tin, d_pout_d_pin,
                                                          d_pout_d_rpm])
