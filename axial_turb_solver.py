@@ -9,6 +9,8 @@ import copy
 from math import log
 from time import time
 
+import numpy
+
 from loss_model import *
 
 
@@ -35,11 +37,24 @@ def solver_decorator(solver, p_out: float | None, C_inx_estimated: float | None,
         """
 
         def corrector_for_small_deviations():
-            C_in_eval_list, p_out_vref, dpout_dTin, dpout_dpin, dpout_dn, T_in, p_in, n_rev = small_deviations_data
+            C_in_eval_list, p_out_vref, dpout_dTin, dpout_dpin, \
+                dpout_dn, T_in, p_in, n_rev = copy.deepcopy(small_deviations_data)
             Tin_ref, pin_ref, nrev_ref = cfg.T_nominal, cfg.p_nominal, cfg.n_rpm_nominal
             p_out_vref += ((T_in-Tin_ref)*dpout_dTin)+((p_in-pin_ref)*dpout_dpin)+((n_rev-nrev_ref)*dpout_dn)
             p_out_vref, C_in_eval_list = p_out_vref[::-1], C_in_eval_list[::-1]
-            C_in_resulting = lineal_interpolation(x_target=p_out, x=p_out_vref, y=C_in_eval_list)
+            if isinstance(p_out_vref, numpy.ndarray):
+                p_out_vref = p_out_vref.tolist()
+            if isinstance(C_in_eval_list, numpy.ndarray):
+                C_in_eval_list = C_in_eval_list.tolist()
+            i = 0
+            while i < len(p_out_vref)-1:
+                if p_out_vref[i+1] < p_out_vref[i]:
+                    del p_out_vref[i+1]
+                    del C_in_eval_list[i+1]
+                    i = 0
+                else:
+                    i += 1
+            C_in_resulting = lineal_interpolation(x_target=p_out, x=p_out_vref, y=C_in_eval_list, order=2)
             return C_in_resulting
 
         def iterate_ps():
@@ -251,7 +266,7 @@ def solver_decorator(solver, p_out: float | None, C_inx_estimated: float | None,
                     iterate_ps()
                 else:
                     C_in = corrector_for_small_deviations()
-                    inner_funtion_from_problem_solver(C_in)
+                    _ = inner_funtion_from_problem_solver(C_in, True)
             t_2 = (time() - t_1).__round__(0)
 
             m, s = divmod(t_2, 60)
@@ -482,7 +497,7 @@ class solver_object:
                 else:
                     output_pressures[k] = p_outlet
                 k += 1
-            return output_pressures
+            return output_pressures.copy()
 
         pressures_ref_inputs = velocity_sweeper(self.cfg.T_nominal, self.cfg.p_nominal, self.cfg.n_rpm_nominal)
         pressures_T_in_deviated = velocity_sweeper(self.cfg.T_nominal * (1 + 0.0001), self.cfg.p_nominal,
@@ -495,7 +510,8 @@ class solver_object:
         d_pout_d_pin = (pressures_p_in_deviated - pressures_ref_inputs) / (self.cfg.p_nominal * 0.0000001)
         d_pout_d_rpm = (pressures_rpm_deviated - pressures_ref_inputs) / (self.cfg.n_rpm_nominal * 0.0000001)
 
-        self.small_input_deviation_data = [C_in, pressures_ref_inputs, d_pout_d_Tin, d_pout_d_pin, d_pout_d_rpm]
+        self.small_input_deviation_data = copy.deepcopy([C_in, pressures_ref_inputs, d_pout_d_Tin, d_pout_d_pin,
+                                                         d_pout_d_rpm])
 
         return
 
@@ -541,11 +557,11 @@ class solver_object:
 
         if self.small_input_deviation_data is not None:
             if len(self.small_input_deviation_data) == 5:
-                self.small_input_deviation_data += [T_in, p_in, n_rpm]
+                self.small_input_deviation_data += [T_in, p_in, n_rpm].copy()
             else:
-                self.small_input_deviation_data[5] = T_in
-                self.small_input_deviation_data[6] = p_in
-                self.small_input_deviation_data[7] = n_rpm
+                self.small_input_deviation_data[-3] = T_in
+                self.small_input_deviation_data[-2] = p_in
+                self.small_input_deviation_data[-1] = n_rpm
 
         @solver_decorator(self, p_out, self.C_inx_register, self.small_input_deviation_data)
         def inner_solver(var_C_inx=None, solverdec_lastcall=False):

@@ -36,13 +36,13 @@ def f_sp(x_list: list, y_list: list, order: int):
     return InterpolatedUnivariateSpline(x_list, y_list, k=order)
 
 
-def lineal_interpolation(x_target=None, x=None, series=None, y=None):
+def lineal_interpolation(x_target=None, x=None, series=None, y=None, order=2):
     if y is None:
         serie_x = [parameter for _, _, parameter in series]
         serie_y = [float(funcion(x)) for _, funcion, _ in series]
     else:
         serie_x, serie_y = x, y
-    return InterpolatedUnivariateSpline(serie_x, serie_y, k=2)(x_target)
+    return InterpolatedUnivariateSpline(serie_x, serie_y, k=order)(x_target)
 
 
 class Ainley_and_Mathieson_Loss_Model:  # Ver paper: https://apps.dtic.mil/sti/pdfs/ADA950664.pdf
