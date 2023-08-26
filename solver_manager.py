@@ -404,9 +404,8 @@ def main():
                     C_inx=data_dictionary['axial_inlet_velocity'],
                     C_inx_ref=data_dictionary['reference_inlet_velocity'],
                 )
-                T_salida, p_salida, C_salida, alfa_out = output
-                print(' T_out', T_salida, '\n', 'p_out', p_salida, '\n', 'C_out', C_salida, '\n', 'alfa_out', alfa_out)
-                # Return output
+                if isinstance(output, (tuple, list)):
+                    return output.copy()
             else:
                 solver.problem_solver(
                     T_in=data_dictionary['T_inlet'],
