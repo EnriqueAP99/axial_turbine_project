@@ -497,7 +497,7 @@ def main():
                     x_label_name_and_units = x_label_name + units_extension
                 else:
                     dep_ids_dict[item] = [item]
-                    dep_ids_dict[item].append(item + units_extension)  # For y-labels when not multiplotting.
+                    dep_ids_dict[item].append(item + units_extension)  # For y-labels when not plotting.
                     dep_ids_dict[item].append(item)  # This one is for leyends when needed.
                     dep_ids_dict[item].append(item + units_extension)  # For y-labels when multiplotting.
             else:
@@ -519,7 +519,6 @@ def main():
                         custom_df[var_id] = df_a[
                             df_a['Spec_Index'] == f'Step_{st_id}_pt_{step_point[num]}'][old_var_id]
                         if key == independent_var and num == 0:
-                            custom_df.set_index(var_id, inplace=True)  # Index will be plotted as independent variable.
                             x_label_name = var_id
                             x_label_name_and_units = x_label_name + units_extension
                         else:
