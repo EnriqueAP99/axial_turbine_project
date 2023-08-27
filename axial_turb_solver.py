@@ -356,7 +356,7 @@ def step_decorator(solver, step_corrector_memory):
             xi_ec = None
             jam_counter = iter_counter = 0
 
-            while fabs(rel_error_eta_TT) > relative_error:
+            while fabs(rel_error_eta_TT) > 2*1e-5:
                 iter_counter += 1
                 xi_ec = xi_e2 - (f2 * (xi_e2 - xi_e1) / (f2 - f1))
                 if fabs(pre_rel_error_eta_TT-rel_error_eta_TT) > relative_error*fabs(rel_error_eta_TT):
@@ -370,7 +370,7 @@ def step_decorator(solver, step_corrector_memory):
                         solver.seed_reset()
                         raise OuterLoopConvergenceError()
                 if iter_counter > cfg.iter_limit_OL:
-                    if fabs(rel_error_eta_TT) < 1.5*1e-4:
+                    if fabs(rel_error_eta_TT) < 2*1e-4:
                         break
                     else:
                         solver.seed_reset()
