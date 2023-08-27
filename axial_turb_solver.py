@@ -356,7 +356,7 @@ def step_decorator(solver, step_corrector_memory):
             xi_ec = None
             jam_counter = iter_counter = 0
 
-            while fabs(rel_error_eta_TT) > 1.5*1e-6:
+            while fabs(rel_error_eta_TT) > relative_error:
                 iter_counter += 1
                 xi_ec = xi_e2 - (f2 * (xi_e2 - xi_e1) / (f2 - f1))
                 if fabs(pre_rel_error_eta_TT-rel_error_eta_TT) > relative_error*fabs(rel_error_eta_TT):
@@ -370,8 +370,11 @@ def step_decorator(solver, step_corrector_memory):
                         solver.seed_reset()
                         raise OuterLoopConvergenceError()
                 if iter_counter > cfg.iter_limit_OL:
-                    solver.seed_reset()
-                    raise OuterLoopConvergenceError()
+                    if fabs(rel_error_eta_TT) < 1.5*1e-4:
+                        break
+                    else:
+                        solver.seed_reset()
+                        raise OuterLoopConvergenceError()
                 sifc = get_sif_output(True, False, xi_ec, rho_seed_c)
                 fc, rho_seed_c = sifc[1]-target_efficiency, sifc[3]
                 if fc * f2 <= 0:
@@ -519,8 +522,8 @@ class solver_object:
                        p_out=None, C_inx_ref=None) -> None | tuple[float, float, float, float]:
         """Esta función inicia la resolución del problema definido por la geometría configurada y las variables
         requeridas como argumento. (Main method)
-                :param p_out:
-                :param m_dot:
+                :param p_out: Presión a la salida (Pa).
+                :param m_dot: Flujo másico (kg/s).
                 :param T_in: Temperatura a la entrada de la turbina (K).
                 :param p_in: Presión a la entrada de la turbina (Pa).
                 :param C_inx: Velocidad a la entrada de la turbina (Supuesta completamente axial) (m/s).
