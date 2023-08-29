@@ -4,6 +4,7 @@ Se almacenan y procesan los datos haciendo uso de las librerías Pickle y Pandas
 import pickle
 
 from axial_turb_solver import *
+from CSV_FILES_PLOT import function_for_itering_csvfiles
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -681,6 +682,9 @@ def main():
             plt.minorticks_on()
             plt.grid(which='both')
             plt.show()
+    elif mode == 'EasterEgg':
+        if isinstance(data_dictionary.get('csv_filename_extension', None), list):
+            function_for_itering_csvfiles(data_dictionary)
     else:
         raise InputDataError('No predefined mode selected.')
 
