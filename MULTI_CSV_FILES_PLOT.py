@@ -33,6 +33,7 @@ global_list_c = ['w_total', 'w_ss_total', 'eta_ss', 'P_total', 'r_turbine', 'm_d
 
 def function_for_itering_csvfiles(data_dictionary):
     csv_extensions_list = data_dictionary.get('csv_filename_extension')
+    legend_loc = data_dictionary.get('legend_loc')
     title_str = x_label_name_and_units = None
     dep_ids__dict = dict()
     dependent_vars = list()
@@ -227,6 +228,8 @@ def function_for_itering_csvfiles(data_dictionary):
         # Aquí acaba la función local
     for csv_extension in csv_extensions_list:
         functionwithoutplot(csv_extension)
+    if legend_loc is not None:
+        plt.legend(loc=legend_loc)
     plt.title(title_str)
     plt.xlabel(x_label_name_and_units)
     plt.ylabel(dep_ids__dict[dependent_vars[0]][1])
