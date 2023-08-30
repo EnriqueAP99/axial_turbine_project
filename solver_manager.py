@@ -4,7 +4,7 @@ Se almacenan y procesan los datos haciendo uso de las librerías Pickle y Pandas
 import pickle
 
 from axial_turb_solver import *
-from MULTI_CSV_FILES_PLOT import function_for_itering_csvfiles
+from multi_sweep_plotter import function_for_itering_csvfiles
 import pandas as pd
 import matplotlib.pyplot as plt
 
