@@ -38,7 +38,7 @@ def function_for_itering_csvfiles(data_dictionary):
     dep_ids__dict = dict()
     dependent_vars = list()
 
-    def functionwithoutplot(csv_filename_extension):
+    def functionwithoutplot(csv_filename_extension, n):
         nonlocal title_str, x_label_name_and_units, dep_ids__dict, dependent_vars
         x_label_name_and_units = None
         dep_ids__dict = {}
@@ -221,13 +221,13 @@ def function_for_itering_csvfiles(data_dictionary):
                 diff = 0.22*(DV_limits[1]-DV_limits[0])
             plt.ylim(DV_limits[0]-diff, DV_limits[1]+diff)
         # Section for plotting only one independent variable at the time (Modified)
-        plt.plot(custom_df[dep_ids__dict[dependent_vars[0]][0]])
+        plt.plot(custom_df[dep_ids__dict[dependent_vars[0]][0]], label=f'Manual input required ({n})')
         if logic_limit_for_independent_variable:
             x_axis_limits_algorithm()
             y_axis_limits_algorithm(dep_ids__dict[dependent_vars[0]])
         # Aquí acaba la función local
-    for csv_extension in csv_extensions_list:
-        functionwithoutplot(csv_extension)
+    for n, csv_extension in enumerate(csv_extensions_list):
+        functionwithoutplot(csv_extension, n)
     if legend_loc is not None:
         plt.legend(loc=legend_loc)
     plt.title(title_str)
