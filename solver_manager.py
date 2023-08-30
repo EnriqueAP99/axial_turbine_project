@@ -682,7 +682,7 @@ def main():
             plt.minorticks_on()
             plt.grid(which='both')
             plt.show()
-    elif mode == 'EasterEgg':
+    elif mode == 'multi_csv_lecture_for_one_multiplot':
         if isinstance(data_dictionary.get('csv_filename_extension', None), list):
             function_for_itering_csvfiles(data_dictionary)
     else:
