@@ -33,7 +33,7 @@ global_list_c = ['w_total', 'w_ss_total', 'eta_ss', 'P_total', 'r_turbine', 'm_d
 
 def function_for_itering_csvfiles(data_dictionary):
     csv_extensions_list = data_dictionary.get('csv_filename_extension')
-    legend_loc = data_dictionary.get('legend_loc')
+    legend_loc = data_dictionary.get('legend_location')
     title_str = x_label_name_and_units = None
     dep_ids__dict = dict()
     dependent_vars = list()
