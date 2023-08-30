@@ -34,13 +34,13 @@ global_list_c = ['w_total', 'w_ss_total', 'eta_ss', 'P_total', 'r_turbine', 'm_d
 def function_for_itering_csvfiles(data_dictionary):
     csv_extensions_list = data_dictionary.get('csv_filename_extension')
     title_str = x_label_name_and_units = None
-    dep_ids_dict = dict()
+    dep_ids__dict = dict()
     dependent_vars = list()
 
     def functionwithoutplot(csv_filename_extension):
-        nonlocal title_str, x_label_name_and_units, dep_ids_dict, dependent_vars
+        nonlocal title_str, x_label_name_and_units, dep_ids__dict, dependent_vars
         x_label_name_and_units = None
-        dep_ids_dict: dict = {}
+        dep_ids__dict = {}
         try:
             logic_limit_for_independent_variable: bool = data_dictionary['logic_limit_for_independent_variable']
             req_vars = data_dictionary['req_vars']
@@ -85,10 +85,10 @@ def function_for_itering_csvfiles(data_dictionary):
                     x_label_name = item
                     x_label_name_and_units = x_label_name + units_extension
                 else:
-                    dep_ids_dict[item] = [item]
-                    dep_ids_dict[item].append(item + units_extension)  # For y-labels when not plotting.
-                    dep_ids_dict[item].append(item)  # This one is for leyends when needed.
-                    dep_ids_dict[item].append(item + units_extension)  # For y-labels when multiplotting.
+                    dep_ids__dict[item] = [item]
+                    dep_ids__dict[item].append(item + units_extension)  # For y-labels when not plotting.
+                    dep_ids__dict[item].append(item)  # This one is for leyends when needed.
+                    dep_ids__dict[item].append(item + units_extension)  # For y-labels when multiplotting.
             else:
                 sentence = f'{item} is not considered as a possible input. Use req_vars for considering variables ' \
                            f'listed in the handbook.'
@@ -111,10 +111,10 @@ def function_for_itering_csvfiles(data_dictionary):
                             x_label_name = var_id
                             x_label_name_and_units = x_label_name + units_extension
                         else:
-                            dep_ids_dict[var_id] = [key]
-                            dep_ids_dict[var_id].append(var_id + units_extension)  # For y-labels when plotting.
-                            dep_ids_dict[var_id].append(var_id)  # This one is for leyends when needed.
-                            dep_ids_dict[var_id].append(key + units_extension)  # For y-labels when multiplotting.
+                            dep_ids__dict[var_id] = [key]
+                            dep_ids__dict[var_id].append(var_id + units_extension)  # For y-labels when plotting.
+                            dep_ids__dict[var_id].append(var_id)  # This one is for leyends when needed.
+                            dep_ids__dict[var_id].append(key + units_extension)  # For y-labels when multiplotting.
                 elif key in lista_b:
                     step_id = WtE[key]['step']
                     units_extension = tpl_s_units[tpl_s_keys.index(key)]
@@ -128,10 +128,10 @@ def function_for_itering_csvfiles(data_dictionary):
                             x_label_name = var_id
                             x_label_name_and_units = x_label_name + units_extension
                         else:
-                            dep_ids_dict[var_id] = [key]
-                            dep_ids_dict[var_id].append(var_id + units_extension)  # This one is for y-labels (plot).
-                            dep_ids_dict[var_id].append(var_id)  # This one is for leyends when needed.
-                            dep_ids_dict[var_id].append(key + units_extension)  # For y-labels (multiplot).
+                            dep_ids__dict[var_id] = [key]
+                            dep_ids__dict[var_id].append(var_id + units_extension)  # This one is for y-labels (plot).
+                            dep_ids__dict[var_id].append(var_id)  # This one is for leyends when needed.
+                            dep_ids__dict[var_id].append(key + units_extension)  # For y-labels (multiplot).
 
         # This next section is needed after declaring all columns of custom_df in order to set the index for
         # custom_df and keeping the integrity of every value of its columns.
@@ -220,16 +220,16 @@ def function_for_itering_csvfiles(data_dictionary):
                 diff = 0.22*(DV_limits[1]-DV_limits[0])
             plt.ylim(DV_limits[0]-diff, DV_limits[1]+diff)
         # Section for plotting only one independent variable at the time (Modified)
-        plt.plot(custom_df[dep_ids_dict[dependent_vars[0]][0]])
+        plt.plot(custom_df[dep_ids__dict[dependent_vars[0]][0]])
         if logic_limit_for_independent_variable:
             x_axis_limits_algorithm()
-            y_axis_limits_algorithm([dep_ids_dict[dependent_vars[0]]])
+            y_axis_limits_algorithm(dep_ids__dict[dependent_vars[0]])
         # Aquí acaba la función local
     for csv_extension in csv_extensions_list:
         functionwithoutplot(csv_extension)
     plt.title(title_str)
     plt.xlabel(x_label_name_and_units)
-    plt.ylabel(dep_ids_dict[dependent_vars[0]][1])
+    plt.ylabel(dep_ids__dict[dependent_vars[0]][1])
     plt.minorticks_on()
     plt.grid(which='both')
     plt.show()
