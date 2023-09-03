@@ -36,12 +36,14 @@ def f_sp(x_list: list, y_list: list, order: int):
     return InterpolatedUnivariateSpline(x_list, y_list, k=order)
 
 
-def lineal_interpolation(x_target=None, x=None, series=None, y=None, order=2):
+def spline_interpolation(x_target=None, x=None, series=None, y=None, order=2):
     if y is None:
         serie_x = [parameter for _, _, parameter in series]
         serie_y = [float(funcion(x)) for _, funcion, _ in series]
     else:
         serie_x, serie_y = x, y
+    if serie_x[-1] < serie_x[0]:
+        serie_x, serie_y = serie_x[::-1], serie_y[::-1]
     return InterpolatedUnivariateSpline(serie_x, serie_y, k=order)(x_target)
 
 
@@ -197,8 +199,8 @@ class Ainley_and_Mathieson_Loss_Model:  # Ver paper: https://apps.dtic.mil/sti/p
                                'El valor es %.2f y los límites son [-1.1, 1].', alfap_1 / alpha_2_sc075)
                 self.limit_mssg[0] = False
 
-        is_sc075 = lineal_interpolation(x_target=alpha_2_sc075, x=alfap_1 / alpha_2_sc075, series=self.is_b1a2_sc_075)
-        delta_is = lineal_interpolation(x_target=tau_2, x=s / b, series=self.d_i_s_s_c)
+        is_sc075 = spline_interpolation(x_target=alpha_2_sc075, x=alfap_1 / alpha_2_sc075, series=self.is_b1a2_sc_075)
+        delta_is = spline_interpolation(x_target=tau_2, x=s / b, series=self.d_i_s_s_c)
         i_s = delta_is + is_sc075
         i_is = (tau_1 - alfap_1) / i_s
 
@@ -223,8 +225,8 @@ class Ainley_and_Mathieson_Loss_Model:  # Ver paper: https://apps.dtic.mil/sti/p
         i_is = self.calculating_incidence_stall_incidence_fraction(tau_1, tau_2)
 
         yp_f = self.yp_f_i_f[1](i_is)
-        Yp_i0_b1kn = lineal_interpolation(x_target=tau_2, x=s / b, series=self.yp_s_c_b1kn)
-        Yp_i0_b1kb2k = lineal_interpolation(x_target=tau_2, x=s / b, series=self.yp_s_c_b1kb2k)
+        Yp_i0_b1kn = spline_interpolation(x_target=tau_2, x=s / b, series=self.yp_s_c_b1kn)
+        Yp_i0_b1kb2k = spline_interpolation(x_target=tau_2, x=s / b, series=self.yp_s_c_b1kb2k)
 
         t_max_b = t_max / b
 
@@ -402,7 +404,7 @@ class Aungier_Loss_Model(Ainley_and_Mathieson_Loss_Model):
         i_is = self.calculating_incidence_stall_incidence_fraction(taud_1, taud_2)
         k_inc = self.yp_f_i_f[1](i_is)
 
-        k_m = 1 if (s_j / e_j) < 0.105 or Mout < 0.6 else lineal_interpolation(Mout, s_j / e_j, self.km_series)
+        k_m = 1 if (s_j / e_j) < 0.105 or Mout < 0.6 else spline_interpolation(Mout, s_j / e_j, self.km_series)
 
         Minmod = (Min + 0.566 - fabs(0.566 - Min))/2
         Moutmod = (Mout + 1 - fabs(Mout - 1))/2
@@ -426,8 +428,8 @@ class Aungier_Loss_Model(Ainley_and_Mathieson_Loss_Model):
             else:
                 k_Re = ((log10(500_000))/((log10(Re_r))**2.58))
 
-        Yp1 = lineal_interpolation(taud_2, s_j / b_j, self.yp_s_c_b1kn)
-        Yp2 = lineal_interpolation(taud_2, s_j / b_j, self.yp_s_c_b1kb2k)
+        Yp1 = spline_interpolation(taud_2, s_j / b_j, self.yp_s_c_b1kn)
+        Yp2 = spline_interpolation(taud_2, s_j / b_j, self.yp_s_c_b1kb2k)
         ksi = self.ap_1[num]/taud_2
 
         Y_TE_002s = (0.02*s_j/((s_j*sin(radians(beta_g)))-(0.02*s_j)))**2

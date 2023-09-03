@@ -18,6 +18,8 @@ def lineal_interpolation(x_target=None, x=None, series=None, y=None):
         serie_y = [float(funcion(x)) for _, funcion, _ in series]
     else:
         serie_x, serie_y = x, y
+    if serie_x[-1] < serie_x[0]:
+        serie_x, serie_y = serie_x[::-1], serie_y[::-1]
     return InterpolatedUnivariateSpline(serie_x, serie_y, k=2)(x_target)
 
 
@@ -54,13 +56,11 @@ class Loss_Model_Data:
         self.is_b1a2_sc_075 = [[x_sp(X), f_sp(X, Y, 2)] for X, Y in is_list]
         for ii, v in enumerate([70, 65, 60, 55, 50, 40, 30]):
             self.is_b1a2_sc_075[ii] += [v]
-        self.is_b1a2_sc_075 = self.is_b1a2_sc_075[::-1]
         s_c, d_i_s_a2m40 = [0.4, 0.5, 0.6, 0.7, 0.77, 0.9, 1], [8.0, 6.8, 4.5, 1.7, -0.6, -8.3, -15]
         d_i_s_a2m50, d_i_s_a2m60 = [8.0,  6.8, 4.5, 1.7, -0.6, -6.6, -11.4], [8.0,  6.8, 4.5, 1.7, -0.6, -4.9, -6.6]
         self.d_i_s_s_c = [[x_sp(s_c), f_sp(s_c, ii, 3)] for ii in [d_i_s_a2m60, d_i_s_a2m50, d_i_s_a2m40]]
         for ii, v in enumerate([60, 50, 40]):
             self.d_i_s_s_c[ii] += [v]
-        self.d_i_s_s_c = self.d_i_s_s_c[::-1]
         s_c = [0.3, 0.5, 0.7, 0.9, 1.1]
         s_c_m80 = [0.4, 0.5, 0.7, 0.84]
         s_c_m75 = [0.45, 0.5, 0.7, 0.95]
@@ -77,7 +77,6 @@ class Loss_Model_Data:
         self.yp_s_c_b1kn.insert(0, [x_sp(s_c_m80), f_sp(s_c_m80, yp_a2m80, 3)])
         for ii, v in enumerate([80, 75, 70, 65, 60, 50, 40]):
             self.yp_s_c_b1kn[ii] += [v]
-        self.yp_s_c_b1kn = self.yp_s_c_b1kn[::-1]
         s_c = [0.3, 0.5, 0.7, 0.8, 1.0]
         s_c_m55 = [0.4, 0.5, 0.7, 0.8, 1.0]
         yp_a2m70 = [0.162, 0.134, 0.149, 0.162, 0.191]
@@ -91,7 +90,6 @@ class Loss_Model_Data:
         self.yp_s_c_b1kb2k.insert(3, [x_sp(s_c_m55), f_sp(s_c_m55, yp_a2m55, 2)])
         for ii, v in enumerate([70, 65, 60, 55, 50, 40]):
             self.yp_s_c_b1kb2k[ii] += [v]
-        self.yp_s_c_b1kb2k = self.yp_s_c_b1kb2k[::-1]
         i_f, yp_f = [-4.1, -3.0, -2.0, -1.0, 0.05, 1.0, 1.7], [6.4, 4.3, 2.75, 1.6, 1.0, 2.1, 6.1]
         self.yp_f_i_f = [x_sp(i_f), f_sp(i_f, yp_f, 2)]
         x, lambdav = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5], [0.0055, 0.0063, 0.0087, 0.0130, 0.0192, 0.0276]

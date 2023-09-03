@@ -37,24 +37,29 @@ def solver_decorator(solver, p_out: float | None, C_inx_estimated: float | None,
         """
 
         def corrector_for_small_deviations():
+            # Lineal model is processed.
             C_in_eval_list, p_out_vref, dpout_dTin, dpout_dpin, \
                 dpout_dn, T_in, p_in, n_rev = copy.deepcopy(small_deviations_data)
             Tin_ref, pin_ref, nrev_ref = cfg.T_nominal, cfg.p_nominal, cfg.n_rpm_nominal
             p_out_vref += ((T_in-Tin_ref)*dpout_dTin)+((p_in-pin_ref)*dpout_dpin)+((n_rev-nrev_ref)*dpout_dn)
-            p_out_vref, C_in_eval_list = p_out_vref[::-1], C_in_eval_list[::-1]
+            record.info('Los datos de p_out van de %i a %i', p_out_vref[0], p_out_vref[-1])
+            record.info('Los datos de C_in van de %.2f a %.2f', C_in_eval_list[0], C_in_eval_list[-1])
             if isinstance(p_out_vref, numpy.ndarray):
                 p_out_vref = p_out_vref.tolist()
             if isinstance(C_in_eval_list, numpy.ndarray):
                 C_in_eval_list = C_in_eval_list.tolist()
             i = 0
+            local_sign = (p_out_vref[-1] - p_out_vref[0]) / fabs(p_out_vref[-1] - p_out_vref[0])
+            # This next lines of code are filtering little oscilacions that will most likely result on errors.
             while i < len(p_out_vref)-1:
-                if p_out_vref[i+1] < p_out_vref[i]:
+                if p_out_vref[i+1]*local_sign < p_out_vref[i]*local_sign:
+                    record.warning('Un dato del análisis está siendo filtrado (No acumulativo)')
                     del p_out_vref[i+1]
                     del C_in_eval_list[i+1]
                     i = 0
                 else:
                     i += 1
-            C_in_resulting = lineal_interpolation(x_target=p_out, x=p_out_vref, y=C_in_eval_list, order=1)
+            C_in_resulting = spline_interpolation(x_target=p_out, x=p_out_vref, y=C_in_eval_list, order=1)
             return C_in_resulting
 
         def iterate_ps():
