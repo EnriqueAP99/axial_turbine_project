@@ -8,9 +8,6 @@ from multi_sweep_plotter import function_for_itering_csvfiles
 import pandas as pd
 import matplotlib.pyplot as plt
 
-# https://conocepython.blogspot.com/2019/05/ (este es interesante)
-# https://www.youtube.com/watch?v=eWrTSBIQess (tutorial de Pickle útil)
-# http://josearcosaneas.github.io/python/serializaci%C3%B3n/persistencia/2016/12/26/serializacion-persistencia.html
 
 s_keys = 'T_3, p_3, rho_3, s_3, h_3, h0_3, C_3, alfa_3, Cx_3, Cu_3, T0_3, p0_3, h_r3, h_3s, T_3s, omega_3, omegax_3, ' \
          'omegau_3, beta_3, M_3r, M_3, PHI_3, T_2, p_2, rho_2, s_2, h_2, h0_2, C_2, Cx_2, Cu_2, alfa_2, T0_2, p0_2, ' \
@@ -41,7 +38,6 @@ global_list_b = ['GR', 'w_esc', 'w_s_esc', 'w_ss_esc', 'eta_TT', 'eta_TE', 'Y_es
 global_list_c = ['w_total', 'w_ss_total', 'eta_ss', 'P_total', 'r_turbine', 'm_dot', 'r0_turbine', 'P_total_ss', ]
 
 
-# https://www.freecodecamp.org/news/with-open-in-python-with-statement-syntax-example/ (funcionamiento de with open as)
 def solver_data_saver(file: str, process_object: solver_object) -> None:
     """ Se almacena la información necesaria para poder restablecer la situación del programa en la siguiente
     ejecución.
